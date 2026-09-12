@@ -33,9 +33,10 @@ export const ChartEditor = () => {
   const [grid, setGrid] = useState([]);
   const [quickInput, setQuickInput] = useState('');
   const [showControls, setShowControls] = useState(false);
+  const [showStats, setShowStats] = useState(true); // Toggle: total, diff, open-close condition
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
-  const rowHeight = 72;
+  const rowHeight = showStats ? 78 : 58;
 
   useEffect(() => {
     if (activeChart) {
@@ -199,9 +200,22 @@ export const ChartEditor = () => {
             <button onClick={handleQuickFill} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-xl text-[11px] font-bold">Fill</button>
           </div>
 
-          {/* Resize Row */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-400 font-bold">ROWS × COLS:</span>
+          {/* Toggle Row: Stats + Resize */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Stats toggle */}
+            <button
+              onClick={() => setShowStats(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                showStats
+                  ? 'bg-indigo-900/70 border-indigo-500 text-indigo-200'
+                  : 'bg-slate-900 border-slate-700 text-slate-400'
+              }`}
+            >
+              <span className="text-base leading-none">{showStats ? '🔢' : '🔢'}</span>
+              {showStats ? 'Stats ON' : 'Stats OFF'}
+            </button>
+
+            <span className="text-[10px] text-slate-400 font-bold ml-auto">ROWS × COLS:</span>
             <input type="number" value={rowsInput} onChange={(e) => setRowsInput(e.target.value)}
               className="w-14 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1 rounded-lg text-xs" />
             <input type="number" value={colsInput} onChange={(e) => setColsInput(e.target.value)}
@@ -246,13 +260,15 @@ export const ChartEditor = () => {
                     return (
                       <td key={cIdx} className="border border-slate-700 relative text-center align-top"
                         style={{ backgroundColor: '#f5e6c8' }}>
-                        {/* Top stat numbers (total left green, diffTotal right red) */}
-                        <div className="flex justify-between px-0.5 pt-0.5 leading-none">
-                          <span className="text-emerald-700 font-black font-mono" style={{fontSize:'11px'}}>{total ?? ''}</span>
-                          <span className="text-red-700 font-black font-mono" style={{fontSize:'11px'}}>{diffTotal ?? ''}</span>
-                        </div>
+                        {/* Top stat numbers — only when showStats is ON */}
+                        {showStats && (
+                          <div className="flex justify-between px-0.5 pt-0.5 leading-none">
+                            <span className="text-emerald-700 font-black font-mono" style={{fontSize:'13px'}}>{total ?? ''}</span>
+                            <span className="text-red-700 font-black font-mono" style={{fontSize:'13px'}}>{diffTotal ?? ''}</span>
+                          </div>
+                        )}
                         {/* Main Jodi Number */}
-                        <div className="flex items-center justify-center" style={{ marginTop: -2, marginBottom: 2 }}>
+                        <div className="flex items-center justify-center" style={{ marginTop: showStats ? -2 : 'auto', marginBottom: showStats ? 2 : 'auto', height: showStats ? 'auto' : '100%' }}>
                           <input
                             id={`cell-${rIdx}-${cIdx}`}
                             type="text"
@@ -261,13 +277,15 @@ export const ChartEditor = () => {
                             onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
                             onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
                             className={`w-full bg-transparent text-center font-black font-mono outline-none p-0 leading-none ${red ? 'text-red-600' : 'text-slate-950'}`}
-                            style={{ fontSize: 'clamp(18px, 5vw, 34px)' }}
+                            style={{ fontSize: 'clamp(20px, 5.5vw, 36px)' }}
                           />
                         </div>
-                        {/* Bottom condition pair */}
-                        <div className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-800 leading-none" style={{fontSize:'11px'}}>
-                          {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
-                        </div>
+                        {/* Bottom open-close condition pair — only when showStats is ON */}
+                        {showStats && (
+                          <div className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-800 leading-none" style={{fontSize:'13px'}}>
+                            {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
