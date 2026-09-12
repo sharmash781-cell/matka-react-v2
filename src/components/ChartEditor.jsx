@@ -3,7 +3,7 @@ import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, c
 import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown } from 'lucide-react';
 
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
-const OVERSCAN = 10;
+const OVERSCAN = 15; // Pre-render 15 buffer rows for ultra-smooth 60fps scrolling
 
 // Helper to parse pasted numbers or quick fill strings into 2-digit Jodi pairs
 export const parseJodiTokens = (input) => {
@@ -146,17 +146,18 @@ export const ChartEditor = () => {
     if (nextEl) nextEl.focus();
   };
 
+  // Quick Fill: Clears all previous cells and fills new tokens fresh!
   const handleQuickFill = () => {
     const tokens = parseJodiTokens(quickInput);
     if (tokens.length === 0) return;
 
     let tIdx = 0;
     const updated = grid.map((row) =>
-      row.map((cell) => {
+      row.map(() => {
         if (tIdx < tokens.length) {
           return { val: tokens[tIdx++] };
         }
-        return cell;
+        return { val: '' }; // Wipes previous data if fewer numbers are filled!
       })
     );
     setGrid(updated);
@@ -323,12 +324,13 @@ export const ChartEditor = () => {
         </div>
       )}
 
-      {/* FULL-WIDTH MOBILE FIT VIRTUALIZED WHITE CARD TABLE */}
+      {/* FULL-WIDTH MOBILE FIT VIRTUALIZED WHITE CARD TABLE (SMOOTH SCROLLING) */}
       <div className="glass-panel p-1 sm:p-3 rounded-2xl sm:rounded-3xl shadow-2xl space-y-2">
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="overflow-y-auto overflow-x-auto h-[calc(100vh-210px)] min-h-[500px] border-2 border-slate-950 rounded-xl bg-slate-950"
+          style={{ WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
+          className="overflow-y-auto overflow-x-auto h-[calc(100vh-210px)] min-h-[500px] border-2 border-slate-950 rounded-xl bg-slate-950 scroll-smooth touch-pan-y focus:outline-none"
         >
           <div className="w-full min-w-full">
             <table className="w-full table-fixed white-chart-table">
