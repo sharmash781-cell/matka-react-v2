@@ -3,7 +3,7 @@ import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, c
 import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
-const OVERSCAN = 15; // Pre-render 15 buffer rows for ultra-smooth 60fps scrolling
+const OVERSCAN = 20; // Extra buffer rows for ultra-smooth page scrolling
 
 // Helper to parse pasted numbers or quick fill strings into 2-digit Jodi pairs
 export const parseJodiTokens = (input) => {
@@ -42,7 +42,7 @@ export const ChartEditor = () => {
   const [showTopControls, setShowTopControls] = useState(true);
   const [isCompactMobile, setIsCompactMobile] = useState(true);
 
-  // Virtualization Scroll State
+  // Natural Page Window Scroll State
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
@@ -58,6 +58,22 @@ export const ChartEditor = () => {
       initEmptyGrid(50, 7);
     }
   }, [activeChartName, activeChart]);
+
+  // Window scroll listener for natural full-page scrolling
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const currentScroll = Math.max(0, -rect.top);
+        setScrollTop(currentScroll);
+      }
+    };
+
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+    handleWindowScroll();
+
+    return () => window.removeEventListener('scroll', handleWindowScroll);
+  }, []);
 
   const initEmptyGrid = (r, c) => {
     const newGrid = [];
@@ -187,27 +203,25 @@ export const ChartEditor = () => {
     return Math.max(0, grid.length - 1);
   }, [grid]);
 
-  // Scroll to Last Filled Row Smoothly
+  // Scroll to Last Filled Row Smoothly via Page Window Scroll
   const scrollToLastFilledRow = () => {
     if (containerRef.current) {
-      const targetScroll = Math.max(0, lastFilledRowIndex * rowHeight - 60);
-      containerRef.current.scrollTo({
+      const rect = containerRef.current.getBoundingClientRect();
+      const elementTop = rect.top + window.scrollY;
+      const targetScroll = Math.max(0, elementTop + lastFilledRowIndex * rowHeight - 60);
+      window.scrollTo({
         top: targetScroll,
         behavior: 'smooth'
       });
     }
   };
 
-  // Virtualized Row Range Calculation
+  // Virtualized Row Range Calculation (Window Page Scroll based)
   const totalRows = grid.length;
-  const visibleHeight = 800;
-
-  const handleScroll = (e) => {
-    setScrollTop(e.target.scrollTop);
-  };
+  const visibleHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
 
   const { startRow, endRow, topPadding, bottomPadding } = useMemo(() => {
-    if (totalRows <= 40) {
+    if (totalRows <= 30) {
       return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
     }
     const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN);
@@ -215,7 +229,7 @@ export const ChartEditor = () => {
     const topPad = startIndex * rowHeight;
     const bottomPad = (totalRows - endIndex) * rowHeight;
     return { startRow: startIndex, endRow: endIndex, topPadding: topPad, bottomPadding: bottomPad };
-  }, [scrollTop, totalRows, rowHeight]);
+  }, [scrollTop, totalRows, rowHeight, visibleHeight]);
 
   const visibleRows = useMemo(() => {
     return grid.slice(startRow, endRow);
@@ -340,14 +354,9 @@ export const ChartEditor = () => {
         </div>
       )}
 
-      {/* FULL-WIDTH MOBILE FIT VIRTUALIZED WHITE CARD TABLE (SMOOTH SCROLLING) */}
-      <div className="glass-panel p-1 sm:p-3 rounded-2xl sm:rounded-3xl shadow-2xl space-y-2">
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          style={{ WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
-          className="overflow-y-auto overflow-x-auto h-[calc(100vh-210px)] min-h-[500px] border-2 border-slate-950 rounded-xl bg-slate-950 scroll-smooth touch-pan-y focus:outline-none"
-        >
+      {/* NATURAL FULL-PAGE SCROLLING TABLE CONTAINER */}
+      <div ref={containerRef} className="glass-panel p-1 sm:p-3 rounded-2xl sm:rounded-3xl shadow-2xl space-y-2">
+        <div className="overflow-x-auto border-2 border-slate-950 rounded-xl bg-slate-950">
           <div className="w-full min-w-full">
             <table className="w-full table-fixed white-chart-table">
               <thead className="sticky top-0 z-20 shadow-md">
