@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: linear-gradient(135deg, #050b14 0%, #0f172a 50%, #1e1b4b 100%);
+    background-attachment: fixed;
+    font-family: 'Poppins', sans-serif;
+    color: #f8fafc;
+  }
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* White Card Chart Grid (Exact Screenshot & Mobile-Fit Styling) */
+.white-chart-table {
+  background-color: #ffffff;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.white-chart-table th {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 0.35rem 0.25rem;
+  border: 2px solid #0f172a;
+}
+
+.white-chart-table td {
+  background-color: #ffffff;
+  border: 2px solid #0f172a;
+  vertical-align: top;
+  padding: 0.2rem 0.25rem;
+  height: 68px;
+  min-width: 58px;
+  position: relative;
+}
+
+/* Red Pair Special Text */
+.red-pair-text {
+  color: #dc2626 !important;
+  font-weight: 900 !important;
+}
+
+.normal-jodi-text {
+  color: #000000 !important;
+  font-weight: 900 !important;
+}
+
+/* Header Navigation Bar */
+header {
+  background: rgba(3, 7, 18, 0.95);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.5);
+  border-radius: 4px;
+}

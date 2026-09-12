@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Number-Cal: Pattern Finder & Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- Styles from style.css --- */
+        /* @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap'); - Redundant with link tag */
+        
+        /* Main Body and General Styles */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f3f4f6;
+            /* Background pattern from style.css */
+            background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239C92AC' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* --- Header/Nav (mostly from style.css) --- */
+        header {
+            background-color: #1f2937;
+            color: #ffffff;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* Reusable Classes from style.css (for completeness) */
+        .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 1;
+            font-size: 0.8em;
+            white-space: nowrap;
+            transition: opacity 0.3s;
+        }
+        .bg-blue-600 { background-color: #2563eb; }
+        .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
+        .bg-yellow-500 { background-color: #f59e0b; }
+        .hover\:bg-yellow-600:hover { background-color: #d97706; }
+        .bg-green-500 { background-color: #10b981; }
+        .hover\:bg-green-600:hover { background-color: #059669; }
+        .bg-red-500 { background-color: #ef4444; }
+        .hover\:bg-red-600:hover { background-color: #dc2626; }
+        .grid-container-wrapper {
+            overflow-x: auto;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        /* End of style.css content */
+
+        /* --- Page-specific Inline Styles from Original HTML --- */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .pattern-results-container {
+            min-height: 200px;
+        }
+        .match-item {
+            border-left: 5px solid #4f46e5;
+            transition: transform 0.2s;
+        }
+        .match-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+        .hidden {
+            display: none !important;
+        }
+        /* Custom styling for inputs */
+        .row-input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .row-input-group label {
+            font-weight: 600;
+            color: #4f46e5;
+        }
+        .row-input-group input {
+            width: 100px;
+            padding: 8px;
+            border: 2px solid #a5b4fc;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-poppins">
+    
+    <header class="bg-slate-900 text-white p-4 flex justify-between items-center flex-wrap gap-4 border-b border-slate-800">
+        <h1 class="text-xl md:text-2xl font-extrabold text-indigo-400">Number-Cal Pattern Finder</h1>
+        <nav class="flex gap-2 flex-wrap">
+            <a href="index.html" class="nav-link nav-link-editor">📊 Editor</a>
+            <a href="store.html" class="nav-link nav-link-store">📦 Store</a>
+            <a href="import.html" class="nav-link nav-link-import">📥 Importer</a>
+            <a href="link.html" class="nav-link nav-link-link">🔗 Link View</a>
+            <a href="predictor.html" class="nav-link nav-link-predictor">⚡ Predictor Engine</a>
+        </nav>
+    </header>
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <h2 id="chart-name-header" class="text-3xl font-extrabold text-center mb-6 text-gray-800">
+            Please select a chart from the Store
+        </h2>
+        
+        <div id="pattern-finder-ui" class="hidden">
+            
+            <div id="day-selection-section" class="day-selection-controls mb-6 p-4 bg-white rounded-xl shadow-lg border border-gray-200 hidden">
+                <h4 class="text-xl font-bold mb-3 text-indigo-700">1. Select Columns for Search Start (Pattern 1: N):</h4>
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-indigo-700 cursor-pointer">
+                        <input type="radio" name="day-selection-type" value="all" checked id="radio-all-days" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500">
+                        <span>Search All Days (N vs N+2)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-green-700 cursor-pointer">
+                        <input type="radio" name="day-selection-type" value="specific" id="radio-specific-days" class="h-5 w-5 text-green-600 focus:ring-green-500">
+                        <span>Select Specific Starting Day(s) (N)</span>
+                    </label>
+                </div>
+                
+                <div id="specific-day-checkboxes" class="grid grid-cols-4 sm:grid-cols-8 gap-4 mt-3 p-3 bg-gray-50 border rounded-lg hidden">
+                    </div>
+            </div>
+
+            <div class="pattern-selection-controls mb-6 p-4 bg-white rounded-xl shadow-lg border border-gray-200">
+                <h4 class="text-xl font-bold mb-3 text-red-700">2. Select Pattern Type:</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <label class="flex items-start space-x-2 font-semibold text-base text-red-700 cursor-pointer p-2 border rounded-lg hover:bg-red-50">
+                        <input type="radio" name="pattern-type" value="pattern1" checked id="radio-pattern1" class="mt-1 h-5 w-5 text-red-600 focus:ring-red-500">
+                        <div class="flex flex-col">
+                            <span><span class="font-extrabold">DIAGONAL CN TO T|D</span></span>
+                            <span class="text-xs text-gray-500">A: CN(N) = Total(N+2)</span>
+                            <span class="text-xs text-gray-500">B: CloseCond(N) = DiffTotal(N+2)</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start space-x-2 font-semibold text-base text-purple-700 cursor-pointer p-2 border rounded-lg hover:bg-purple-50">
+                        <input type="radio" name="pattern-type" value="pattern2" id="radio-pattern2" class="mt-1 h-5 w-5 text-purple-600 focus:ring-purple-500">
+                            <div class="flex flex-col">
+                            <span><span class="font-extrabold">OPEN-CLOSE FINDING</span></span>
+                            <span class="text-xs text-gray-500">Row/Col sequence match with Const Pairs.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start space-x-2 font-semibold text-base text-orange-700 cursor-pointer p-2 border rounded-lg hover:bg-orange-50">
+                        <input type="radio" name="pattern-type" value="predict" id="radio-predict" class="mt-1 h-5 w-5 text-orange-600 focus:ring-orange-500">
+                            <div class="flex flex-col">
+                            <span><span class="font-extrabold">NEXT VALUE PREDICTOR</span></span>
+                            <span class="text-xs text-gray-500">Predict next digit/value based on patterns (CN, CloseCond, Total, DiffTotal) in selected row/col/open/close.</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div id="sequence-controls" class="hidden mb-6 p-4 bg-purple-100 rounded-xl shadow-lg border border-purple-300">
+                <h4 class="text-xl font-bold mb-3 text-purple-700">3. Sequence Match Parameters (OPEN-CLOSE FINDING):</h4>
+                
+                <div class="flex flex-wrap items-center gap-6 mb-4 p-3 bg-white rounded-lg border border-purple-200">
+                    <p class="text-lg font-bold text-gray-800">Set Search Range:</p>
+                    <div class="row-input-group">
+                        <label for="start-row-input">Start Row (R1):</label>
+                        <input type="number" id="start-row-input" value="1" min="1" class="shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="row-input-group">
+                        <label for="end-row-input">End Row (R2):</label>
+                        <input type="number" id="end-row-input" value="20" min="1" class="shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-6 mb-4 p-3 bg-white rounded-lg border border-purple-200">
+                    <p class="text-lg font-bold text-gray-800">Set Prediction Range (Optional):</p>
+                    <div class="row-input-group">
+                        <label for="pred-start-row-input">Pred Start Row (PR1):</label>
+                        <input type="number" id="pred-start-row-input" value="" min="1" placeholder="e.g., 21" class="shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="row-input-group">
+                        <label for="pred-end-row-input">Pred End Row (PR2):</label>
+                        <input type="number" id="pred-end-row-input" value="" min="1" placeholder="e.g., 30" class="shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <p class="text-sm text-gray-600">Leave blank to predict for all rows after R2. Predictions only for specified range if provided.</p>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-indigo-700 cursor-pointer">
+                        <input type="radio" name="pred-col-selection-type" value="all" checked id="radio-all-pred-cols" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500">
+                        <span>Predict in All Columns</span>
+                    </label>
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-green-700 cursor-pointer">
+                        <input type="radio" name="pred-col-selection-type" value="specific" id="radio-specific-pred-cols" class="h-5 w-5 text-green-600 focus:ring-green-500">
+                        <span>Select Specific Columns for Prediction (Seq B)</span>
+                    </label>
+                </div>
+                
+                <div id="specific-pred-col-checkboxes" class="grid grid-cols-4 sm:grid-cols-8 gap-4 mt-3 p-3 bg-gray-50 border rounded-lg hidden">
+                    </div>
+                
+                <div class="flex flex-wrap gap-6">
+                    <p class="text-sm text-gray-700 font-semibold w-full">
+                        **Search Mode: Automated, Constrained & Cross-Checking** 🚀
+                    </p>
+                    <ul class="list-disc list-inside text-sm text-purple-700 font-medium ml-4 w-full">
+                        <li>**Scope:** All sequences must be **entirely contained** within the **Start Row** and **End Row** range.</li>
+                        <li>**Constraint:** Sequence B must start on a **later row** than Sequence A ($R_B > R_A$).</li>
+                        <li>**Types:** Automatically compares all combinations: **Open vs Open, Close vs Close, Open vs Close, and Close vs Open**.</li>
+                        <li>**Lengths:** Checks all starting points for lengths **3, 4, and 5**.</li>
+                    </ul>
+                </div>
+                <p class="text-xs text-purple-500 mt-4 font-medium">
+                    This search compares one sequence ($A_1, A_2, \dots$) against another ($B_1, B_2, \dots$) for a match where $A_i = B_i$ or $A_i = \text{Pair}(B_i)$.
+                </p>
+            </div>
+
+            <div id="predictor-controls" class="hidden mb-6 p-4 bg-orange-100 rounded-xl shadow-lg border border-orange-300">
+                <h4 class="text-xl font-bold mb-3 text-orange-700">3. Next Value Predictor Parameters:</h4>
+                
+                <div class="flex flex-wrap items-center gap-6 mb-4 p-3 bg-white rounded-lg border border-orange-200">
+                    <p class="text-lg font-bold text-gray-800">Select Position to Predict:</p>
+                    <div class="row-input-group">
+                        <label for="predict-row-input">Target Row:</label>
+                        <input type="number" id="predict-row-input" value="21" min="1" class="shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div class="row-input-group">
+                        <label for="predict-col-input">Target Column (1-based):</label>
+                        <input type="number" id="predict-col-input" value="1" min="1" max="8" class="shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div class="flex gap-4">
+                        <label class="flex items-center space-x-2 font-semibold text-base text-orange-700 cursor-pointer">
+                            <input type="radio" name="predict-part" value="full" checked id="radio-full" class="h-5 w-5 text-orange-600 focus:ring-orange-500">
+                            <span>Predict Full Number (Open+Close)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 font-semibold text-base text-orange-700 cursor-pointer">
+                            <input type="radio" name="predict-part" value="open" id="radio-open" class="h-5 w-5 text-orange-600 focus:ring-orange-500">
+                            <span>Predict Open Digit Only</span>
+                        </label>
+                        <label class="flex items-center space-x-2 font-semibold text-base text-orange-700 cursor-pointer">
+                            <input type="radio" name="predict-part" value="close" id="radio-close" class="h-5 w-5 text-orange-600 focus:ring-orange-500">
+                            <span>Predict Close Digit Only</span>
+                        </label>
+                    </div>
+                    <p class="text-sm text-gray-600">Predicts next value at specified row/col based on historical patterns (CN, CloseCond, Total, DiffTotal, Digit Pairs). Options: Entire row/column or specific position.</p>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-indigo-700 cursor-pointer">
+                        <input type="radio" name="predict-scope" value="specific" checked id="radio-specific-scope" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500">
+                        <span>Specific Position (Row+Col)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-green-700 cursor-pointer">
+                        <input type="radio" name="predict-scope" value="entire-row" id="radio-entire-row" class="h-5 w-5 text-green-600 focus:ring-green-500">
+                        <span>Entire Row in Selected Columns</span>
+                    </label>
+                    <label class="flex items-center space-x-2 font-semibold text-lg text-blue-700 cursor-pointer">
+                        <input type="radio" name="predict-scope" value="entire-col" id="radio-entire-col" class="h-5 w-5 text-blue-600 focus:ring-blue-500">
+                        <span>Entire Column in Selected Rows</span>
+                    </label>
+                </div>
+                
+                <div id="predict-col-checkboxes" class="grid grid-cols-4 sm:grid-cols-8 gap-4 mt-3 p-3 bg-gray-50 border rounded-lg hidden">
+                    </div>
+                
+                <p class="text-sm text-orange-600 font-medium">Uses patterns from previous rows/cols to predict via matching CN=Total, CloseCond=DiffTotal, and digit sequences/pairs.</p>
+            </div>
+            
+            <div class="pattern-finder flex flex-wrap justify-center items-center gap-4 mb-8 p-4 bg-indigo-100 rounded-xl shadow-lg">
+                <button id="find-pattern-btn" class="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition-colors duration-300 font-bold text-lg shadow-md">
+                    Execute Diagonal 2-Step Pattern Search (N vs R+2, C+2)
+                </button>
+            </div>
+
+            <div id="pattern-results" class="pattern-results-container p-6 bg-white rounded-xl shadow-2xl border border-indigo-300">
+                <h3 class="text-2xl font-bold mb-4 text-center text-indigo-800">Pattern Analysis Results</h3>
+                <div id="pattern-list" class="space-y-4">
+                    <p class="text-center text-gray-500 font-semibold" id="pattern-initial-text">Select a pattern and click the button above to start the comprehensive search.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="no-chart-message" class="text-center p-10 bg-white rounded-xl shadow-lg mt-8">
+            <p class="text-xl text-red-500 font-semibold mb-4">No Chart Loaded.</p>
+            <p class="text-gray-600">
+                To use the Pattern Finder, first go to the
+                <a href="store.html" class="text-yellow-600 font-bold hover:underline">View Store</a>,
+                select a chart, and click its **Analyze** button.
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Global Constants and Data ---
+        const COLUMN_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
+        // Const Pairs: 0-5, 1-6, 2-7, 3-8, 4-9
+        const redPairs = {0:5, 1:6, 2:7, 3:8, 4:9, 5:0, 6:1, 7:2, 8:3, 9:4}; 
+
+        let currentChartData = null; 
+
+        // --- Core Calculation Functions ---
+        function calculateCN(num) {
+            if (!num || num.length !== 2 || !/^\d{2}$/.test(num)) return null;
+            const a = parseInt(num[0]), b = parseInt(num[1]);
+            return ((a + b) + (a + a)) % 10;
+        }
+
+        function calculateCloseCond(num) {
+            if (!num || num.length !== 2 || !/^\d{2}$/.test(num)) return null;
+            const a = parseInt(num[0]), b = parseInt(num[1]);
+            return ((a + b) % 10 + (b + b) % 10) % 10;
+        }
+        
+        function digitTotal(num){
+            if(!num||num.length!==2||!/^\d{2}$/.test(num))return null;
+            const a=parseInt(num[0]),b=parseInt(num[1]);
+            return (a+b)%10;
+        }
+
+        function digitDiffTotal(num){
+            if(!num||num.length!==2||!/^\d{2}$/.test(num))return null;
+            const a=parseInt(num[0]),b=parseInt(num[1]);
+            return ((10 - b) + a) % 10;
+        }
+
+        function getOpenDigit(num) { return parseInt(num[0]); }
+        function getCloseDigit(num) { return parseInt(num[1]); }
+
+        /**
+         * @description The fixed prediction logic that explicitly projects the pattern from R_target-2 to R_target
+         * and aggregates confidence from all historical diagonal matches.
+         */
+        function predictNextDigit(row, col, part, gridData, ROWS, COLS) {
+            const predictions = [];
+            const targetRowIdx = row - 1; // 0-based index for the target row
+            const N_row_idx = targetRowIdx - 2; // 0-based index for the N element (R_target-2)
+            
+            // 1. Basic Boundary Check
+            if (targetRowIdx < 0 || targetRowIdx >= ROWS) {
+                return { predictions: [], predicted: null, confidence: 0 };
+            }
+
+            // Look back in column for patterns up to the row BEFORE the target
+            let colPatterns = [];
+            for (let r = 0; r < targetRowIdx; r++) { 
+                const entry = gridData[r] ? gridData[r][col - 1] : null;
+                if (entry && entry.val && /^\d{2}$/.test(entry.val)) {
+                    const open = getOpenDigit(entry.val);
+                    const close = getCloseDigit(entry.val);
+                    colPatterns.push({ 
+                        r: r + 1, open, close, 
+                        cn: calculateCN(entry.val), 
+                        closeCond: calculateCloseCond(entry.val), 
+                        total: digitTotal(entry.val), 
+                        diffTotal: digitDiffTotal(entry.val) 
+                    });
+                }
+            }
+
+            // 2. DIRECT PREDICTION (The N -> N+2 Projection)
+            let directPrediction = { open: null, close: null, confidence: 0 };
+            if (N_row_idx >= 0) {
+                // Use the properties of the R_target-2 row (the N element)
+                const N_pat = colPatterns.find(p => p.r === N_row_idx + 1); 
+
+                if (N_pat) {
+                    let predOpen = N_pat.open;
+                    let predClose = N_pat.close;
+                    // Apply the Const Pair rule
+                    if (redPairs[N_pat.open] !== undefined) predOpen = redPairs[N_pat.open];
+                    if (redPairs[N_pat.close] !== undefined) predClose = redPairs[N_pat.close];
+                    
+                    // This is our primary prediction candidate
+                    directPrediction = { open: predOpen, close: predClose, confidence: 0.9, method: "N-2 Paired Projection" };
+                }
+            }
+            
+            // Add the direct projection as a high-confidence prediction if available
+            if (directPrediction.open !== null) {
+                predictions.push(directPrediction);
+            }
+            
+            // 3. HISTORICAL SUPPORT (Finding recurrent patterns for a robust confidence score)
+            
+            for (let i = 0; i < colPatterns.length; i++) {
+                const pat = colPatterns[i]; // Historical N element
+                for (let j = i + 1; j < colPatterns.length; j++) {
+                    const nextPat = colPatterns[j]; // Historical N+X element
+                    
+                    // Check for the core diagonal pattern match (CN/CloseCond to Total/DiffTotal)
+                    if (pat.cn === nextPat.total && pat.closeCond === nextPat.diffTotal) {
+                        
+                        // Predict based on pair or direct from pat (historical N element)
+                        let predOpen = pat.open;
+                        let predClose = pat.close;
+                        if (redPairs[pat.open] !== undefined) predOpen = redPairs[pat.open];
+                        if (redPairs[pat.close] !== undefined) predClose = redPairs[pat.close];
+
+                        // Calculate confidence based on proximity (j-i)
+                        const baseConfidence = 0.5;
+                        const proximityFactor = 1 - Math.min(1, (j - i) / 10); // Closer match, higher factor (max 1)
+                        const confidence = baseConfidence * proximityFactor;
+
+                        if (predOpen === directPrediction.open && predClose === directPrediction.close) {
+                            predictions.push({ open: predOpen, close: predClose, fromRow: pat.r, confidence: 0.6 + confidence, method: "Historical Support" });
+                        } else {
+                            // Record other historical patterns for aggregation, but with lower confidence
+                            predictions.push({ open: predOpen, close: predClose, fromRow: pat.r, confidence: 0.2 + confidence, method: "Historical Divergence" });
+                        }
+                    }
+                }
+            }
+
+            // 4. AGGREGATE RESULTS (Use mode for the most frequent/highest confidence digit)
+            let aggOpen = null, aggClose = null;
+            let totalConfidence = 0;
+            
+            if (predictions.length > 0) {
+                // Map predictions to weighted digit lists
+                const weightedOpens = predictions.flatMap(p => Array(Math.round(p.confidence * 10)).fill(p.open)).filter(d => d !== null);
+                const weightedCloses = predictions.flatMap(p => Array(Math.round(p.confidence * 10)).fill(p.close)).filter(d => d !== null);
+
+                // Find the Mode (most frequent) of the weighted digits
+                const findMode = (arr) => {
+                    if (!arr.length) return null;
+                    return arr.sort((a,b)=> arr.filter(v=>v===a).length - arr.filter(v=>v===b).length).pop();
+                };
+
+                aggOpen = findMode(weightedOpens);
+                aggClose = findMode(weightedCloses);
+                
+                // Calculate the aggregate confidence based on how many predictions matched the mode
+                const openMatches = weightedOpens.filter(d => d === aggOpen).length;
+                const closeMatches = weightedCloses.filter(d => d === aggClose).length;
+                const totalWeighted = weightedOpens.length + weightedCloses.length;
+                
+                totalConfidence = totalWeighted > 0 ? (openMatches + closeMatches) / totalWeighted : 0;
+            }
+            
+            // Add the direct prediction's confidence only if it matched the aggregated result
+            if (directPrediction.open === aggOpen && directPrediction.close === aggClose && directPrediction.confidence > 0) {
+                // Give a final strong boost if the direct projection matched the mode of the historical evidence
+                totalConfidence = Math.min(1.0, totalConfidence + directPrediction.confidence * 0.5); 
+            }
+
+
+            // Final result formatting
+            if (part === 'open') return { predictions, predicted: aggOpen, confidence: totalConfidence };
+            if (part === 'close') return { predictions, predicted: aggClose, confidence: totalConfidence };
+            return { 
+                predictions, 
+                predicted: aggOpen !== null && aggClose !== null ? `${aggOpen}${aggClose}` : null, 
+                confidence: totalConfidence 
+            };
+        }
+
+        // --- Pattern 1 Logic: DIAGONAL CN TO T|D ---
+        
+        function runDiagonalPatternSearch() {
+            const { rows: ROWS, cols: COLS, data: gridData } = currentChartData;
+            const selectedColumns = getSelectedColumns();
+            const patternList = document.getElementById('pattern-list');
+            patternList.innerHTML = '';
+            
+            const button = document.getElementById('find-pattern-btn');
+            button.disabled = true;
+            button.textContent = 'Searching...';
+
+            const matches = [];
+
+            for (let r = 0; r < ROWS - 2; r++) {
+                for (const c of selectedColumns) {
+                    if (c + 2 >= COLS) continue; 
+                    
+                    const entryN = gridData[r][c];
+                    const entryNPlusX = gridData[r + 2][c + 2];
+
+                    if (entryN && entryN.val && /^\d{2}$/.test(entryN.val) &&
+                        entryNPlusX && entryNPlusX.val && /^\d{2}$/.test(entryNPlusX.val)) {
+
+                        const n_cn = calculateCN(entryN.val);
+                        const n_close = calculateCloseCond(entryN.val); 
+                        
+                        const nx_total = digitTotal(entryNPlusX.val);
+                        const nx_diffTotal = digitDiffTotal(entryNPlusX.val);
+
+                        if (n_cn === nx_total && n_close === nx_diffTotal) {
+                            const N_info = {
+                                row: r + 1, colName: COLUMN_HEADERS[c] || `Col ${c+1}`, val: entryN.val, cn: n_cn, close: n_close
+                            };
+                            const NX_info = {
+                                row: r + 3, colName: COLUMN_HEADERS[c + 2] || `Col ${c+3}`, val: entryNPlusX.val, total: nx_total, diffTotal: nx_diffTotal
+                            };
+                            matches.push({ N: N_info, NX: NX_info });
+                        }
+                    }
+                }
+            }
+
+            setTimeout(() => { 
+                displayDiagonalResults(matches);
+                button.textContent = 'Execute Diagonal 2-Step Pattern Search (N vs R+2, C+2)';
+                button.disabled = false;
+            }, 100);
+        }
+
+        function displayDiagonalResults(matches) {
+            const patternList = document.getElementById('pattern-list');
+            const patternName = "DIAGONAL CN TO T|D";
+
+            if (matches.length === 0) {
+                patternList.innerHTML = `<p class="text-center text-red-600 font-bold text-lg">❌ No patterns found for ${patternName} with the selected criteria.</p>`;
+            } else {
+                patternList.innerHTML = `<p class="text-center font-extrabold text-2xl text-green-700 mb-6">🎉 ${matches.length} Matching Patterns Found for ${patternName}!</p>`;
+                
+                matches.forEach(match => {
+                    const item = document.createElement('div');
+                    item.className = 'match-item p-4 border border-gray-200 rounded-xl bg-white shadow-md hover:bg-gray-50';
+                    item.innerHTML = `
+                        <p class="font-bold text-lg text-indigo-700">${patternName}</p>
+                        <p class="text-gray-700 mb-1">
+                            <span class="font-semibold text-green-600">${match.N.val}</span> 
+                            at Row ${match.N.row}, ${match.N.colName} 
+                            (CN-Close: <span class="font-mono bg-yellow-100 px-1 rounded font-bold">${match.N.cn}-${match.N.close}</span>)
+                        </p>
+                        <p class="text-gray-700">
+                            <span class="font-semibold text-green-600">${match.NX.val}</span> 
+                            at Row ${match.NX.row}, ${match.NX.colName} 
+                            (Total/Diff: <span class="font-mono bg-yellow-100 px-1 rounded font-bold">${match.NX.total}/${match.NX.diffTotal}</span>)
+                        </p>
+                        <p class="text-xs text-indigo-500 mt-2 font-medium">
+                            Condition Met: CN(${match.N.cn}) = Total(${match.NX.total}) AND CloseCond(${match.N.close}) = DiffTotal(${match.NX.diffTotal})
+                        </p>
+                    `;
+                    patternList.appendChild(item);
+                });
+            }
+        }
+        
+        // --- Pattern 2 Logic: OPEN-CLOSE FINDING ---
+
+        /**
+         * Checks if SeqA matches SeqB, or if SeqA matches the Pair of SeqB.
+         */
+        function checkSequencePairMatch(seqA, seqB) {
+            if (seqA.length !== seqB.length) return false;
+
+            for (let i = 0; i < seqA.length; i++) {
+                const a = seqA[i];
+                const b = seqB[i];
+
+                if (a !== b && a !== redPairs[b]) {
+                    return false; // Mismatch found
+                }
+            }
+            return true; // Full sequence match (direct or pair)
+        }
+
+        /**
+         * Extracts a sequence of Open or Close digits from the grid.
+         */
+        function extractSequence(type, direction, startIdx, lineIdx, length, gridData) {
+            const sequence = [];
+            
+            for (let i = 0; i < length; i++) {
+                let entry = null;
+                if (direction === 'row') {
+                    // Extract along the row (r=lineIdx, c=startIdx+i)
+                    entry = gridData[lineIdx] ? gridData[lineIdx][startIdx + i] : null;
+                } else if (direction === 'col') {
+                    // Extract along the column (r=startIdx+i, c=lineIdx)
+                    entry = gridData[startIdx + i] ? gridData[startIdx + i][lineIdx] : null;
+                }
+
+                if (!entry || !entry.val || !/^\d{2}$/.test(entry.val)) {
+                    return null; 
+                }
+
+                if (type === 'open') {
+                    sequence.push(getOpenDigit(entry.val));
+                } else if (type === 'close') {
+                    sequence.push(getCloseDigit(entry.val));
+                }
+            }
+            return sequence;
+        }
+
+        function runSequenceSearch() {
+            const { rows: ROWS, cols: COLS, data: gridData } = currentChartData;
+            const patternList = document.getElementById('pattern-list');
+            patternList.innerHTML = '';
+            
+            const button = document.getElementById('find-pattern-btn');
+            button.disabled = true;
+            button.textContent = 'Searching...';
+
+            const startRowInput = document.getElementById('start-row-input');
+            const endRowInput = document.getElementById('end-row-input');
+            const predStartRowInput = document.getElementById('pred-start-row-input');
+            const predEndRowInput = document.getElementById('pred-end-row-input');
+            
+            const R_start = parseInt(startRowInput.value);
+            const R_end = parseInt(endRowInput.value);
+            
+            // Input Validation for search range
+            if (isNaN(R_start) || R_start < 1 || R_start > ROWS || 
+                isNaN(R_end) || R_end < 1 || R_end > ROWS || R_start > R_end) {
+                
+                patternList.innerHTML = `<p class="text-center text-red-600 font-bold text-lg">
+                    ❌ Invalid Search Row Range. Please ensure Start Row (1 to ${ROWS}) is less than or equal to End Row (1 to ${ROWS}).
+                </p>`;
+                button.textContent = 'Execute Open-Close Sequence Search';
+                button.disabled = false;
+                return;
+            }
+
+            // Prediction range validation (optional)
+            let PR_start, PR_end;
+            const hasPredRange = predStartRowInput.value.trim() !== '' && predEndRowInput.value.trim() !== '';
+            if (hasPredRange) {
+                PR_start = parseInt(predStartRowInput.value);
+                PR_end = parseInt(predEndRowInput.value);
+                if (isNaN(PR_start) || PR_start < 1 || PR_start > ROWS || 
+                    isNaN(PR_end) || PR_end < 1 || PR_end > ROWS || PR_start > PR_end || PR_start <= R_end) {
+                        
+                    patternList.innerHTML = `<p class="text-center text-red-600 font-bold text-lg">
+                        ❌ Invalid Prediction Row Range. Ensure Pred Start Row > End Row (${R_end}), and within 1 to ${ROWS}.
+                    </p>`;
+                    button.textContent = 'Execute Open-Close Sequence Search';
+                    button.disabled = false;
+                    return;
+                }
+            } else {
+                PR_start = R_end + 1;
+                PR_end = ROWS; // Default to predicting all rows after search range
+            }
+
+            const selectedPredColumns = getSelectedPredColumns();
+            const matches = [];
+            const sequenceLengths = [3, 4, 5];
+            const dataTypes = ['open', 'close'];
+            const directions = ['row', 'col'];
+
+            for (const len of sequenceLengths) {
+                for (const typeA of dataTypes) {
+                    for (const typeB of dataTypes) {
+                        for (const dirA of directions) {
+                            for (const dirB of directions) {
+                                // A is always within R_start to R_end
+                                const maxLineA = dirA === 'row' ? R_end - 1 : ROWS - 1;
+                                const maxStartA = dirA === 'row' ? COLS - len : R_end - len;
+
+                                for (let lineA = R_start - 1; lineA <= maxLineA; lineA++) {
+                                    for (let startA = 0; startA <= maxStartA; startA++) {
+                                        const seqA = extractSequence(typeA, dirA, startA, lineA, len, gridData);
+                                        if (!seqA) continue;
+
+                                        // B starts after A's starting row
+                                        const R_A_start = dirA === 'col' ? startA : lineA;
+                                        const R_B_start_min = R_A_start + 1;
+
+                                        // Iterate over all possible B sequences
+                                        const maxLineB = dirB === 'row' ? ROWS - 1 : COLS - 1;
+                                        const maxStartB = dirB === 'row' ? COLS - len : ROWS - len;
+
+                                        for (let lineB = 0; lineB <= maxLineB; lineB++) {
+                                            for (let startB = 0; startB <= maxStartB; startB++) {
+                                                const R_B_start = dirB === 'col' ? startB : lineB;
+
+                                                if (R_B_start < R_B_start_min) continue; // Constraint: B must start later than A
+
+                                                const seqB = extractSequence(typeB, dirB, startB, lineB, len, gridData);
+                                                if (!seqB) continue;
+
+                                                if (checkSequencePairMatch(seqA, seqB)) {
+                                                    const match = {
+                                                        A: {
+                                                            type: typeA,
+                                                            dir: dirA,
+                                                            line: lineA + 1,
+                                                            start: (dirA === 'row' ? startA : startA) + 1,
+                                                            seq: seqA
+                                                        },
+                                                        B: {
+                                                            type: typeB,
+                                                            dir: dirB,
+                                                            line: lineB + 1,
+                                                            start: (dirB === 'row' ? startB : startB) + 1,
+                                                            seq: seqB
+                                                        },
+                                                        len: len,
+                                                        prediction: null // Will be calculated later
+                                                    };
+
+                                                    // --- Prediction Logic for Match ---
+                                                    // The next value in sequence A's line should be related to the next value in sequence B's line
+                                                    
+                                                    let nextA_val = null;
+                                                    let nextA_coords = null;
+
+                                                    if (dirA === 'row') {
+                                                        nextA_coords = { r: lineA, c: startA + len };
+                                                        nextA_val = gridData[nextA_coords.r] ? gridData[nextA_coords.r][nextA_coords.c] : null;
+                                                    } else { // dirA === 'col'
+                                                        nextA_coords = { r: startA + len, c: lineA };
+                                                        nextA_val = gridData[nextA_coords.r] ? gridData[nextA_coords.r][nextA_coords.c] : null;
+                                                    }
+
+                                                    if (nextA_val && nextA_val.val && /^\d{2}$/.test(nextA_val.val)) {
+                                                        const targetDigit = typeA === 'open' ? getOpenDigit(nextA_val.val) : getCloseDigit(nextA_val.val);
+                                                        match.prediction = typeB === 'open' ? targetDigit : redPairs[targetDigit];
+                                                        match.predictionType = 'Projected from A';
+                                                    }
+                                                    
+                                                    matches.push(match);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            setTimeout(() => { 
+                displaySequenceResults(matches, R_start, R_end, PR_start, PR_end, selectedPredColumns, gridData);
+                button.textContent = 'Execute Open-Close Sequence Search';
+                button.disabled = false;
+            }, 100);
+        }
+
+        function displaySequenceResults(matches, R_start, R_end, PR_start, PR_end, selectedPredColumns, gridData) {
+            const patternList = document.getElementById('pattern-list');
+            patternList.innerHTML = ''; // Clear existing results
+
+            if (matches.length === 0) {
+                patternList.innerHTML = `<p class="text-center text-red-600 font-bold text-lg">❌ No Open-Close sequence patterns found in the range R${R_start}-R${R_end}.</p>`;
+                return;
+            }
+
+            patternList.innerHTML = `<p class="text-center font-extrabold text-2xl text-purple-700 mb-6">🎉 ${matches.length} Open-Close Matches Found!</p>`;
+
+            // Group predictions for the future rows
+            const futurePredictions = {}; // Key: "R_C" (e.g., "21_1"), Value: {open: [digits], close: [digits]}
+            
+            for (let r = PR_start; r <= PR_end; r++) {
+                for (const c of selectedPredColumns) {
+                    const colIdx = c;
+                    const rowIdx = r - 1;
+
+                    // Skip filled cells or out of bounds (shouldn't happen with proper PR_end)
+                    if (rowIdx >= gridData.length || (gridData[rowIdx] && gridData[rowIdx][colIdx] && gridData[rowIdx][colIdx].val !== '')) continue;
+
+                    // Search for historical matches that apply to this future position
+                    for (const match of matches) {
+                        // Check if the current position (r, c) is the next in sequence B's line after its match
+                        // Check if r and c align with the position R_B + 1 (or C_B + 1)
+                        let targetRow, targetCol;
+                        if (match.B.dir === 'row') {
+                            targetRow = match.B.line; // Row lineB
+                            targetCol = match.B.start + match.len; // Col startB + len
+                        } else { // dir === 'col'
+                            targetRow = match.B.start + match.len; // Row startB + len
+                            targetCol = match.B.line; // Col lineB
+                        }
+
+                        if (targetRow === r && targetCol === c + 1) {
+                            // This match predicts the digit at (r, c)
+                            if (match.prediction !== null) {
+                                const key = `${r}_${c + 1}`;
+                                if (!futurePredictions[key]) {
+                                    futurePredictions[key] = { open: [], close: [] };
+                                }
+                                
+                                const predictedDigit = match.prediction; // Digit predicted from A -> B's next
+                                const targetType = match.B.type; // The type B was (e.g., if B was 'open', the next is the predicted open digit)
+                                
+                                // Since match.prediction is the digit that continues the sequence, it corresponds to the target type
+                                if (targetType === 'open') {
+                                    futurePredictions[key].open.push(predictedDigit);
+                                } else {
+                                    futurePredictions[key].close.push(predictedDigit);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Display Prediction Results
+            const predSection = document.createElement('div');
+            predSection.className = 'mt-8 p-4 bg-yellow-50 border-yellow-300 border-2 rounded-xl shadow-inner';
+            
+            let predHtml = `<h4 class="text-xl font-bold text-yellow-700 mb-4">Predictions for Rows R${PR_start} to R${PR_end}</h4>`;
+            let hasPrediction = false;
+
+            for (const key in futurePredictions) {
+                hasPrediction = true;
+                const [r, c] = key.split('_').map(Number);
+                const openDigits = futurePredictions[key].open;
+                const closeDigits = futurePredictions[key].close;
+
+                const getMode = (arr) => arr.length > 0 ? arr.sort((a,b)=> arr.filter(v=>v===a).length - arr.filter(v=>v===b).length).pop() : '?';
+                const openPred = getMode(openDigits);
+                const closePred = getMode(closeDigits);
+                const confidence = (openDigits.length + closeDigits.length) / (matches.length * 2) * 100; // Simplified confidence
+
+                predHtml += `
+                    <div class="p-3 mb-2 border rounded-lg bg-white shadow-sm">
+                        <p class="font-semibold text-lg text-gray-800">R${r}, ${COLUMN_HEADERS[c - 1] || `Col ${c}`} (Next): 
+                            <span class="text-green-600 font-extrabold">${openPred}${closePred}</span>
+                        </p>
+                        <p class="text-sm text-gray-600">
+                            Open Digits: ${openDigits.join(', ')} (Mode: ${openPred}) | 
+                            Close Digits: ${closeDigits.join(', ')} (Mode: ${closePred})
+                        </p>
+                        <p class="text-xs text-blue-500">Confidence: ${confidence.toFixed(1)}% (from ${openDigits.length + closeDigits.length} direct sequence predictions)</p>
+                    </div>
+                `;
+            }
+
+            if (!hasPrediction) {
+                predHtml += `<p class="text-center text-gray-600">No direct sequence predictions found for the specified future range.</p>`;
+            }
+
+            predSection.innerHTML = predHtml;
+            patternList.appendChild(predSection);
+
+
+            // Display all historical matches
+            const historicalSection = document.createElement('div');
+            historicalSection.className = 'mt-8 pt-4 border-t border-gray-200';
+            historicalSection.innerHTML = `<h4 class="text-xl font-bold text-purple-700 mb-4">Historical Matches (R${R_start}-R${R_end})</h4>`;
+            
+            matches.forEach(match => {
+                const item = document.createElement('div');
+                item.className = 'match-item p-4 border border-gray-200 rounded-xl bg-white shadow-md hover:bg-gray-50';
+                
+                // Get display coordinates
+                const A_row = match.A.dir === 'col' ? `${match.A.start} to ${match.A.start + match.len - 1}` : match.A.line;
+                const A_col = match.A.dir === 'row' ? `${match.A.start} to ${match.A.start + match.len - 1}` : match.A.line;
+                const B_row = match.B.dir === 'col' ? `${match.B.start} to ${match.B.start + match.len - 1}` : match.B.line;
+                const B_col = match.B.dir === 'row' ? `${match.B.start} to ${match.B.start + match.len - 1}` : match.B.line;
+
+                item.innerHTML = `
+                    <p class="font-bold text-lg text-purple-700">Sequence Length ${match.len}: ${match.A.type.toUpperCase()} vs ${match.B.type.toUpperCase()}</p>
+                    <p class="text-gray-700">
+                        <span class="font-semibold text-indigo-600">A Seq (${match.A.dir}):</span> ${match.A.seq.join(', ')} at R${A_row}, C${A_col}
+                    </p>
+                    <p class="text-gray-700">
+                        <span class="font-semibold text-indigo-600">B Seq (${match.B.dir}):</span> ${match.B.seq.join(', ')} at R${B_row}, C${B_col}
+                    </p>
+                    <p class="text-xs text-purple-500 mt-2 font-medium">
+                        Condition Met: A matches B (Direct or Paired). Prediction for B's next digit: ${match.prediction !== null ? `<span class="font-extrabold text-green-600">${match.prediction}</span>` : 'N/A'}
+                    </p>
+                `;
+                historicalSection.appendChild(item);
+            });
+            patternList.appendChild(historicalSection);
+        }
+
+        // --- Pattern 3 Logic: NEXT VALUE PREDICTOR ---
+
+        function runPredictor() {
+            const { rows: ROWS, cols: COLS, data: gridData } = currentChartData;
+            const patternList = document.getElementById('pattern-list');
+            patternList.innerHTML = '';
+            
+            const button = document.getElementById('find-pattern-btn');
+            button.disabled = true;
+            button.textContent = 'Predicting...';
+
+            const targetRow = parseInt(document.getElementById('predict-row-input').value);
+            const targetCol = parseInt(document.getElementById('predict-col-input').value);
+            const targetPart = document.querySelector('input[name="predict-part"]:checked').value;
+            const scope = document.querySelector('input[name="predict-scope"]:checked').value;
+
+            // --- Validation ---
+            if (targetRow < 1 || targetRow > ROWS || targetCol < 1 || targetCol > COLS) {
+                patternList.innerHTML = `<p class="text-center text-red-600 font-bold text-lg">❌ Invalid Target Position. Row must be 1-${ROWS}, Col must be 1-${COLS}.</p>`;
+                button.textContent = 'Execute Next Value Prediction based on N-2 Projection';
+                button.disabled = false;
+                return;
+            }
+            if (scope !== 'entire-col' && targetRow % 2 !== 1 && targetRow % 2 !== 0) {
+                 patternList.innerHTML = `<p class="text-center text-yellow-600 font-bold text-lg">⚠️ Pattern works best for N+2 (odd or even rows). Target Row ${targetRow} is unusual for this pattern.</p>`;
+            }
+
+            const results = [];
+            let columnsToPredict = [];
+            let rowsToPredict = [];
+
+            if (scope === 'specific') {
+                columnsToPredict = [targetCol];
+                rowsToPredict = [targetRow];
+            } else if (scope === 'entire-row') {
+                columnsToPredict = getSelectedColumns();
+                rowsToPredict = [targetRow];
+            } else if (scope === 'entire-col') {
+                columnsToPredict = [targetCol];
+                rowsToPredict = Array.from({ length: ROWS }, (_, i) => i + 1).filter(r => r > targetRow && gridData[r-1] && gridData[r-1][targetCol-1].val === '');
+                // Also check the target row
+                if(targetRow <= ROWS && gridData[targetRow-1] && gridData[targetRow-1][targetCol-1].val === '') {
+                    rowsToPredict.unshift(targetRow);
+                }
+            }
+
+
+            for (const r of rowsToPredict) {
+                for (const c of columnsToPredict) {
+                    const result = predictNextDigit(r, c, targetPart, gridData, ROWS, COLS);
+                    results.push({ row: r, col: c, part: targetPart, result });
+                }
+            }
+
+            setTimeout(() => { 
+                displayPredictorResults(results);
+                button.textContent = 'Execute Next Value Prediction based on N-2 Projection';
+                button.disabled = false;
+            }, 100);
+        }
+
+        function displayPredictorResults(results) {
+            const patternList = document.getElementById('pattern-list');
+            patternList.innerHTML = '';
+
+            if (results.length === 0) {
+                patternList.innerHTML = `<p class="text-center text-gray-500 font-bold text-lg">No positions were targeted or no patterns could be analyzed for the selected position(s).</p>`;
+                return;
+            }
+
+            patternList.innerHTML = `<p class="text-center font-extrabold text-2xl text-orange-700 mb-6">🔮 Prediction Results</p>`;
+
+            results.forEach(item => {
+                const { row, col, part, result } = item;
+                const predictedVal = result.predicted || 'N/A';
+                const confidence = (result.confidence * 100).toFixed(1);
+                const colName = COLUMN_HEADERS[col - 1] || `Col ${col}`;
+                const partLabel = part === 'full' ? 'Full Number' : (part === 'open' ? 'Open Digit' : 'Close Digit');
+                const historicalMatches = result.predictions.filter(p => p.method !== 'N-2 Paired Projection').length;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'match-item p-4 border border-gray-200 rounded-xl bg-white shadow-md hover:bg-gray-50';
+                itemDiv.style.borderLeftColor = confidence > 50 ? '#10b981' : (confidence > 30 ? '#f59e0b' : '#ef4444');
+
+                itemDiv.innerHTML = `
+                    <p class="font-bold text-lg text-orange-700">Target: R${row}, ${colName} (${partLabel})</p>
+                    <p class="text-2xl font-extrabold text-green-600 my-1">
+                        Predicted Value: ${predictedVal} 
+                    </p>
+                    <p class="text-xl font-bold text-blue-600 mb-2">
+                        Confidence: ${confidence}%
+                    </p>
+                    <p class="text-sm text-gray-600">
+                        Based on **N-2 Projection** plus ${historicalMatches} supporting **Historical Matches**.
+                    </p>
+                    <div class="mt-3 text-xs text-gray-500 max-h-24 overflow-y-auto border-t pt-2">
+                        ${result.predictions.map(p => `
+                            <span class="inline-block bg-gray-100 px-2 py-1 rounded-full mr-1 mb-1">
+                                ${p.method}: ${p.open}${p.close} (C: ${(p.confidence * 100).toFixed(0)}%)
+                            </span>
+                        `).join('')}
+                    </div>
+                `;
+                patternList.appendChild(itemDiv);
+            });
+        }
+
+        // --- Utility Functions for UI/Controls ---
+        
+        function getSelectedColumns() {
+            if (!currentChartData) return [];
+            const isAllDays = document.getElementById('radio-all-days').checked;
+            const chartColCount = currentChartData.cols;
+            const maxStartingIndex = chartColCount; // N is R,C so max col is chart col count
+
+            if (isAllDays) {
+                // Return 0-based indices
+                return Array.from({ length: maxStartingIndex }, (_, i) => i);
+            } else {
+                const selectedIndices = [];
+                const checkboxes = document.querySelectorAll('#specific-day-checkboxes input[type="checkbox"]');
+                checkboxes.forEach((checkbox, index) => {
+                    if (index < maxStartingIndex && checkbox.checked) {
+                        selectedIndices.push(index);
+                    }
+                });
+                return selectedIndices;
+            }
+        }
+
+        function getSelectedPredColumns() {
+            if (!currentChartData) return [];
+            const isAllPredCols = document.getElementById('radio-all-pred-cols').checked;
+            const chartColCount = currentChartData.cols;
+            const maxStartingIndex = chartColCount;
+
+            if (isAllPredCols) {
+                // Return 0-based indices
+                return Array.from({ length: maxStartingIndex }, (_, i) => i);
+            } else {
+                const selectedIndices = [];
+                const checkboxes = document.querySelectorAll('#specific-pred-col-checkboxes input[type="checkbox"]');
+                checkboxes.forEach((checkbox, index) => {
+                    if (index < maxStartingIndex && checkbox.checked) {
+                        selectedIndices.push(index);
+                    }
+                });
+                return selectedIndices;
+            }
+        }
+
+        function setupDaySelectionUI() {
+            if (!currentChartData) return;
+            const container = document.getElementById('specific-day-checkboxes');
+            const predContainer = document.getElementById('specific-pred-col-checkboxes');
+            container.innerHTML = '';
+            predContainer.innerHTML = '';
+
+            for (let i = 0; i < currentChartData.cols; i++) {
+                const colName = COLUMN_HEADERS[i] || `Col ${i + 1}`;
+                
+                // Day Selection Checkboxes (for Pattern 1)
+                container.innerHTML += `
+                    <label class="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" name="day-selection" value="${i}" checked class="h-4 w-4 text-green-600 rounded">
+                        <span>${colName}</span>
+                    </label>
+                `;
+
+                // Prediction Column Checkboxes (for Pattern 2 & 3)
+                predContainer.innerHTML += `
+                    <label class="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" name="pred-col-selection" value="${i}" checked class="h-4 w-4 text-purple-600 rounded">
+                        <span>${colName}</span>
+                    </label>
+                `;
+            }
+            
+            document.getElementById('day-selection-section').classList.remove('hidden');
+        }
+
+        function setupPredColSelectionUI() {
+            // Logic handled by setupDaySelectionUI for now, as they share structure
+        }
+
+        function setupRowInputs() {
+            if (!currentChartData) return;
+            const ROWS = currentChartData.rows;
+
+            document.getElementById('end-row-input').value = ROWS;
+            document.getElementById('end-row-input').max = ROWS;
+
+            document.getElementById('pred-end-row-input').max = ROWS;
+
+            const defaultPredRow = Math.min(ROWS + 1, ROWS);
+            document.getElementById('predict-row-input').value = defaultPredRow;
+            document.getElementById('predict-row-input').max = ROWS; // Prediction is only on chart rows for this pattern
+
+            document.getElementById('predict-col-input').max = currentChartData.cols;
+
+            // Update Max rows for pred end on initial load
+            if (document.getElementById('pred-start-row-input').value === "") {
+                document.getElementById('pred-start-row-input').value = ROWS + 1;
+            }
+        }
+
+        function togglePatternControls(patternType) {
+            const findPatternBtn = document.getElementById('find-pattern-btn');
+            const daySelectionSection = document.getElementById('day-selection-section');
+            const sequenceControls = document.getElementById('sequence-controls');
+            const predictorControls = document.getElementById('predictor-controls');
+
+            daySelectionSection.classList.add('hidden');
+            sequenceControls.classList.add('hidden');
+            predictorControls.classList.add('hidden');
+
+            if (patternType === 'pattern1') {
+                daySelectionSection.classList.remove('hidden');
+                findPatternBtn.textContent = 'Execute Diagonal 2-Step Pattern Search (N vs R+2, C+2)';
+                findPatternBtn.onclick = runDiagonalPatternSearch;
+            } else if (patternType === 'pattern2') {
+                sequenceControls.classList.remove('hidden');
+                findPatternBtn.textContent = 'Execute Open-Close Sequence Search';
+                findPatternBtn.onclick = runSequenceSearch;
+            } else if (patternType === 'predict') {
+                predictorControls.classList.remove('hidden');
+                // *** THE FIX TO THE BUTTON TEXT ***
+                findPatternBtn.textContent = 'Execute Next Value Prediction based on N-2 Projection';
+                findPatternBtn.onclick = runPredictor;
+            }
+        }
+
+        function handleDaySelectionChange() {
+            const isSpecific = document.getElementById('radio-specific-days').checked;
+            document.getElementById('specific-day-checkboxes').classList.toggle('hidden', !isSpecific);
+        }
+        
+        function handlePredColSelectionChange() {
+            const isSpecific = document.getElementById('radio-specific-pred-cols').checked;
+            document.getElementById('specific-pred-col-checkboxes').classList.toggle('hidden', !isSpecific);
+        }
+
+        function handlePredictColSelectionChange() {
+            const isEntireRow = document.getElementById('radio-entire-row').checked;
+            const isEntireCol = document.getElementById('radio-entire-col').checked;
+            
+            const targetColInput = document.getElementById('predict-col-input');
+            const targetRowInput = document.getElementById('predict-row-input');
+
+            // Toggle visibility of the specific column checkboxes for 'entire-row' scope
+            document.getElementById('predict-col-checkboxes').classList.toggle('hidden', !isEntireRow);
+
+            // Disable or enable specific row/col inputs based on scope
+            targetColInput.disabled = isEntireRow;
+            targetRowInput.disabled = isEntireCol;
+            
+            // Set the appropriate max/default value for the inputs
+            if (isEntireCol) {
+                targetRowInput.value = '';
+            } else if (isEntireRow || document.getElementById('radio-specific-scope').checked) {
+                targetRowInput.value = targetRowInput.value || (currentChartData ? currentChartData.rows + 1 : 21);
+            }
+            if (isEntireRow) {
+                targetColInput.value = '';
+            } else if (isEntireCol || document.getElementById('radio-specific-scope').checked) {
+                targetColInput.value = targetColInput.value || 1;
+            }
+        }
+
+
+        function attachPatternListeners() {
+            const patternRadios = document.querySelectorAll('input[name="pattern-type"]');
+            patternRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => togglePatternControls(e.target.value));
+            });
+
+            document.getElementById('radio-specific-days').addEventListener('change', handleDaySelectionChange);
+            document.getElementById('radio-all-days').addEventListener('change', handleDaySelectionChange);
+
+            document.getElementById('radio-specific-pred-cols').addEventListener('change', handlePredColSelectionChange);
+            document.getElementById('radio-all-pred-cols').addEventListener('change', handlePredColSelectionChange);
+
+            document.querySelectorAll('input[name="predict-scope"]').forEach(radio => {
+                radio.addEventListener('change', handlePredictColSelectionChange);
+            });
+            
+            // Initialize controls based on default selection
+            togglePatternControls('pattern1');
+        }
+
+        function loadChartForAnalysis(label) {
+            const history = JSON.parse(localStorage.getItem('chartHistory')) || {};
+            const savedChart = history[label];
+            
+            document.getElementById('no-chart-message').classList.add('hidden');
+            document.getElementById('pattern-finder-ui').classList.remove('hidden');
+
+            if (!savedChart) {
+                document.getElementById('chart-name-header').textContent = `Error: Chart "${label}" not found.`;
+                document.getElementById('pattern-finder-ui').classList.add('hidden');
+                document.getElementById('no-chart-message').classList.remove('hidden');
+                return;
+            }
+
+            currentChartData = savedChart;
+            document.getElementById('chart-name-header').textContent = `Analyzing Chart: ${label}`;
+
+            setupDaySelectionUI();
+            setupPredColSelectionUI();
+            setupRowInputs(); // Initialize row inputs with chart max rows
+            attachPatternListeners();
+        }
+
+        // Initialization on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const chartToLoad = localStorage.getItem('chartToLoadForAnalysis');
+            
+            if (chartToLoad) {
+                loadChartForAnalysis(chartToLoad);
+                localStorage.removeItem('chartToLoadForAnalysis'); 
+            }
+        });
+    </script>
+</body>
+</html>
