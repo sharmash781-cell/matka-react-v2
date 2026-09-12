@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { Brain, Cpu, Sparkles, Zap, CheckCircle2, Sliders, Activity, Database, Palette, Trash2, ArrowDown, Smartphone, Monitor, MinusCircle, Search, Layers } from 'lucide-react';
+import { Brain, Cpu, Sparkles, Zap, CheckCircle2, Palette, Trash2, ArrowDown, Smartphone, Monitor, MinusCircle, Search, ChevronUp, ChevronDown } from 'lucide-react';
 
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 10;
@@ -20,9 +20,9 @@ export const AILearningEngine = () => {
   const [epochs, setEpochs] = useState(50);
   const [learningRate, setLearningRate] = useState(0.05);
   const [isTraining, setIsTraining] = useState(false);
-  const [trainProgress, setTrainProgress] = useState(0);
-  const [currentLoss, setCurrentLoss] = useState(0.12);
-  const [lastTrainedModel, setLastTrainedModel] = useState(null);
+
+  // Mobile Header Collapse & Fullscreen Modes
+  const [showTopControls, setShowTopControls] = useState(true);
 
   // NON-DESTRUCTIVE AI MARKING CANVAS OVERLAY STATE
   const [isAIMarkingMode, setIsAIMarkingMode] = useState(true);
@@ -56,7 +56,7 @@ export const AILearningEngine = () => {
   const activeChartObj = charts[selectedChart] || null;
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
-  const rowHeight = isCompactMobile ? 68 : 105;
+  const rowHeight = isCompactMobile ? 62 : 98;
 
   useEffect(() => {
     if (selectedChart) {
@@ -209,26 +209,6 @@ export const AILearningEngine = () => {
     setTimeout(() => setTrainingSuccessMsg(''), 4000);
   };
 
-  const handleStartTraining = (e) => {
-    e.preventDefault();
-    setIsTraining(true);
-    setTrainProgress(0);
-    let ep = 0;
-
-    const interval = setInterval(() => {
-      ep += 5;
-      setTrainProgress(Math.min(100, (ep / epochs) * 100));
-      setCurrentLoss(parseFloat((0.15 / (1 + ep * 0.02)).toFixed(4)));
-
-      if (ep >= epochs) {
-        clearInterval(interval);
-        setIsTraining(false);
-        const model = trainAIModel(selectedChart, epochs, learningRate);
-        setLastTrainedModel(model);
-      }
-    }, 80);
-  };
-
   const lastFilledRowIndex = useMemo(() => {
     for (let r = grid.length - 1; r >= 0; r--) {
       if (grid[r] && grid[r].some(cell => cell.val && cell.val !== '')) {
@@ -249,7 +229,7 @@ export const AILearningEngine = () => {
   };
 
   const totalRows = grid.length;
-  const visibleHeight = 550;
+  const visibleHeight = 800;
 
   const handleScroll = (e) => {
     setScrollTop(e.target.scrollTop);
@@ -281,442 +261,341 @@ export const AILearningEngine = () => {
   }, [aiMarkings]);
 
   const chartKeys = Object.keys(charts);
-  const activeModel = learnedModels[activeModelName] || Object.values(learnedModels)[0];
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="glass-panel p-6 md:p-8 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-2xl">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-purple-500/20 border border-purple-500/30 rounded-2xl">
-            <Brain className="w-8 h-8 text-purple-400 animate-pulse" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-white">AI Full-Chart Pattern Query & Discovery Engine</h2>
-            <p className="text-xs text-slate-400">Ask Any Pattern Condition (e.g. Tuesday Open == Saturday Open) — AI Scans Entire Chart & Finds All Historical Matches!</p>
-          </div>
+    <div className="space-y-3">
+      {/* Top Header Toggle Bar */}
+      <div className="flex justify-between items-center bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-2xl">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-purple-400" />
+          <select
+            value={selectedChart}
+            onChange={(e) => {
+              setSelectedChart(e.target.value);
+              setActiveChartName(e.target.value);
+            }}
+            className="bg-slate-950 text-white text-xs font-extrabold rounded-lg px-2 py-1 outline-none border border-slate-700 cursor-pointer"
+          >
+            {chartKeys.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-900/90 px-4 py-2 rounded-2xl border border-slate-800">
-          <Cpu className="w-4 h-4 text-purple-400" />
-          <span className="text-xs font-mono font-bold text-slate-300">Active Model: <strong className="text-purple-300">{activeModelName}</strong></span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTopControls(!showTopControls)}
+            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-xl text-[11px] font-bold transition"
+          >
+            {showTopControls ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <span>{showTopControls ? 'Hide Controls' : 'Show Controls'}</span>
+          </button>
+
+          <button
+            onClick={scrollToLastFilledRow}
+            className="flex items-center gap-1 bg-emerald-950 border border-emerald-500/50 text-emerald-300 px-2.5 py-1 rounded-xl text-[11px] font-bold"
+          >
+            <ArrowDown className="w-3.5 h-3.5 text-emerald-400" /> #{lastFilledRowIndex + 1}
+          </button>
         </div>
       </div>
 
-      {/* AI FULL-CHART PATTERN QUERY BUILDER PANEL */}
-      <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-2xl border border-purple-500/40">
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-          <Search className="w-5 h-5 text-pink-400" />
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">AI Pattern Query Builder (Full Chart Search)</h3>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">1. First Day</label>
-            <select
-              value={queryDay1}
-              onChange={(e) => setQueryDay1(parseInt(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none"
-            >
-              {COL_HEADERS.slice(0, colsInput).map((day, idx) => (
-                <option key={day} value={idx}>{day}</option>
-              ))}
-            </select>
+      {/* COLLAPSIBLE AI PATTERN QUERY BUILDER PANEL */}
+      {showTopControls && (
+        <div className="glass-panel p-3.5 md:p-5 rounded-3xl space-y-3 shadow-xl border border-purple-500/40 animate-fadeIn">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+            <Search className="w-4 h-4 text-pink-400" />
+            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">AI Full-Chart Pattern Query Builder</h3>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">2. First Digit</label>
-            <select
-              value={queryDigit1}
-              onChange={(e) => setQueryDigit1(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none"
-            >
-              <option value="open">Open Digit</option>
-              <option value="close">Close Digit</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">3. Relationship</label>
-            <select
-              value={queryRelation}
-              onChange={(e) => setQueryRelation(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none text-emerald-400"
-            >
-              <option value="same_digit">== Same Digit</option>
-              <option value="same_total">Sum == Same Total</option>
-              <option value="same_delta">Δ == Same Delta</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">4. Second Day</label>
-            <select
-              value={queryDay2}
-              onChange={(e) => setQueryDay2(parseInt(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none"
-            >
-              {COL_HEADERS.slice(0, colsInput).map((day, idx) => (
-                <option key={day} value={idx}>{day}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">5. Second Digit</label>
-            <select
-              value={queryDigit2}
-              onChange={(e) => setQueryDigit2(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none"
-            >
-              <option value="open">Open Digit</option>
-              <option value="close">Close Digit</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">6. Row Distance</label>
-            <select
-              value={queryRowOffset}
-              onChange={(e) => setQueryRowOffset(parseInt(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 font-bold outline-none"
-            >
-              <option value={0}>Same Week (Row 0)</option>
-              <option value={1}>Next Week (Row +1)</option>
-              <option value={2}>2 Weeks Down (Row +2)</option>
-              <option value={-1}>Prev Week (Row -1)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* QUERY SEARCH RESULTS BANNER & MATCHES DISPLAY */}
-        {patternQueryResults && (
-          <div className="bg-slate-950 border border-pink-500/50 p-4 rounded-2xl space-y-3 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-white">
-                <Sparkles className="w-4 h-4 text-pink-400 animate-pulse" />
-                <span>
-                  Query Result: <strong className="text-pink-300">{patternQueryResults.day1Name} {patternQueryResults.queryDigit1.toUpperCase()}</strong> == <strong className="text-pink-300">{patternQueryResults.day2Name} {patternQueryResults.queryDigit2.toUpperCase()}</strong>
-                </span>
-              </div>
-
-              <div className="bg-pink-950 border border-pink-500/60 px-4 py-1.5 rounded-full text-xs font-mono font-extrabold text-pink-300">
-                Found {patternQueryResults.totalMatches} Historical Matches Across Entire Chart!
-              </div>
-            </div>
-
-            {/* List of First 6 Historical Matches */}
-            {patternQueryResults.matchesList.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2">
-                {patternQueryResults.matchesList.slice(0, 6).map((m, idx) => (
-                  <div key={idx} className="bg-slate-900/90 border border-slate-800 p-2 rounded-xl text-[11px] font-mono text-center">
-                    <span className="text-slate-400 block text-[9px]">Row #{m.row1}</span>
-                    <span className="text-emerald-400 font-bold">{m.val1}</span> → <span className="text-purple-400 font-bold">{m.val2}</span>
-                    <span className="block text-[9px] text-pink-400">Digit ({m.d1Val})</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 1: CHART SELECTION & INTERACTIVE VISUAL MARKING CANVAS */}
-      <div className="glass-panel p-6 rounded-3xl space-y-5 shadow-2xl">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-pink-500/20 border border-pink-500/30 rounded-2xl">
-              <Palette className="w-5 h-5 text-pink-400" />
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
             <div>
-              <h3 className="text-lg font-black text-white">1. Select Chart to Teach AI</h3>
-              <p className="text-xs text-slate-400">Choose any existing chart from your stored database</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <select
-              value={selectedChart}
-              onChange={(e) => {
-                setSelectedChart(e.target.value);
-                setActiveChartName(e.target.value);
-              }}
-              className="bg-slate-900 border border-slate-700 text-white rounded-xl p-3 text-xs font-extrabold outline-none focus:border-purple-500 min-w-[200px]"
-            >
-              {chartKeys.map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => setIsCompactMobile(!isCompactMobile)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border bg-slate-900 border-slate-700 text-slate-300"
-            >
-              {isCompactMobile ? <Smartphone className="w-4 h-4 text-emerald-400" /> : <Monitor className="w-4 h-4 text-slate-400" />}
-              <span>{isCompactMobile ? 'Mobile View' : 'Desktop View'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* NON-DESTRUCTIVE MARKING TOOLBAR WITH INDIVIDUAL ERASER (-) */}
-        <div className="bg-purple-950/70 border border-purple-500/50 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-black uppercase text-purple-300 flex items-center gap-1">
-              <Sparkles className="w-4 h-4 text-pink-400" /> Marker Color:
-            </span>
-            <div className="flex items-center gap-1.5">
-              {COLOR_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => { setSelectedColor(opt.color); if (markingTool === 'eraser') setMarkingTool('highlight'); }}
-                  style={{ backgroundColor: opt.color }}
-                  className={`w-6 h-6 rounded-full border-2 transition transform hover:scale-110 ${
-                    selectedColor === opt.color && markingTool !== 'eraser' ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-80'
-                  }`}
-                  title={opt.label}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setMarkingTool('highlight'); setFirstSelectedCell(null); }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                markingTool === 'highlight' ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400'
-              }`}
-            >
-              Cell Highlight
-            </button>
-
-            <button
-              onClick={() => { setMarkingTool('line'); setFirstSelectedCell(null); }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                markingTool === 'line' ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400'
-              }`}
-            >
-              {firstSelectedCell ? 'Click 2nd Cell to Connect' : 'Connect Cells (Line)'}
-            </button>
-
-            <button
-              onClick={() => { setMarkingTool('eraser'); setFirstSelectedCell(null); }}
-              className={`flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                markingTool === 'eraser' ? 'bg-amber-600 text-white ring-2 ring-amber-400' : 'bg-slate-900 text-amber-300 border border-amber-500/40'
-              }`}
-            >
-              <MinusCircle className="w-3.5 h-3.5 text-amber-300" /> Eraser / Remove (-)
-            </button>
-
-            <button
-              onClick={handleClearMarkings}
-              className="flex items-center gap-1 bg-red-950/80 border border-red-500/50 text-red-300 text-xs font-bold px-3.5 py-1.5 rounded-xl hover:bg-red-900 transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All ({aiMarkings.length})
-            </button>
-          </div>
-        </div>
-
-        {/* ACTIVE MARKINGS INDIVIDUAL LIST WITH REMOVE BUTTONS (-) */}
-        {aiMarkings.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-400 font-mono font-bold uppercase mr-1">Active Markings ({aiMarkings.length}):</span>
-            {aiMarkings.map((m) => (
-              <span
-                key={m.id}
-                style={{ borderColor: m.color, color: m.color }}
-                className="bg-slate-900 border px-2.5 py-0.5 rounded-full text-[11px] font-mono flex items-center gap-1.5"
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">1. First Day</label>
+              <select
+                value={queryDay1}
+                onChange={(e) => setQueryDay1(parseInt(e.target.value))}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs"
               >
-                <span>{COL_HEADERS[m.c]} Row #{m.r + 1}</span>
-                <button
-                  onClick={() => removeSingleMarking(m.id)}
-                  title="Remove this marking (-)"
-                  className="hover:text-red-400 font-extrabold ml-1"
-                >
-                  -
-                </button>
-              </span>
+                {COL_HEADERS.slice(0, colsInput).map((day, idx) => (
+                  <option key={day} value={idx}>{day}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">2. First Digit</label>
+              <select
+                value={queryDigit1}
+                onChange={(e) => setQueryDigit1(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs"
+              >
+                <option value="open">Open Digit</option>
+                <option value="close">Close Digit</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">3. Relationship</label>
+              <select
+                value={queryRelation}
+                onChange={(e) => setQueryRelation(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs text-emerald-400"
+              >
+                <option value="same_digit">== Same Digit</option>
+                <option value="same_total">Sum == Same Total</option>
+                <option value="same_delta">Δ == Same Delta</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">4. Second Day</label>
+              <select
+                value={queryDay2}
+                onChange={(e) => setQueryDay2(parseInt(e.target.value))}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs"
+              >
+                {COL_HEADERS.slice(0, colsInput).map((day, idx) => (
+                  <option key={day} value={idx}>{day}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">5. Second Digit</label>
+              <select
+                value={queryDigit2}
+                onChange={(e) => setQueryDigit2(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs"
+              >
+                <option value="open">Open Digit</option>
+                <option value="close">Close Digit</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 mb-0.5">6. Row Distance</label>
+              <select
+                value={queryRowOffset}
+                onChange={(e) => setQueryRowOffset(parseInt(e.target.value))}
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-1.5 font-bold outline-none text-xs"
+              >
+                <option value={0}>Same Week (Row 0)</option>
+                <option value={1}>Next Week (Row +1)</option>
+                <option value={2}>2 Weeks Down (Row +2)</option>
+                <option value={-1}>Prev Week (Row -1)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* QUERY SEARCH RESULTS BANNER */}
+          {patternQueryResults && (
+            <div className="bg-slate-950 border border-pink-500/50 p-2.5 rounded-xl space-y-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <Sparkles className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+                  <span>
+                    Query Result: <strong className="text-pink-300">{patternQueryResults.day1Name} {patternQueryResults.queryDigit1.toUpperCase()}</strong> == <strong className="text-pink-300">{patternQueryResults.day2Name} {patternQueryResults.queryDigit2.toUpperCase()}</strong>
+                  </span>
+                </div>
+
+                <div className="bg-pink-950 border border-pink-500/60 px-3 py-1 rounded-full text-[11px] font-mono font-extrabold text-pink-300">
+                  Found {patternQueryResults.totalMatches} Historical Matches Across Entire Chart!
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MARKER TOOLBAR */}
+      <div className="bg-purple-950/70 border border-purple-500/50 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black uppercase text-purple-300 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-pink-400" /> Color:
+          </span>
+          <div className="flex items-center gap-1">
+            {COLOR_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => { setSelectedColor(opt.color); if (markingTool === 'eraser') setMarkingTool('highlight'); }}
+                style={{ backgroundColor: opt.color }}
+                className={`w-5 h-5 rounded-full border-2 transition ${
+                  selectedColor === opt.color && markingTool !== 'eraser' ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-80'
+                }`}
+                title={opt.label}
+              />
             ))}
           </div>
-        )}
+        </div>
 
-        {/* INTERACTIVE WHITE CARD TABLE INSIDE AI ENGINE */}
-        <div className="border-2 border-slate-950 rounded-2xl overflow-hidden shadow-2xl">
-          <div
-            ref={containerRef}
-            onScroll={handleScroll}
-            className="overflow-y-auto overflow-x-auto max-h-[550px] border-b border-slate-900 relative"
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => { setMarkingTool('highlight'); setFirstSelectedCell(null); }}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+              markingTool === 'highlight' ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400'
+            }`}
           >
-            <div className="min-w-[480px] sm:min-w-[650px] relative">
-              <table className="white-chart-table relative z-10">
-                <thead className="sticky top-0 z-20 shadow-md">
-                  <tr>
-                    <th className="w-10 text-center border-2 border-slate-950 bg-slate-200 p-0.5">
-                      <button
-                        onClick={scrollToLastFilledRow}
-                        title={`Jump to last filled row (#${lastFilledRowIndex + 1})`}
-                        className="w-full py-0.5 text-slate-950 font-black hover:text-emerald-700 flex items-center justify-center gap-0.5 text-[11px] transition"
-                      >
-                        # <ArrowDown className="w-3 h-3 text-emerald-600" />
-                      </button>
+            Highlight
+          </button>
+
+          <button
+            onClick={() => { setMarkingTool('line'); setFirstSelectedCell(null); }}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+              markingTool === 'line' ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400'
+            }`}
+          >
+            Line
+          </button>
+
+          <button
+            onClick={() => { setMarkingTool('eraser'); setFirstSelectedCell(null); }}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+              markingTool === 'eraser' ? 'bg-amber-600 text-white' : 'bg-slate-900 text-amber-300'
+            }`}
+          >
+            <MinusCircle className="w-3 h-3 text-amber-300" /> Eraser (-)
+          </button>
+
+          <button
+            onClick={handleClearMarkings}
+            className="flex items-center gap-1 bg-red-950 text-red-300 text-[11px] font-bold px-2.5 py-1 rounded-lg"
+          >
+            <Trash2 className="w-3 h-3" /> Clear ({aiMarkings.length})
+          </button>
+        </div>
+      </div>
+
+      {/* INTERACTIVE FULL-WIDTH MOBILE FIT WHITE CARD TABLE */}
+      <div className="glass-panel p-1 sm:p-3 rounded-2xl sm:rounded-3xl shadow-2xl space-y-2">
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="overflow-y-auto overflow-x-auto h-[calc(100vh-210px)] min-h-[500px] border-2 border-slate-950 rounded-xl bg-slate-950"
+        >
+          <div className="w-full min-w-full">
+            <table className="w-full table-fixed white-chart-table">
+              <thead className="sticky top-0 z-20 shadow-md">
+                <tr>
+                  <th className="w-7 sm:w-10 text-center border border-slate-950 bg-slate-200 p-0.5">
+                    <button
+                      onClick={scrollToLastFilledRow}
+                      title={`Jump to last filled row (#${lastFilledRowIndex + 1})`}
+                      className="w-full py-0.5 text-slate-950 font-black flex items-center justify-center text-[10px] sm:text-xs"
+                    >
+                      #
+                    </button>
+                  </th>
+                  {Array.from({ length: colsInput }).map((_, c) => (
+                    <th key={c} className="text-center border border-slate-950 text-slate-950 font-black text-xs sm:text-base py-0.5 sm:py-1">
+                      {COL_HEADERS[c] || `C${c + 1}`}
                     </th>
-                    {Array.from({ length: colsInput }).map((_, c) => (
-                      <th key={c} className="text-center border-2 border-slate-950 text-slate-950 font-black text-sm sm:text-base py-1">
-                        {COL_HEADERS[c] || `Col ${c + 1}`}
-                      </th>
-                    ))}
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topPadding > 0 && (
+                  <tr>
+                    <td colSpan={colsInput + 1} style={{ height: `${topPadding}px`, padding: 0, border: 'none' }} />
                   </tr>
-                </thead>
-                <tbody>
-                  {topPadding > 0 && (
-                    <tr>
-                      <td colSpan={colsInput + 1} style={{ height: `${topPadding}px`, padding: 0, border: 'none' }} />
+                )}
+
+                {visibleRows.map((row, relativeRIdx) => {
+                  const rIdx = startRow + relativeRIdx;
+                  return (
+                    <tr key={rIdx} style={{ height: `${rowHeight}px` }}>
+                      <td className="text-center font-black text-slate-950 text-[10px] sm:text-base bg-slate-100 border border-slate-950 align-middle px-0.5">
+                        {rIdx + 1}
+                      </td>
+
+                      {row.map((cell, cIdx) => {
+                        const val = cell.val || '';
+                        const total = calculateTotal(val);
+                        const diffTotal = calculateDiffTotal(val);
+                        const cn = calculateCN(val);
+                        const closeCond = calculateCloseCond(val);
+                        const red = isRedPair(val);
+
+                        const cellMarkings = markingsMap[`${rIdx}_${cIdx}`] || [];
+                        const highlightMarking = cellMarkings.find(m => m.type === 'highlight');
+                        const isFirstSelected = firstSelectedCell?.r === rIdx && firstSelectedCell?.c === cIdx;
+
+                        return (
+                          <td
+                            key={cIdx}
+                            onClick={() => handleCellClickInMarkingMode(rIdx, cIdx)}
+                            style={{
+                              backgroundColor: highlightMarking ? `${highlightMarking.color}35` : 'white',
+                              borderColor: highlightMarking ? highlightMarking.color : '#020617',
+                              borderWidth: highlightMarking ? '3px' : '1px'
+                            }}
+                            className={`relative px-0.5 py-0.5 text-center align-top cursor-pointer hover:opacity-90 ${
+                              isFirstSelected ? 'ring-2 ring-purple-500 animate-pulse' : ''
+                            }`}
+                          >
+                            <div className="flex justify-between items-center w-full px-0.5 leading-none pt-0.5">
+                              <span className="text-emerald-600 font-extrabold text-[9px] sm:text-xs font-mono">
+                                {total !== null ? total : ''}
+                              </span>
+                              <span className="text-red-600 font-extrabold text-[9px] sm:text-xs font-mono">
+                                {diffTotal !== null ? diffTotal : ''}
+                              </span>
+                            </div>
+
+                            <div className="-mt-1 mb-1 flex items-center justify-center">
+                              <span
+                                className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none select-none ${
+                                  red ? 'red-pair-text' : 'normal-jodi-text'
+                                }`}
+                              >
+                                {val}
+                              </span>
+                            </div>
+
+                            <div className="absolute bottom-0.5 left-0 right-0 text-center text-slate-950 font-black text-[9px] sm:text-xs font-mono tracking-tighter leading-none">
+                              {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
+                            </div>
+                          </td>
+                        );
+                      })}
                     </tr>
-                  )}
+                  );
+                })}
 
-                  {visibleRows.map((row, relativeRIdx) => {
-                    const rIdx = startRow + relativeRIdx;
-                    return (
-                      <tr key={rIdx} style={{ height: `${rowHeight}px` }}>
-                        <td className="text-center font-black text-slate-950 text-sm sm:text-lg bg-slate-100 border-2 border-slate-950 align-middle px-1">
-                          {rIdx + 1}
-                        </td>
-
-                        {row.map((cell, cIdx) => {
-                          const val = cell.val || '';
-                          const total = calculateTotal(val);
-                          const diffTotal = calculateDiffTotal(val);
-                          const cn = calculateCN(val);
-                          const closeCond = calculateCloseCond(val);
-                          const red = isRedPair(val);
-
-                          const cellMarkings = markingsMap[`${rIdx}_${cIdx}`] || [];
-                          const highlightMarking = cellMarkings.find(m => m.type === 'highlight');
-                          const isFirstSelected = firstSelectedCell?.r === rIdx && firstSelectedCell?.c === cIdx;
-
-                          return (
-                            <td
-                              key={cIdx}
-                              onClick={() => handleCellClickInMarkingMode(rIdx, cIdx)}
-                              style={{
-                                backgroundColor: highlightMarking ? `${highlightMarking.color}35` : 'white',
-                                borderColor: highlightMarking ? highlightMarking.color : '#020617',
-                                borderWidth: highlightMarking ? '3px' : '2px'
-                              }}
-                              className={`relative px-1 py-0.5 text-center align-top min-w-[56px] sm:min-w-[85px] transition cursor-pointer hover:opacity-90 ${
-                                isFirstSelected ? 'ring-4 ring-purple-500 animate-pulse' : ''
-                              }`}
-                            >
-                              <div className="flex justify-between items-center w-full px-0.5 leading-none pt-0.5">
-                                <span className="text-emerald-600 font-extrabold text-[11px] sm:text-xs font-mono">
-                                  {total !== null ? total : ''}
-                                </span>
-                                <span className="text-red-600 font-extrabold text-[11px] sm:text-xs font-mono">
-                                  {diffTotal !== null ? diffTotal : ''}
-                                </span>
-                              </div>
-
-                              <div className="-mt-2 mb-2 flex items-center justify-center">
-                                <span
-                                  className={`w-full text-center text-2xl sm:text-3xl md:text-4xl font-black font-mono tracking-wider leading-none select-none ${
-                                    red ? 'red-pair-text' : 'normal-jodi-text'
-                                  }`}
-                                >
-                                  {val}
-                                </span>
-                              </div>
-
-                              <div className="absolute bottom-1 left-0 right-0 text-center text-slate-950 font-black text-xs sm:text-sm font-mono tracking-wider leading-none">
-                                {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-
-                  {bottomPadding > 0 && (
-                    <tr>
-                      <td colSpan={colsInput + 1} style={{ height: `${bottomPadding}px`, padding: 0, border: 'none' }} />
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                {bottomPadding > 0 && (
+                  <tr>
+                    <td colSpan={colsInput + 1} style={{ height: `${bottomPadding}px`, padding: 0, border: 'none' }} />
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* AI TRAINING & CONTEXT FIELD FORM */}
-        <div className="bg-slate-900 border border-slate-800 p-4 md:p-6 rounded-3xl space-y-4 shadow-xl">
-          <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-            <Brain className="w-5 h-5 text-pink-400" />
-            <div>
-              <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">2. Teach Pattern to AI Engine</h3>
-              <p className="text-[11px] text-slate-400">Explain your visual markings above to train the AI predictor in real-time</p>
-            </div>
-          </div>
-
+        {/* AI TRAINING INPUT & EXPLANATION FORM */}
+        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl space-y-2">
           {trainingSuccessMsg && (
-            <div className="bg-emerald-950/90 border border-emerald-500/60 p-3.5 rounded-2xl flex items-center justify-between gap-4 animate-fadeIn">
-              <div className="flex items-center gap-3 text-emerald-300 font-bold text-xs">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <span>{trainingSuccessMsg}</span>
-              </div>
-              <button
-                onClick={() => setActiveTab('predictor')}
-                className="flex items-center gap-1 bg-pink-600 hover:bg-pink-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition shrink-0"
-              >
-                <Zap className="w-3.5 h-3.5" /> Predict Now
-              </button>
+            <div className="bg-emerald-950 border border-emerald-500 p-2 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-300">
+              <span>{trainingSuccessMsg}</span>
+              <button onClick={() => setActiveTab('predictor')} className="bg-pink-600 px-2 py-1 rounded text-[10px] text-white">Predict</button>
             </div>
           )}
 
-          <form onSubmit={handleTrainAIWithMarking} className="flex flex-col sm:flex-row gap-3">
+          <form onSubmit={handleTrainAIWithMarking} className="flex gap-2">
             <input
               type="text"
               value={trainingExplanation}
               onChange={(e) => setTrainingExplanation(e.target.value)}
-              placeholder={
-                patternQueryResults && patternQueryResults.totalMatches > 0
-                  ? `Auto-Query: ${patternQueryResults.day1Name} ${patternQueryResults.queryDigit1.toUpperCase()} == ${patternQueryResults.day2Name} ${patternQueryResults.queryDigit2.toUpperCase()} (${patternQueryResults.totalMatches} matches found)`
-                  : "Explain pattern (e.g. Tuesday Open == Wednesday Close match across chart)"
-              }
-              className="flex-1 bg-slate-950 border border-slate-700 text-white placeholder-slate-500 rounded-xl p-3.5 text-xs font-mono outline-none focus:border-pink-500"
+              placeholder="Explain pattern to train AI (e.g. Tuesday Open == Saturday Open)"
+              className="flex-1 bg-slate-950 border border-slate-700 text-white placeholder-slate-500 rounded-lg p-2 text-xs font-mono outline-none"
             />
             <button
               type="submit"
               disabled={aiMarkings.length === 0 && (!patternQueryResults || patternQueryResults.totalMatches === 0)}
-              className="bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 disabled:opacity-50 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 whitespace-nowrap"
+              className="bg-gradient-to-r from-pink-600 to-purple-600 text-white font-extrabold text-xs px-3 py-2 rounded-lg shadow-md shrink-0"
             >
-              <Sparkles className="w-4 h-4 text-white" /> Train AI Engine with this Pattern
+              Train AI
             </button>
           </form>
-
-          {customAIPatterns.length > 0 && (
-            <div className="pt-2">
-              <span className="text-[11px] text-slate-400 font-mono block mb-2 font-bold uppercase">
-                Learned Visual Patterns ({customAIPatterns.length}):
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {customAIPatterns.map((pat) => (
-                  <div
-                    key={pat.id}
-                    className="bg-slate-950 border border-purple-500/40 text-purple-300 text-[11px] font-mono px-3 py-1.5 rounded-full flex items-center gap-2"
-                  >
-                    <Sparkles className="w-3 h-3 text-pink-400" />
-                    <span><strong>{pat.chartName}</strong>: {pat.explanation}</span>
-                    <button
-                      onClick={() => deleteCustomAIPattern(pat.id)}
-                      className="text-slate-500 hover:text-red-400 ml-1 font-bold"
-                      title="Remove pattern (-)"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
