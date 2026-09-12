@@ -1,9 +1,33 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown } from 'lucide-react';
 
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 10;
+
+// Helper to parse pasted numbers or quick fill strings into 2-digit Jodi pairs
+export const parseJodiTokens = (input) => {
+  if (!input) return [];
+  const rawTokens = input.trim().split(/[\s,\t\r\n]+/).filter(Boolean);
+  const finalTokens = [];
+
+  for (const raw of rawTokens) {
+    if (raw === '**' || raw.toUpperCase() === 'XX') {
+      finalTokens.push('**');
+    } else if (/^\d+$/.test(raw)) {
+      // Continuous digits (e.g. 8888 -> ['88', '88'] or 697184 -> ['69', '71', '84'])
+      for (let i = 0; i < raw.length; i += 2) {
+        let pair = raw.slice(i, i + 2);
+        if (pair.length === 1) pair = '0' + pair;
+        finalTokens.push(pair);
+      }
+    } else {
+      finalTokens.push(raw.padStart(2, '0').slice(-2));
+    }
+  }
+
+  return finalTokens;
+};
 
 export const ChartEditor = () => {
   const { charts, activeChartName, setActiveChartName, activeChart, saveChart } = useChart();
@@ -92,17 +116,45 @@ export const ChartEditor = () => {
     }
   };
 
+  // Direct Paste Handler into Cell Inputs (Supports 8888 -> 88, 88 across cells!)
+  const handleCellPaste = (e, startR, startC) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const tokens = parseJodiTokens(pastedText);
+    if (tokens.length === 0) return;
+
+    let tIdx = 0;
+    let curR = startR;
+    let curC = startC;
+
+    const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+
+    while (tIdx < tokens.length && curR < newGrid.length) {
+      newGrid[curR][curC] = { val: tokens[tIdx++] };
+      curC++;
+      if (curC >= colsInput) {
+        curC = 0;
+        curR++;
+      }
+    }
+
+    setGrid(newGrid);
+
+    // Focus cell after last filled cell
+    const nextId = `cell-${curR}-${curC}`;
+    const nextEl = document.getElementById(nextId);
+    if (nextEl) nextEl.focus();
+  };
+
   const handleQuickFill = () => {
-    const tokens = quickInput.trim().split(/[\s,\t]+/).filter(t => t !== '');
+    const tokens = parseJodiTokens(quickInput);
     if (tokens.length === 0) return;
 
     let tIdx = 0;
     const updated = grid.map((row) =>
       row.map((cell) => {
         if (tIdx < tokens.length) {
-          const raw = tokens[tIdx++];
-          const val = raw === '**' || raw === 'XX' ? '**' : raw.padStart(2, '0').slice(-2);
-          return { val };
+          return { val: tokens[tIdx++] };
         }
         return cell;
       })
@@ -233,7 +285,7 @@ export const ChartEditor = () => {
             <div className="flex gap-1.5">
               <input
                 type="text"
-                placeholder="Quick fill: 69 71 84 57 12 ** 74"
+                placeholder="Quick fill: 8888 or 69 71 84 57 12 ** 74"
                 value={quickInput}
                 onChange={(e) => setQuickInput(e.target.value)}
                 className="flex-1 bg-slate-950 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-2.5 py-1.5 text-[11px] font-mono outline-none focus:border-blue-500"
@@ -278,7 +330,6 @@ export const ChartEditor = () => {
           onScroll={handleScroll}
           className="overflow-y-auto overflow-x-auto h-[calc(100vh-210px)] min-h-[500px] border-2 border-slate-950 rounded-xl bg-slate-950"
         >
-          {/* Table Container: Full Width, Auto-Scaled Columns on Mobile */}
           <div className="w-full min-w-full">
             <table className="w-full table-fixed white-chart-table">
               <thead className="sticky top-0 z-20 shadow-md">
@@ -310,7 +361,6 @@ export const ChartEditor = () => {
                   const rIdx = startRow + relativeRIdx;
                   return (
                     <tr key={rIdx} style={{ height: `${rowHeight}px` }}>
-                      {/* S.No column on the left */}
                       <td className="text-center font-black text-slate-950 text-[10px] sm:text-base bg-slate-100 border border-slate-950 align-middle px-0.5">
                         {rIdx + 1}
                       </td>
@@ -325,7 +375,6 @@ export const ChartEditor = () => {
 
                         return (
                           <td key={cIdx} className="bg-white border border-slate-950 relative px-0.5 py-0.5 text-center align-top">
-                            {/* Top Row Indicators: Total Left, Diff Right */}
                             <div className="flex justify-between items-center w-full px-0.5 leading-none pt-0.5">
                               <span className="text-emerald-600 font-extrabold text-[9px] sm:text-xs font-mono">
                                 {total !== null ? total : ''}
@@ -335,7 +384,6 @@ export const ChartEditor = () => {
                               </span>
                             </div>
 
-                            {/* Center Jodi Number: Auto-scaled font size for mobile fit */}
                             <div className="-mt-1 mb-1 flex items-center justify-center">
                               <input
                                 id={`cell-${rIdx}-${cIdx}`}
@@ -343,6 +391,7 @@ export const ChartEditor = () => {
                                 maxLength={2}
                                 value={val}
                                 onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
+                                onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
                                 className={`w-full bg-transparent text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider outline-none p-0 leading-none ${
                                   red ? 'red-pair-text' : 'normal-jodi-text'
                                 }`}
@@ -350,7 +399,6 @@ export const ChartEditor = () => {
                               />
                             </div>
 
-                            {/* Bottom Condition Pair */}
                             <div className="absolute bottom-0.5 left-0 right-0 text-center text-slate-950 font-black text-[9px] sm:text-xs font-mono tracking-tighter leading-none">
                               {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
                             </div>
@@ -371,7 +419,6 @@ export const ChartEditor = () => {
           </div>
         </div>
 
-        {/* BOTTOM PANEL NAVIGATION BAR */}
         <div className="flex flex-row justify-between items-center gap-2 pt-0.5 border-t border-slate-800">
           <span className="text-[10px] sm:text-xs text-slate-400 font-mono">
             Total Rows: <strong className="text-white">{grid.length}</strong> | Active: <strong className="text-emerald-400">#{lastFilledRowIndex + 1}</strong>
