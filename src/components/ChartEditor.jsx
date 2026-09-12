@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown } from 'lucide-react';
+import { Save, FileSpreadsheet, Globe, ArrowDown, Smartphone, Monitor, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 15; // Pre-render 15 buffer rows for ultra-smooth 60fps scrolling
@@ -15,7 +15,7 @@ export const parseJodiTokens = (input) => {
     if (raw === '**' || raw.toUpperCase() === 'XX') {
       finalTokens.push('**');
     } else if (/^\d+$/.test(raw)) {
-      // Continuous digits (e.g. 8888 -> ['88', '88'] or 697184 -> ['69', '71', '84'])
+      // Continuous digits (e.g. 123456 -> ['12', '34', '56'], 8888 -> ['88', '88'])
       for (let i = 0; i < raw.length; i += 2) {
         let pair = raw.slice(i, i + 2);
         if (pair.length === 1) pair = '0' + pair;
@@ -116,7 +116,7 @@ export const ChartEditor = () => {
     }
   };
 
-  // Direct Paste Handler into Cell Inputs (Supports 8888 -> 88, 88 across cells!)
+  // Direct Paste Handler into Cell Inputs (Supports 123456 -> 12, 34, 56 across cells!)
   const handleCellPaste = (e, startR, startC) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
@@ -139,6 +139,7 @@ export const ChartEditor = () => {
     }
 
     setGrid(newGrid);
+    saveChart(nameInput, newGrid.length, colsInput, newGrid);
 
     // Focus cell after last filled cell
     const nextId = `cell-${curR}-${curC}`;
@@ -146,7 +147,7 @@ export const ChartEditor = () => {
     if (nextEl) nextEl.focus();
   };
 
-  // Quick Fill: Clears all previous cells and fills new tokens fresh!
+  // Quick Fill: Wipes ALL previous 30+ numbers completely so ONLY the new numbers (e.g. 10) are filled!
   const handleQuickFill = () => {
     const tokens = parseJodiTokens(quickInput);
     if (tokens.length === 0) return;
@@ -157,11 +158,19 @@ export const ChartEditor = () => {
         if (tIdx < tokens.length) {
           return { val: tokens[tIdx++] };
         }
-        return { val: '' }; // Wipes previous data if fewer numbers are filled!
+        return { val: '' }; // Completely removes all previous old numbers!
       })
     );
     setGrid(updated);
+    saveChart(nameInput, updated.length, colsInput, updated);
     setQuickInput('');
+  };
+
+  // Clear All Chart Numbers
+  const handleClearAllChartData = () => {
+    const cleared = grid.map((row) => row.map(() => ({ val: '' })));
+    setGrid(cleared);
+    saveChart(nameInput, cleared.length, colsInput, cleared);
   };
 
   const handleSave = () => {
@@ -270,6 +279,13 @@ export const ChartEditor = () => {
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                onClick={handleClearAllChartData}
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold bg-red-950/80 border border-red-500/50 text-red-300 hover:bg-red-900 transition"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" /> Clear Chart
+              </button>
+
+              <button
                 onClick={() => setIsCompactMobile(!isCompactMobile)}
                 className={`flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold border transition ${
                   isCompactMobile ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-300'
@@ -286,7 +302,7 @@ export const ChartEditor = () => {
             <div className="flex gap-1.5">
               <input
                 type="text"
-                placeholder="Quick fill: 8888 or 69 71 84 57 12 ** 74"
+                placeholder="Quick fill: 123456 (3 cells: 12, 34, 56) or 8888"
                 value={quickInput}
                 onChange={(e) => setQuickInput(e.target.value)}
                 className="flex-1 bg-slate-950 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-2.5 py-1.5 text-[11px] font-mono outline-none focus:border-blue-500"
