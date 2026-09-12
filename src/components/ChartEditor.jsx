@@ -246,10 +246,10 @@ export const ChartEditor = () => {
                     return (
                       <td key={cIdx} className="border border-slate-700 relative text-center align-top"
                         style={{ backgroundColor: '#f5e6c8' }}>
-                        {/* Top tiny stat numbers */}
+                        {/* Top stat numbers (total left green, diffTotal right red) */}
                         <div className="flex justify-between px-0.5 pt-0.5 leading-none">
-                          <span className="text-emerald-700 font-extrabold text-[9px] font-mono">{total ?? ''}</span>
-                          <span className="text-red-700 font-extrabold text-[9px] font-mono">{diffTotal ?? ''}</span>
+                          <span className="text-emerald-700 font-black font-mono" style={{fontSize:'11px'}}>{total ?? ''}</span>
+                          <span className="text-red-700 font-black font-mono" style={{fontSize:'11px'}}>{diffTotal ?? ''}</span>
                         </div>
                         {/* Main Jodi Number */}
                         <div className="flex items-center justify-center" style={{ marginTop: -2, marginBottom: 2 }}>
@@ -264,8 +264,8 @@ export const ChartEditor = () => {
                             style={{ fontSize: 'clamp(18px, 5vw, 34px)' }}
                           />
                         </div>
-                        {/* Bottom panel pair */}
-                        <div className="absolute bottom-0.5 left-0 right-0 text-center font-black text-[9px] font-mono text-slate-700 leading-none">
+                        {/* Bottom condition pair */}
+                        <div className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-800 leading-none" style={{fontSize:'11px'}}>
                           {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
                         </div>
                       </td>
