@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useChart } from '../context/ChartContext';
 import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw } from 'lucide-react';
 
@@ -9,6 +9,16 @@ export const ChartStore = () => {
   const [newRows, setNewRows] = useState(20);
   const [newCols, setNewCols] = useState(7);
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const safeCharts = charts && typeof charts === 'object' ? charts : {};
+  const chartKeys = Object.keys(safeCharts);
+
+  // Auto-heal: If store is empty, automatically restore default market presets so it's NEVER empty!
+  useEffect(() => {
+    if (chartKeys.length === 0) {
+      resetToDefaultCharts();
+    }
+  }, [chartKeys.length, resetToDefaultCharts]);
 
   const handleOpenIn = (chartName, tab) => {
     if (!chartName) return;
@@ -40,9 +50,6 @@ export const ChartStore = () => {
       setConfirmDelete(name);
     }
   };
-
-  const safeCharts = charts && typeof charts === 'object' ? charts : {};
-  const chartKeys = Object.keys(safeCharts);
 
   return (
     <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins">
@@ -113,15 +120,12 @@ export const ChartStore = () => {
       {chartKeys.length === 0 ? (
         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl text-center py-16 px-4 text-slate-400 shadow-inner">
           <Archive className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-          <p className="font-black text-white text-base">No Saved Charts Found</p>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            Click "New Chart" above or restore default market charts.
-          </p>
+          <p className="font-black text-white text-base">Initializing Default Charts...</p>
           <button
             onClick={resetToDefaultCharts}
             className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md inline-flex items-center gap-1.5"
           >
-            <RefreshCw className="w-4 h-4" /> Restore Default Markets
+            <RefreshCw className="w-4 h-4" /> Load Default Markets
           </button>
         </div>
       ) : (
