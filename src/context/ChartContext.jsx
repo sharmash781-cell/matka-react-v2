@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import srideviPreset from '../data/sridevi_preset.json';
 
 const ChartContext = createContext();
@@ -34,7 +34,7 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-// Default Presets available on demand
+// Optional Presets (only loaded if user manually clicks "Load Presets")
 export const DEFAULT_PRESETS = {
   "SRIDEVI": srideviPreset,
   "TIME BAZAR": {
@@ -44,19 +44,7 @@ export const DEFAULT_PRESETS = {
     data: [
       [{val:"69"}, {val:"71"}, {val:"84"}, {val:"57"}, {val:"12"}, {val:"**"}, {val:"74"}],
       [{val:"23"}, {val:"10"}, {val:"25"}, {val:"97"}, {val:"51"}, {val:"08"}, {val:"59"}],
-      [{val:"80"}, {val:"35"}, {val:"52"}, {val:"17"}, {val:"95"}, {val:"11"}, {val:"33"}],
-      [{val:"14"}, {val:"49"}, {val:"22"}, {val:"54"}, {val:"65"}, {val:"24"}, {val:"10"}],
-      [{val:"05"}, {val:"92"}, {val:"36"}, {val:"78"}, {val:"19"}, {val:"40"}, {val:"88"}],
-      [{val:"61"}, {val:"27"}, {val:"83"}, {val:"04"}, {val:"59"}, {val:"16"}, {val:"72"}],
-      [{val:"38"}, {val:"90"}, {val:"45"}, {val:"11"}, {val:"67"}, {val:"29"}, {val:"03"}],
-      [{val:"75"}, {val:"13"}, {val:"60"}, {val:"24"}, {val:"89"}, {val:"32"}, {val:"51"}],
-      [{val:"42"}, {val:"86"}, {val:"97"}, {val:"30"}, {val:"08"}, {val:"64"}, {val:"15"}],
-      [{val:"19"}, {val:"53"}, {val:"06"}, {val:"71"}, {val:"28"}, {val:"40"}, {val:"92"}],
-      [{val:"84"}, {val:"20"}, {val:"77"}, {val:"15"}, {val:"69"}, {val:"33"}, {val:"08"}],
-      [{val:"56"}, {val:"91"}, {val:"34"}, {val:"82"}, {val:"09"}, {val:"70"}, {val:"25"}],
-      [{val:"27"}, {val:"63"}, {val:"18"}, {val:"50"}, {val:"41"}, {val:"89"}, {val:"36"}],
-      [{val:"90"}, {val:"44"}, {val:"85"}, {val:"26"}, {val:"73"}, {val:"12"}, {val:"07"}],
-      [{val:"81"}, {val:"48"}, {val:"84"}, {val:"08"}, {val:"58"}, {val:"04"}, {val:""}]
+      [{val:"80"}, {val:"35"}, {val:"52"}, {val:"17"}, {val:"95"}, {val:"11"}, {val:"33"}]
     ]
   },
   "KALYAN MARKET": {
@@ -65,15 +53,7 @@ export const DEFAULT_PRESETS = {
     updatedAt: new Date().toISOString(),
     data: [
       [{val:"12"}, {val:"45"}, {val:"78"}, {val:"90"}, {val:"23"}, {val:"56"}, {val:"89"}],
-      [{val:"34"}, {val:"67"}, {val:"01"}, {val:"24"}, {val:"57"}, {val:"80"}, {val:"13"}],
-      [{val:"58"}, {val:"91"}, {val:"25"}, {val:"46"}, {val:"79"}, {val:"02"}, {val:"35"}],
-      [{val:"70"}, {val:"14"}, {val:"36"}, {val:"68"}, {val:"92"}, {val:"15"}, {val:"47"}],
-      [{val:"81"}, {val:"26"}, {val:"49"}, {val:"71"}, {val:"03"}, {val:"37"}, {val:"60"}],
-      [{val:"93"}, {val:"38"}, {val:"50"}, {val:"82"}, {val:"16"}, {val:"40"}, {val:"74"}],
-      [{val:"04"}, {val:"41"}, {val:"62"}, {val:"95"}, {val:"27"}, {val:"51"}, {val:"83"}],
-      [{val:"17"}, {val:"52"}, {val:"73"}, {val:"06"}, {val:"39"}, {val:"64"}, {val:"98"}],
-      [{val:"28"}, {val:"63"}, {val:"85"}, {val:"10"}, {val:"42"}, {val:"75"}, {val:"09"}],
-      [{val:"30"}, {val:"76"}, {val:"94"}, {val:"21"}, {val:"53"}, {val:"86"}, {val:"18"}]
+      [{val:"34"}, {val:"67"}, {val:"01"}, {val:"24"}, {val:"57"}, {val:"80"}, {val:"13"}]
     ]
   }
 };
@@ -88,7 +68,7 @@ const getInitialCharts = () => {
       }
     }
   } catch (e) {}
-  return {}; // START CLEAN AND EMPTY!
+  return {}; // Start with 0 charts!
 };
 
 export const ChartProvider = ({ children }) => {

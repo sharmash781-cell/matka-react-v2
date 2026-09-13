@@ -3,12 +3,13 @@ import { useChart } from '../context/ChartContext';
 import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw } from 'lucide-react';
 
 export const ChartStore = () => {
-  const { charts = {}, setActiveChartName, deleteChart, resetToDefaultCharts, setActiveTab, saveChart } = useChart();
+  const { charts = {}, setActiveChartName, deleteChart, resetToDefaultCharts, clearAllCharts, setActiveTab, saveChart } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRows, setNewRows] = useState(20);
   const [newCols, setNewCols] = useState(7);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const safeCharts = charts && typeof charts === 'object' ? charts : {};
   const chartKeys = Object.keys(safeCharts);
@@ -44,6 +45,15 @@ export const ChartStore = () => {
     }
   };
 
+  const handleClearAllStore = () => {
+    if (confirmClearAll) {
+      clearAllCharts();
+      setConfirmClearAll(false);
+    } else {
+      setConfirmClearAll(true);
+    }
+  };
+
   return (
     <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins">
       
@@ -61,15 +71,30 @@ export const ChartStore = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
           {chartKeys.length > 0 && (
-            <button
-              onClick={resetToDefaultCharts}
-              className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
-              title="Load optional preset market charts"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Load Presets
-            </button>
+            <>
+              <button
+                onClick={handleClearAllStore}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 border ${
+                  confirmClearAll
+                    ? 'bg-red-600 border-red-500 text-white animate-pulse'
+                    : 'bg-red-950/60 hover:bg-red-900 text-red-300 border-red-800'
+                }`}
+                title="Wipe all charts permanently"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {confirmClearAll ? 'Confirm Clear All?' : 'Clear Store'}
+              </button>
+
+              <button
+                onClick={resetToDefaultCharts}
+                className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
+                title="Load optional preset market charts"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Load Presets
+              </button>
+            </>
           )}
           <button
             onClick={() => setShowNewForm(v => !v)}
@@ -111,7 +136,7 @@ export const ChartStore = () => {
         </div>
       )}
 
-      {/* Chart Cards or Empty State */}
+      {/* Chart Cards or Clean Empty State */}
       {chartKeys.length === 0 ? (
         <div className="bg-slate-900/90 border-2 border-dashed border-slate-800 rounded-3xl text-center py-14 px-6 text-slate-400 shadow-2xl space-y-4 max-w-xl mx-auto my-6">
           <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center mx-auto text-amber-400 shadow-inner">
@@ -120,7 +145,7 @@ export const ChartStore = () => {
           <div>
             <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your chart repository is currently empty. You can create a custom chart in the Editor or click below to load default market presets.
+              Your chart repository is clean and empty. You can create your own custom chart in the Editor or click below to load optional preset markets.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
