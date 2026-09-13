@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
 import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw } from 'lucide-react';
 
@@ -10,15 +10,8 @@ export const ChartStore = () => {
   const [newCols, setNewCols] = useState(7);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const safeCharts = charts && typeof charts === 'object' && Object.keys(charts).length > 0 ? charts : {};
+  const safeCharts = charts && typeof charts === 'object' ? charts : {};
   const chartKeys = Object.keys(safeCharts);
-
-  // Auto-heal: If store ever has 0 charts, automatically restore default market presets!
-  useEffect(() => {
-    if (chartKeys.length === 0) {
-      resetToDefaultCharts();
-    }
-  }, [chartKeys.length, resetToDefaultCharts]);
 
   const handleOpenIn = (chartName, tab) => {
     if (!chartName) return;
@@ -69,16 +62,18 @@ export const ChartStore = () => {
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={resetToDefaultCharts}
-            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
-            title="Restore default market charts"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Restore Defaults
-          </button>
+          {chartKeys.length > 0 && (
+            <button
+              onClick={resetToDefaultCharts}
+              className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
+              title="Load optional preset market charts"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Load Presets
+            </button>
+          )}
           <button
             onClick={() => setShowNewForm(v => !v)}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
           >
             <PlusCircle className="w-4 h-4" /> New Chart
           </button>
@@ -116,17 +111,32 @@ export const ChartStore = () => {
         </div>
       )}
 
-      {/* Chart Cards */}
+      {/* Chart Cards or Empty State */}
       {chartKeys.length === 0 ? (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl text-center py-16 px-4 text-slate-400 shadow-inner">
-          <Archive className="w-12 h-12 mx-auto mb-3 text-slate-600 animate-spin" />
-          <p className="font-black text-white text-base">Loading Default Charts...</p>
-          <button
-            onClick={resetToDefaultCharts}
-            className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md inline-flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-4 h-4" /> Load Default Markets
-          </button>
+        <div className="bg-slate-900/90 border-2 border-dashed border-slate-800 rounded-3xl text-center py-14 px-6 text-slate-400 shadow-2xl space-y-4 max-w-xl mx-auto my-6">
+          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+            <Archive className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+              Your chart repository is currently empty. You can create a custom chart in the Editor or click below to load default market presets.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
+            <button
+              onClick={() => setActiveTab('editor')}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
+            >
+              <PlusCircle className="w-4 h-4" /> Create Custom Chart in Editor
+            </button>
+            <button
+              onClick={resetToDefaultCharts}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs shadow transition-all active:scale-95 inline-flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-400" /> Load Optional Presets
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-10">

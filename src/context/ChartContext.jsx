@@ -34,7 +34,7 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-// Default Initial Market Presets
+// Default Presets available on demand
 export const DEFAULT_PRESETS = {
   "SRIDEVI": srideviPreset,
   "TIME BAZAR": {
@@ -81,32 +81,22 @@ export const DEFAULT_PRESETS = {
 const getInitialCharts = () => {
   try {
     const saved = localStorage.getItem('chartHistory');
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+      if (parsed && typeof parsed === 'object') {
         return parsed;
       }
     }
   } catch (e) {}
-  try {
-    localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
-  } catch (e) {}
-  return DEFAULT_PRESETS;
+  return {}; // START CLEAN AND EMPTY!
 };
 
 export const ChartProvider = ({ children }) => {
   const [charts, setCharts] = useState(getInitialCharts);
 
-  const activeCharts = useMemo(() => {
-    if (charts && typeof charts === 'object' && Object.keys(charts).length > 0) {
-      return charts;
-    }
-    return DEFAULT_PRESETS;
-  }, [charts]);
-
   const [activeChartName, setActiveChartName] = useState(() => {
-    const keys = Object.keys(activeCharts);
-    return keys.length > 0 ? keys[0] : "SRIDEVI";
+    const keys = Object.keys(charts);
+    return keys.length > 0 ? keys[0] : "MY NEW CHART";
   });
 
   const [activeTab, setActiveTab] = useState('editor');
@@ -127,7 +117,7 @@ export const ChartProvider = ({ children }) => {
         recencyDecay: 0.97,
         epochs: 50,
         loss: 0.042,
-        trainedOn: "SRIDEVI",
+        trainedOn: "DEFAULT",
         updatedAt: new Date().toISOString()
       }
     };
@@ -144,12 +134,10 @@ export const ChartProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    if (activeCharts && Object.keys(activeCharts).length > 0) {
-      try {
-        localStorage.setItem('chartHistory', JSON.stringify(activeCharts));
-      } catch (e) {}
-    }
-  }, [activeCharts]);
+    try {
+      localStorage.setItem('chartHistory', JSON.stringify(charts));
+    } catch (e) {}
+  }, [charts]);
 
   useEffect(() => {
     try {
@@ -166,9 +154,8 @@ export const ChartProvider = ({ children }) => {
   const saveChart = useCallback((name, rows, cols, data) => {
     const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
     setCharts((prevCharts) => {
-      const base = prevCharts && Object.keys(prevCharts).length > 0 ? prevCharts : DEFAULT_PRESETS;
       const updated = {
-        ...base,
+        ...prevCharts,
         [cleanName]: {
           rows: parseInt(rows) || (data ? data.length : 20),
           cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
@@ -189,11 +176,16 @@ export const ChartProvider = ({ children }) => {
     setCharts((prevCharts) => {
       const updated = { ...prevCharts };
       delete updated[cleanName];
-      const finalCharts = Object.keys(updated).length > 0 ? updated : DEFAULT_PRESETS;
       try {
-        localStorage.setItem('chartHistory', JSON.stringify(finalCharts));
+        localStorage.setItem('chartHistory', JSON.stringify(updated));
       } catch (e) {}
-      return finalCharts;
+      const keys = Object.keys(updated);
+      if (keys.length > 0) {
+        setActiveChartName(keys[0]);
+      } else {
+        setActiveChartName("MY NEW CHART");
+      }
+      return updated;
     });
   }, []);
 
@@ -202,6 +194,14 @@ export const ChartProvider = ({ children }) => {
     setActiveChartName("SRIDEVI");
     try {
       localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
+    } catch (e) {}
+  }, []);
+
+  const clearAllCharts = useCallback(() => {
+    setCharts({});
+    setActiveChartName("MY NEW CHART");
+    try {
+      localStorage.setItem('chartHistory', JSON.stringify({}));
     } catch (e) {}
   }, []);
 
@@ -262,7 +262,7 @@ export const ChartProvider = ({ children }) => {
   }, [saveChart]);
 
   const trainAIModel = useCallback((chartName, epochs = 100, learningRate = 0.05) => {
-    const chart = activeCharts[chartName];
+    const chart = charts[chartName];
     if (!chart) return null;
 
     let totalCells = 0;
@@ -303,19 +303,24 @@ export const ChartProvider = ({ children }) => {
     setLearnedModels(prev => ({ ...prev, [modelName]: newModel }));
     setActiveModelName(modelName);
     return newModel;
-  }, [activeCharts, learnedModels]);
+  }, [charts, learnedModels]);
 
-  const currentChart = activeCharts[activeChartName] || activeCharts[Object.keys(activeCharts)[0]] || DEFAULT_PRESETS["SRIDEVI"];
+  const currentChart = charts[activeChartName] || {
+    rows: 20,
+    cols: 7,
+    data: Array.from({ length: 20 }, () => Array.from({ length: 7 }, () => ({ val: '' })))
+  };
 
   return (
     <ChartContext.Provider value={{
-      charts: activeCharts,
-      activeChartName: activeChartName in activeCharts ? activeChartName : Object.keys(activeCharts)[0],
+      charts: charts || {},
+      activeChartName: activeChartName || "MY NEW CHART",
       setActiveChartName,
       activeChart: currentChart,
       saveChart,
       deleteChart,
       resetToDefaultCharts,
+      clearAllCharts,
       importRawData,
       activeTab,
       setActiveTab,
