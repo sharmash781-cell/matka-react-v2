@@ -35,12 +35,12 @@ export const ChartEditor = () => {
   const [quickInput, setQuickInput] = useState('');
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(true);
-  const [isCompact, setIsCompact] = useState(true); // Compact mode to fit 15+ rows on mobile!
+  const [isCompact, setIsCompact] = useState(true);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  // Compact row height (52px) allows 15+ rows on mobile screen at once (DPBoss match)!
+  // Compact row height (54px) allows 15+ rows on mobile screen (Image 1 match)!
   const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
 
   useEffect(() => {
@@ -180,16 +180,16 @@ export const ChartEditor = () => {
   return (
     <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
 
-      {/* CONTAINER FOR PC VIEW: CENTERED MAX-W-5XL WITH OUTSIDE DPBOSS SPACE */}
-      <div className="max-w-5xl mx-auto">
+      {/* CONTAINER FOR PC VIEW: CENTERED MAX-W-4XL WITH OUTSIDE CREAM SPACE (IMAGE 2 MATCH) */}
+      <div className="max-w-4xl mx-auto px-1 sm:px-3">
 
         {/* 1. TOP HEADER PANEL */}
-        <div className="mx-1 sm:mx-2 my-2.5 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
+        <div className="my-2 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             
             {/* Dynamic Chart Name & Last Jodi */}
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg sm:text-2xl font-black text-amber-400 uppercase tracking-wide">
                   {activeChartName}
                 </h1>
@@ -205,7 +205,7 @@ export const ChartEditor = () => {
               </div>
             </div>
 
-            {/* Top Action Buttons (Responsive & Clean) */}
+            {/* Top Action Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={scrollToLastRow}
@@ -254,9 +254,9 @@ export const ChartEditor = () => {
           )}
         </div>
 
-        {/* 2. EXPANDABLE EDIT CONTROLS PANEL (100% RESPONSIVE - FIXES MOBILE OVERFLOW IMAGE 3) */}
+        {/* 2. EXPANDABLE EDIT CONTROLS PANEL (RESPONSIVE STACKING FOR MOBILE IMAGE 3 FIX) */}
         {showControls && (
-          <div className="mx-1 sm:mx-2 mb-3 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3 shadow-2xl space-y-3 animate-fadeIn max-w-full overflow-hidden">
+          <div className="mb-3 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3 shadow-2xl space-y-3 animate-fadeIn w-full overflow-hidden">
             
             {/* Quick Action: Start New Blank Chart */}
             <div className="flex items-center justify-between flex-wrap gap-2 bg-slate-900/90 border border-slate-700 rounded-xl p-2.5">
@@ -265,12 +265,12 @@ export const ChartEditor = () => {
                 onClick={handleCreateNewBlank}
                 className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow-md transition-all active:scale-95"
               >
-                <PlusCircle className="w-4 h-4" /> Create Blank Chart Grid
+                <PlusCircle className="w-4 h-4" /> Create Blank Grid
               </button>
             </div>
 
-            {/* Chart Name Input & Save to Store (RESPONSIVE STACKING FOR MOBILE) */}
-            <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2 max-w-full">
+            {/* Chart Name Input & Save to Store (RESPONSIVE WRAPPING FOR MOBILE IMAGE 3 FIX) */}
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2 w-full">
               <div className="flex items-center justify-between flex-wrap gap-1">
                 <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
                   ✏️ Create / Edit Chart Name:
@@ -280,17 +280,17 @@ export const ChartEditor = () => {
                 </span>
               </div>
               
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-full">
+              <div className="flex flex-wrap items-center gap-2 w-full">
                 <input
                   type="text"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value.toUpperCase())}
                   placeholder="ENTER CHART NAME (e.g. KALYAN NIGHT)"
-                  className="flex-1 bg-slate-950 border border-slate-600 text-amber-300 font-black rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400 uppercase tracking-wide min-w-0"
+                  className="flex-1 min-w-[180px] w-full sm:w-auto bg-slate-950 border border-slate-600 text-amber-300 font-black rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400 uppercase tracking-wide"
                 />
                 <button
                   onClick={handleSave}
-                  className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md shrink-0 active:scale-95"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md shrink-0 active:scale-95"
                 >
                   <Save className="w-4 h-4" /> Save to Store
                 </button>
@@ -298,8 +298,8 @@ export const ChartEditor = () => {
             </div>
 
             {/* Load Saved Chart Dropdown & Clear */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-full">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <div className="flex items-center gap-2 flex-1 min-w-[180px]">
                 <label className="text-[11px] text-slate-400 font-bold whitespace-nowrap">LOAD SAVED:</label>
                 <select
                   value={activeChartName}
@@ -307,7 +307,7 @@ export const ChartEditor = () => {
                     setActiveChartName(e.target.value);
                     setNameInput(e.target.value);
                   }}
-                  className="bg-slate-900 text-white text-xs font-extrabold rounded-lg px-3 py-2 outline-none border border-slate-700 cursor-pointer w-full min-w-0"
+                  className="bg-slate-900 text-white text-xs font-extrabold rounded-lg px-3 py-2 outline-none border border-slate-700 cursor-pointer w-full"
                 >
                   {Object.keys(charts).map((name) => (
                     <option key={name} value={name}>{name}</option>
@@ -316,14 +316,14 @@ export const ChartEditor = () => {
               </div>
               <button
                 onClick={handleClearAll}
-                className="flex items-center justify-center gap-1 bg-red-950 border border-red-700 text-red-300 hover:bg-red-900 px-3 py-2 rounded-lg text-xs font-bold shrink-0"
+                className="w-full sm:w-auto flex items-center justify-center gap-1 bg-red-950 border border-red-700 text-red-300 hover:bg-red-900 px-3 py-2 rounded-lg text-xs font-bold shrink-0"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Clear Cells
               </button>
             </div>
 
             {/* Quick Fill Input */}
-            <div className="flex gap-1.5 max-w-full">
+            <div className="flex gap-1.5 w-full">
               <input
                 type="text"
                 placeholder="Quick fill: 123456 → 12, 34, 56 | 8888 → 88, 88"
@@ -369,8 +369,8 @@ export const ChartEditor = () => {
           </div>
         )}
 
-        {/* 3. CHART TABLE GRID — EDGE-TO-EDGE WITH COMPACT 15+ ROW HEIGHT (IMAGE 1 MATCH) */}
-        <div ref={containerRef} className="w-full overflow-x-auto shadow-xl border-x border-slate-300">
+        {/* 3. CHART TABLE GRID — CENTERED MAX-W-4XL FOR PC (IMAGE 2 MATCH) & COMPACT 15+ ROWS (IMAGE 1 MATCH) */}
+        <div ref={containerRef} className="w-full overflow-x-auto shadow-2xl rounded-lg border border-slate-400 bg-[#fef3c7]">
 
           {/* Dynamic Chart Title Banner */}
           <div className="bg-[#1e3a8a] text-white text-center font-black py-2 px-2 text-xs sm:text-sm uppercase tracking-wider border-b-2 border-blue-950 shadow-inner">
