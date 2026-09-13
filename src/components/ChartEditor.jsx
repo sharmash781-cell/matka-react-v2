@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { ArrowDown, Trash2, Settings2, Save, RefreshCw, Layers } from 'lucide-react';
+import { ArrowDown, Trash2, Settings2, Save } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 25;
@@ -38,7 +38,7 @@ export const ChartEditor = () => {
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  // Dynamic row height to fit stat numbers cleanly
+  // Height per row based on stats toggle
   const rowHeight = showStats ? 88 : 62;
 
   useEffect(() => {
@@ -123,11 +123,26 @@ export const ChartEditor = () => {
     if (cleanName !== activeChartName) setActiveChartName(cleanName);
   };
 
+  // Find index of last row with data
   const lastFilledRowIndex = useMemo(() => {
     for (let r = grid.length - 1; r >= 0; r--) {
       if (grid[r]?.some(cell => cell.val && cell.val !== '')) return r;
     }
     return Math.max(0, grid.length - 1);
+  }, [grid]);
+
+  // Find exact last filled Jodi number in grid
+  const lastFilledJodi = useMemo(() => {
+    for (let r = grid.length - 1; r >= 0; r--) {
+      if (grid[r]) {
+        for (let c = grid[r].length - 1; c >= 0; c--) {
+          if (grid[r][c]?.val && grid[r][c].val !== '') {
+            return { val: grid[r][c].val, row: r + 1, col: c + 1 };
+          }
+        }
+      }
+    }
+    return null;
   }, [grid]);
 
   const scrollToLastRow = () => {
@@ -153,61 +168,54 @@ export const ChartEditor = () => {
   return (
     <div className="min-h-screen bg-[#f5d5a7] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
 
-      {/* 1. TOP HEADER BANNER (DPBOSS STYLE) - PLACED OUTSIDE / ABOVE TABLE */}
-      <header className="bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 text-white text-center py-2.5 px-3 shadow-md border-b-2 border-rose-800">
-        <h1 className="text-base sm:text-xl font-black tracking-wider uppercase font-mono drop-shadow">
-          DpBOSS.TAX
-        </h1>
-        <div className="text-[11px] font-extrabold bg-pink-900/60 py-0.5 px-2 rounded mt-1 inline-block tracking-widest uppercase">
-          {activeChartName} JODI CHART
-        </div>
-      </header>
+      {/* 1. CLEAN DYNAMIC TOP HEADER: DYNAMIC CHART NAME + LAST JODI + BUTTONS (OUTSIDE TABLE ABOVE) */}
+      <div className="mx-2 my-3 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3.5 shadow-xl space-y-2.5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          {/* Dynamic Chart Name & Last Jodi Display */}
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-amber-400 uppercase tracking-wide">
+                {activeChartName}
+              </h1>
+              {lastFilledJodi && (
+                <div className="flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-2.5 py-0.5 rounded-lg text-xs font-mono font-black">
+                  <span>Last Jodi:</span>
+                  <span className="text-amber-400 font-extrabold text-sm">{lastFilledJodi.val}</span>
+                </div>
+              )}
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+              {grid.length} Rows × {colsInput} Cols | Row #{lastFilledRowIndex + 1}
+            </div>
+          </div>
 
-      {/* 2. SUB-HEADER RECORD DETAILS (DPBOSS STYLE YELLOW BOX) */}
-      <div className="mx-2 my-2 bg-[#fef9c3] border border-amber-300 rounded-lg p-2.5 text-center text-xs font-bold text-amber-950 shadow-sm leading-relaxed">
-        <span className="font-black block uppercase text-amber-900 text-xs">
-          {activeChartName} JODI RESULT CHART RECORDS
-        </span>
-        <p className="text-[10px] text-amber-800 font-medium mt-0.5">
-          Dpboss {activeChartName} jodi chart, {activeChartName} jodi record, matka jodi chart, {grid.length} records available
-        </p>
-      </div>
+          {/* Action Buttons - Placed UP SIDE of table so zero obstruction! */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={scrollToLastRow}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+            >
+              <ArrowDown className="w-4 h-4" /> Go to Bottom (#{lastFilledRowIndex + 1})
+            </button>
 
-      {/* 3. RESULT DISPLAY & ACTION CONTROL BUTTONS (ALL OUTSIDE & ABOVE TABLE) */}
-      <div className="mx-2 mb-3 bg-[#fce7f3]/80 border border-pink-300 rounded-xl p-3 text-center space-y-2 shadow-sm">
-        <h2 className="text-lg font-black text-slate-900 uppercase tracking-wide">
-          {activeChartName}
-        </h2>
-        <div className="text-sm font-black text-purple-900 font-mono tracking-widest bg-purple-100/80 py-1 px-3 rounded-full inline-block border border-purple-200">
-          234-94-257
-        </div>
-
-        {/* Action Controls - Placed UP SIDE of table so zero obstruction! */}
-        <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
-          <button
-            onClick={scrollToLastRow}
-            className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-black shadow transition-all active:scale-95"
-          >
-            <ArrowDown className="w-4 h-4" /> Go to Bottom (#{lastFilledRowIndex + 1})
-          </button>
-
-          <button
-            onClick={() => setShowControls(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-black shadow transition-all active:scale-95 border ${
-              showControls ? 'bg-rose-700 border-rose-800 text-white' : 'bg-slate-900 border-slate-800 text-amber-300'
-            }`}
-          >
-            <Settings2 className="w-4 h-4" />
-            {showControls ? 'Close Controls' : 'Edit Controls'}
-          </button>
+            <button
+              onClick={() => setShowControls(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
+                showControls ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-700 text-amber-300'
+              }`}
+            >
+              <Settings2 className="w-4 h-4" />
+              {showControls ? 'Close Controls' : 'Edit Controls'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 4. EXPANDABLE EDIT CONTROLS PANEL (SITS INLINE ABOVE TABLE, NEVER OVERLAPS) */}
+      {/* 2. EXPANDABLE EDIT CONTROLS PANEL (SITS INLINE ABOVE TABLE) */}
       {showControls && (
         <div className="mx-2 mb-4 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3.5 shadow-2xl space-y-3 animate-fadeIn">
           
-          {/* Section A: Chart Name Input & Save */}
+          {/* Chart Name Input & Save */}
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
@@ -234,7 +242,7 @@ export const ChartEditor = () => {
             </div>
           </div>
 
-          {/* Section B: Load Chart & Clear */}
+          {/* Load Chart & Clear */}
           <div className="flex items-center gap-2 flex-wrap">
             <label className="text-[11px] text-slate-400 font-bold whitespace-nowrap">LOAD SAVED:</label>
             <select
@@ -257,7 +265,7 @@ export const ChartEditor = () => {
             </button>
           </div>
 
-          {/* Section C: Quick Fill Input */}
+          {/* Quick Fill Input */}
           <div className="flex gap-1.5">
             <input
               type="text"
@@ -269,7 +277,7 @@ export const ChartEditor = () => {
             <button onClick={handleQuickFill} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold">Fill</button>
           </div>
 
-          {/* Section D: Stats Toggle & Grid Sizing */}
+          {/* Stats Toggle & Grid Sizing */}
           <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-800">
             <button
               onClick={() => setShowStats(v => !v)}
@@ -288,20 +296,15 @@ export const ChartEditor = () => {
               className="w-14 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
             <button onClick={handleApplyResize} className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-extrabold">Resize</button>
           </div>
-
-          <div className="text-[10px] text-slate-400 font-mono flex justify-between pt-1">
-            <span>Grid: {grid.length} Rows × {colsInput} Cols</span>
-            <span>Active Row #{lastFilledRowIndex + 1}</span>
-          </div>
         </div>
       )}
 
-      {/* 5. DPBOSS CHART TABLE — CLEAN, FULL WIDTH, STICKY DAYS HEADER */}
+      {/* 3. CHART TABLE — DYNAMIC TITLE BANNER + STICKY DAY HEADERS */}
       <div ref={containerRef} className="w-full overflow-x-auto shadow-xl">
 
-        {/* DPBOSS TABLE TITLE BAR */}
+        {/* Dynamic Chart Title Banner */}
         <div className="bg-[#1e3a8a] text-white text-center font-black py-2.5 px-2 text-xs sm:text-sm uppercase tracking-wider border-b-2 border-blue-950 shadow-inner">
-          {activeChartName} MATKA JODI RECORD 2018 - 2026
+          {activeChartName} JODI CHART RECORD
         </div>
 
         <table className="w-full table-fixed white-chart-table border-collapse">
@@ -361,7 +364,7 @@ export const ChartEditor = () => {
                           </div>
                         )}
 
-                        {/* MIDDLE: Big Jodi Number — DPBoss Bold Styling */}
+                        {/* MIDDLE: Big Jodi Number */}
                         <div className={`flex items-center justify-center ${showStats ? '' : 'h-full'}`}>
                           <input
                             id={`cell-${rIdx}-${cIdx}`}
