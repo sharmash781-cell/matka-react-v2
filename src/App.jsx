@@ -11,13 +11,13 @@ const BottomNav = () => {
   const navItems = [
     { id: 'editor', label: 'Chart', icon: Table },
     { id: 'store', label: 'Store', icon: Archive },
-    { id: 'ai-trainer', label: 'AI', icon: Brain },
-    { id: 'predictor', label: 'Predict', icon: Zap },
+    { id: 'ai', label: 'AI', icon: Brain },
+    { id: 'predict', label: 'Predict', icon: Zap },
   ];
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-slate-950/95 border-t border-slate-800 backdrop-blur-md py-2 px-2 shadow-2xl">
       {navItems.map(({ id, label, icon: Icon }) => {
-        const active = activeTab === id;
+        const active = activeTab === id || (id === 'ai' && activeTab === 'ai-trainer') || (id === 'predict' && activeTab === 'predictor');
         return (
           <button
             key={id}
@@ -40,17 +40,18 @@ const BottomNav = () => {
 
 const MainContent = () => {
   const { activeTab } = useChart();
+
   return (
-    <main className="pb-16">
-      {activeTab === 'editor' && <ChartEditor />}
+    <main className="pb-16 min-h-[85vh]">
+      {(activeTab === 'editor' || !activeTab) && <ChartEditor />}
       {activeTab === 'store' && (
-        <div className="p-4"><ChartStore /></div>
+        <div className="p-2 sm:p-4"><ChartStore /></div>
       )}
-      {activeTab === 'ai-trainer' && (
-        <div className="p-4"><AILearningEngine /></div>
+      {(activeTab === 'ai' || activeTab === 'ai-trainer') && (
+        <div className="p-2 sm:p-4"><AILearningEngine /></div>
       )}
-      {activeTab === 'predictor' && (
-        <div className="p-4"><PredictorEngine /></div>
+      {(activeTab === 'predict' || activeTab === 'predictor') && (
+        <div className="p-2 sm:p-4"><PredictorEngine /></div>
       )}
     </main>
   );

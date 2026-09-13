@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle } from 'lucide-react';
+import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
-const OVERSCAN = 25;
+const OVERSCAN = 30;
 
 export const parseJodiTokens = (input) => {
   if (!input) return [];
@@ -35,11 +35,13 @@ export const ChartEditor = () => {
   const [quickInput, setQuickInput] = useState('');
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [isCompact, setIsCompact] = useState(true); // Compact mode to fit 15+ rows on mobile!
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  const rowHeight = showStats ? 88 : 62;
+  // Compact row height (52px) allows 15+ rows on mobile screen at once (DPBoss match)!
+  const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
 
   useEffect(() => {
     if (activeChart) {
@@ -69,7 +71,7 @@ export const ChartEditor = () => {
   };
 
   const handleCreateNewBlank = () => {
-    const newName = `NEW CHART ${Object.keys(charts).length + 1}`;
+    const newName = `MY CHART ${Object.keys(charts).length + 1}`;
     setNameInput(newName);
     setRowsInput(20);
     setColsInput(7);
@@ -176,280 +178,303 @@ export const ChartEditor = () => {
   const visibleRows = useMemo(() => grid.slice(startRow, endRow), [grid, startRow, endRow]);
 
   return (
-    <div className="min-h-screen bg-[#f5d5a7] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
+    <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
 
-      {/* 1. TOP HEADER: DYNAMIC CHART NAME + LAST JODI + ACTION BUTTONS (INC. STORE BUTTON BESIDE EDIT CONTROLS) */}
-      <div className="mx-2 my-3 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3.5 shadow-xl space-y-2.5">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          
-          {/* Dynamic Chart Name & Last Jodi */}
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-amber-400 uppercase tracking-wide">
-                {activeChartName}
-              </h1>
-              {lastFilledJodi && (
-                <div className="flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-2.5 py-0.5 rounded-lg text-xs font-mono font-black">
-                  <span>Last Jodi:</span>
-                  <span className="text-amber-400 font-extrabold text-sm">{lastFilledJodi.val}</span>
-                </div>
-              )}
+      {/* CONTAINER FOR PC VIEW: CENTERED MAX-W-5XL WITH OUTSIDE DPBOSS SPACE */}
+      <div className="max-w-5xl mx-auto">
+
+        {/* 1. TOP HEADER PANEL */}
+        <div className="mx-1 sm:mx-2 my-2.5 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            
+            {/* Dynamic Chart Name & Last Jodi */}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-2xl font-black text-amber-400 uppercase tracking-wide">
+                  {activeChartName}
+                </h1>
+                {lastFilledJodi && (
+                  <div className="flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 px-2 py-0.5 rounded-lg text-xs font-mono font-black">
+                    <span>Last Jodi:</span>
+                    <span className="text-amber-400 font-extrabold text-sm">{lastFilledJodi.val}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                {grid.length} Rows × {colsInput} Cols | Row #{lastFilledRowIndex + 1}
+              </div>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-              {grid.length} Rows × {colsInput} Cols | Active Row #{lastFilledRowIndex + 1}
-            </div>
-          </div>
 
-          {/* Action Buttons: Go to Bottom, Edit Controls, AND Store Button beside it! */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={scrollToLastRow}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95"
-            >
-              <ArrowDown className="w-4 h-4" /> Go to Bottom
-            </button>
-
-            <button
-              onClick={() => setShowControls(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
-                showControls ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-700 text-amber-300'
-              }`}
-            >
-              <Settings2 className="w-4 h-4" />
-              {showControls ? 'Close Controls' : 'Edit Controls'}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('store')}
-              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95 border border-purple-400"
-            >
-              <Store className="w-4 h-4" />
-              <span>Store</span>
-              <span className="bg-purple-950 text-purple-200 px-1.5 py-0.2 rounded-full text-[10px]">
-                {Object.keys(charts).length}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Save notification feedback message */}
-        {saveSuccessMsg && (
-          <div className="flex items-center justify-between bg-emerald-950 border border-emerald-500 text-emerald-200 text-xs px-3 py-2 rounded-xl font-bold animate-fadeIn">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-              {saveSuccessMsg}
-            </span>
-            <button
-              onClick={() => setActiveTab('store')}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow"
-            >
-              View in Store →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 2. EXPANDABLE EDIT CONTROLS PANEL */}
-      {showControls && (
-        <div className="mx-2 mb-4 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3.5 shadow-2xl space-y-3 animate-fadeIn">
-          
-          {/* Quick Action: Start New Blank Chart */}
-          <div className="flex items-center justify-between bg-slate-900/90 border border-slate-700 rounded-xl p-2.5">
-            <span className="text-xs font-black text-slate-300">Start Blank Chart:</span>
-            <button
-              onClick={handleCreateNewBlank}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow-md transition-all active:scale-95"
-            >
-              <PlusCircle className="w-4 h-4" /> Create Blank Chart Grid
-            </button>
-          </div>
-
-          {/* Chart Name Input & Save to Store */}
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                ✏️ Create / Edit Chart Name:
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                Current: {activeChartName}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value.toUpperCase())}
-                placeholder="ENTER CHART NAME (e.g. KALYAN NIGHT)"
-                className="flex-1 bg-slate-950 border border-slate-600 text-amber-300 font-black rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400 uppercase tracking-wide"
-              />
+            {/* Top Action Buttons (Responsive & Clean) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button
-                onClick={handleSave}
-                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md"
+                onClick={scrollToLastRow}
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
               >
-                <Save className="w-4 h-4" /> Save to Store
+                <ArrowDown className="w-3.5 h-3.5" /> Go to Bottom
+              </button>
+
+              <button
+                onClick={() => setShowControls(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
+                  showControls ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-700 text-amber-300'
+                }`}
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                {showControls ? 'Close Controls' : 'Edit Controls'}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('store')}
+                className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border border-purple-400"
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Store</span>
+                <span className="bg-purple-950 text-purple-200 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {Object.keys(charts).length}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Load Chart & Clear */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-[11px] text-slate-400 font-bold whitespace-nowrap">LOAD SAVED:</label>
-            <select
-              value={activeChartName}
-              onChange={(e) => {
-                setActiveChartName(e.target.value);
-                setNameInput(e.target.value);
-              }}
-              className="bg-slate-900 text-white text-xs font-extrabold rounded-lg px-3 py-2 outline-none border border-slate-700 cursor-pointer flex-1"
-            >
-              {Object.keys(charts).map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            <button
-              onClick={handleClearAll}
-              className="flex items-center gap-1 bg-red-950 border border-red-700 text-red-300 hover:bg-red-900 px-3 py-2 rounded-lg text-xs font-bold"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Clear Cells
-            </button>
-          </div>
-
-          {/* Quick Fill Input */}
-          <div className="flex gap-1.5">
-            <input
-              type="text"
-              placeholder="Quick fill: 123456 → 12, 34, 56 | 8888 → 88, 88"
-              value={quickInput}
-              onChange={(e) => setQuickInput(e.target.value)}
-              className="flex-1 bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-blue-500"
-            />
-            <button onClick={handleQuickFill} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold">Fill</button>
-          </div>
-
-          {/* Stats Toggle & Grid Sizing */}
-          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-800">
-            <button
-              onClick={() => setShowStats(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                showStats
-                  ? 'bg-indigo-900 border-indigo-500 text-indigo-200 shadow-md'
-                  : 'bg-slate-900 border-slate-700 text-slate-400'
-              }`}
-            >
-              🔢 {showStats ? 'Stats: ON' : 'Stats: OFF'}
-            </button>
-            <span className="text-[11px] text-slate-400 font-bold ml-auto">ROWS × COLS:</span>
-            <input type="number" value={rowsInput} onChange={(e) => setRowsInput(e.target.value)}
-              className="w-16 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
-            <input type="number" value={colsInput} onChange={(e) => setColsInput(e.target.value)}
-              className="w-14 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
-            <button onClick={handleApplyResize} className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-extrabold">Resize</button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. CHART TABLE GRID */}
-      <div ref={containerRef} className="w-full overflow-x-auto shadow-xl">
-
-        {/* Dynamic Chart Title Banner */}
-        <div className="bg-[#1e3a8a] text-white text-center font-black py-2.5 px-2 text-xs sm:text-sm uppercase tracking-wider border-b-2 border-blue-950 shadow-inner">
-          {activeChartName} JODI CHART RECORD
+          {/* Feedback Toast */}
+          {saveSuccessMsg && (
+            <div className="flex items-center justify-between bg-emerald-950 border border-emerald-500 text-emerald-200 text-xs px-3 py-2 rounded-xl font-bold animate-fadeIn">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                {saveSuccessMsg}
+              </span>
+              <button
+                onClick={() => setActiveTab('store')}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow"
+              >
+                View Store →
+              </button>
+            </div>
+          )}
         </div>
 
-        <table className="w-full table-fixed white-chart-table border-collapse">
-          {/* STICKY GOLDEN DAY HEADERS */}
-          <thead className="sticky top-0 z-30 shadow-md">
-            <tr className="bg-[#fbbf24] text-slate-950 border-b-2 border-slate-900">
-              <th className="w-8 sm:w-10 text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[11px] font-black py-2">#</th>
-              {Array.from({ length: colsInput }).map((_, c) => (
-                <th key={c} className="text-center border border-slate-900 text-slate-950 font-black text-xs sm:text-base py-2">
-                  {COL_HEADERS[c] || `C${c + 1}`}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {topPadding > 0 && (
-              <tr><td colSpan={colsInput + 1} style={{ height: topPadding, padding: 0, border: 'none' }} /></tr>
-            )}
+        {/* 2. EXPANDABLE EDIT CONTROLS PANEL (100% RESPONSIVE - FIXES MOBILE OVERFLOW IMAGE 3) */}
+        {showControls && (
+          <div className="mx-1 sm:mx-2 mb-3 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3 shadow-2xl space-y-3 animate-fadeIn max-w-full overflow-hidden">
+            
+            {/* Quick Action: Start New Blank Chart */}
+            <div className="flex items-center justify-between flex-wrap gap-2 bg-slate-900/90 border border-slate-700 rounded-xl p-2.5">
+              <span className="text-xs font-black text-slate-300">Create New Grid:</span>
+              <button
+                onClick={handleCreateNewBlank}
+                className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow-md transition-all active:scale-95"
+              >
+                <PlusCircle className="w-4 h-4" /> Create Blank Chart Grid
+              </button>
+            </div>
 
-            {visibleRows.map((row, relIdx) => {
-              const rIdx = startRow + relIdx;
-              return (
-                <tr key={rIdx} style={{ height: rowHeight }}>
-                  {/* Row Number Column */}
-                  <td className="text-center font-black text-slate-950 text-[11px] bg-[#fcd34d] border border-slate-800 align-middle">
-                    {rIdx + 1}
-                  </td>
-                  {row.map((cell, cIdx) => {
-                    const val = cell.val || '';
-                    const total = calculateTotal(val);
-                    const diffTotal = calculateDiffTotal(val);
-                    const cn = calculateCN(val);
-                    const closeCond = calculateCloseCond(val);
-                    const red = isRedPair(val);
-                    return (
-                      <td
-                        key={cIdx}
-                        className="border border-slate-800 relative text-center align-top transition-colors hover:bg-amber-200"
-                        style={{ backgroundColor: '#fef3c7' }}
-                      >
+            {/* Chart Name Input & Save to Store (RESPONSIVE STACKING FOR MOBILE) */}
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2 max-w-full">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                  ✏️ Create / Edit Chart Name:
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Active: {activeChartName}
+                </span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-full">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value.toUpperCase())}
+                  placeholder="ENTER CHART NAME (e.g. KALYAN NIGHT)"
+                  className="flex-1 bg-slate-950 border border-slate-600 text-amber-300 font-black rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400 uppercase tracking-wide min-w-0"
+                />
+                <button
+                  onClick={handleSave}
+                  className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md shrink-0 active:scale-95"
+                >
+                  <Save className="w-4 h-4" /> Save to Store
+                </button>
+              </div>
+            </div>
 
-                        {/* TOP: Total (green left) + Diff Total (red right) — 14px BOLD */}
-                        {showStats && (
-                          <div className="flex justify-between px-1 pt-0.5 leading-none">
-                            <span
-                              className="text-emerald-900 font-black font-mono tracking-tighter"
-                              style={{ fontSize: '14px', fontWeight: '900' }}
-                            >
-                              {total ?? ''}
-                            </span>
-                            <span
-                              className="text-red-700 font-black font-mono tracking-tighter"
-                              style={{ fontSize: '14px', fontWeight: '900' }}
-                            >
-                              {diffTotal ?? ''}
-                            </span>
+            {/* Load Saved Chart Dropdown & Clear */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-full">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <label className="text-[11px] text-slate-400 font-bold whitespace-nowrap">LOAD SAVED:</label>
+                <select
+                  value={activeChartName}
+                  onChange={(e) => {
+                    setActiveChartName(e.target.value);
+                    setNameInput(e.target.value);
+                  }}
+                  className="bg-slate-900 text-white text-xs font-extrabold rounded-lg px-3 py-2 outline-none border border-slate-700 cursor-pointer w-full min-w-0"
+                >
+                  {Object.keys(charts).map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleClearAll}
+                className="flex items-center justify-center gap-1 bg-red-950 border border-red-700 text-red-300 hover:bg-red-900 px-3 py-2 rounded-lg text-xs font-bold shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Clear Cells
+              </button>
+            </div>
+
+            {/* Quick Fill Input */}
+            <div className="flex gap-1.5 max-w-full">
+              <input
+                type="text"
+                placeholder="Quick fill: 123456 → 12, 34, 56 | 8888 → 88, 88"
+                value={quickInput}
+                onChange={(e) => setQuickInput(e.target.value)}
+                className="flex-1 bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-blue-500 min-w-0"
+              />
+              <button onClick={handleQuickFill} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold shrink-0">Fill</button>
+            </div>
+
+            {/* Display Mode (Compact 15+ Rows Toggle) & Grid Sizing */}
+            <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setIsCompact(v => !v)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                    isCompact ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold' : 'bg-slate-900 text-slate-400 border-slate-700'
+                  }`}
+                >
+                  {isCompact ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  {isCompact ? '15+ Rows View: ON' : 'Normal Rows View'}
+                </button>
+
+                <button
+                  onClick={() => setShowStats(v => !v)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                    showStats ? 'bg-indigo-900 border-indigo-500 text-indigo-200' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  🔢 {showStats ? 'Stats: ON' : 'Stats: OFF'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-[10px] text-slate-400 font-bold">ROWS × COLS:</span>
+                <input type="number" value={rowsInput} onChange={(e) => setRowsInput(e.target.value)}
+                  className="w-14 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1 rounded-lg text-xs" />
+                <input type="number" value={colsInput} onChange={(e) => setColsInput(e.target.value)}
+                  className="w-12 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1 rounded-lg text-xs" />
+                <button onClick={handleApplyResize} className="bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded-lg text-xs font-extrabold">Resize</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. CHART TABLE GRID — EDGE-TO-EDGE WITH COMPACT 15+ ROW HEIGHT (IMAGE 1 MATCH) */}
+        <div ref={containerRef} className="w-full overflow-x-auto shadow-xl border-x border-slate-300">
+
+          {/* Dynamic Chart Title Banner */}
+          <div className="bg-[#1e3a8a] text-white text-center font-black py-2 px-2 text-xs sm:text-sm uppercase tracking-wider border-b-2 border-blue-950 shadow-inner">
+            {activeChartName} JODI CHART RECORD
+          </div>
+
+          <table className="w-full table-fixed white-chart-table border-collapse">
+            {/* STICKY GOLDEN DAY HEADERS */}
+            <thead className="sticky top-0 z-30 shadow-md">
+              <tr className="bg-[#fbbf24] text-slate-950 border-b-2 border-slate-900">
+                <th className="w-7 sm:w-10 text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[10px] sm:text-xs font-black py-1">#</th>
+                {Array.from({ length: colsInput }).map((_, c) => (
+                  <th key={c} className="text-center border border-slate-900 text-slate-950 font-black text-xs sm:text-base py-1">
+                    {COL_HEADERS[c] || `C${c + 1}`}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {topPadding > 0 && (
+                <tr><td colSpan={colsInput + 1} style={{ height: topPadding, padding: 0, border: 'none' }} /></tr>
+              )}
+
+              {visibleRows.map((row, relIdx) => {
+                const rIdx = startRow + relIdx;
+                return (
+                  <tr key={rIdx} style={{ height: rowHeight }}>
+                    {/* Row Number Column */}
+                    <td className="text-center font-black text-slate-950 text-[10px] sm:text-xs bg-[#fcd34d] border border-slate-800 align-middle">
+                      {rIdx + 1}
+                    </td>
+                    {row.map((cell, cIdx) => {
+                      const val = cell.val || '';
+                      const total = calculateTotal(val);
+                      const diffTotal = calculateDiffTotal(val);
+                      const cn = calculateCN(val);
+                      const closeCond = calculateCloseCond(val);
+                      const red = isRedPair(val);
+                      return (
+                        <td
+                          key={cIdx}
+                          className="border border-slate-800 relative text-center align-top transition-colors hover:bg-amber-200"
+                          style={{ backgroundColor: '#fef3c7' }}
+                        >
+
+                          {/* TOP: Total (green left) + Diff Total (red right) */}
+                          {showStats && (
+                            <div className="flex justify-between px-0.5 pt-0.5 leading-none">
+                              <span
+                                className="text-emerald-900 font-black font-mono tracking-tighter"
+                                style={{ fontSize: isCompact ? '11px' : '14px', fontWeight: '900' }}
+                              >
+                                {total ?? ''}
+                              </span>
+                              <span
+                                className="text-red-700 font-black font-mono tracking-tighter"
+                                style={{ fontSize: isCompact ? '11px' : '14px', fontWeight: '900' }}
+                              >
+                                {diffTotal ?? ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* MIDDLE: Jodi Number (Fits 15+ Rows on Mobile Image 1) */}
+                          <div className={`flex items-center justify-center ${showStats ? '' : 'h-full'}`}>
+                            <input
+                              id={`cell-${rIdx}-${cIdx}`}
+                              type="text"
+                              maxLength={2}
+                              value={val}
+                              onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
+                              onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
+                              className={`w-full bg-transparent text-center font-black font-mono outline-none p-0 leading-none ${
+                                red ? 'text-red-600 font-black' : 'text-slate-950 font-black'
+                              }`}
+                              style={{
+                                fontSize: isCompact ? 'clamp(18px, 5.2vw, 28px)' : 'clamp(24px, 6.5vw, 40px)',
+                                fontWeight: '900'
+                              }}
+                            />
                           </div>
-                        )}
 
-                        {/* MIDDLE: Big Jodi Number */}
-                        <div className={`flex items-center justify-center ${showStats ? '' : 'h-full'}`}>
-                          <input
-                            id={`cell-${rIdx}-${cIdx}`}
-                            type="text"
-                            maxLength={2}
-                            value={val}
-                            onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
-                            onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
-                            className={`w-full bg-transparent text-center font-black font-mono outline-none p-0 leading-none ${
-                              red ? 'text-red-600 font-black' : 'text-slate-950 font-black'
-                            }`}
-                            style={{ fontSize: 'clamp(24px, 6.5vw, 40px)', fontWeight: '900' }}
-                          />
-                        </div>
+                          {/* BOTTOM: Open-Close Condition Pair */}
+                          {showStats && (
+                            <div
+                              className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-950 leading-none tracking-tight"
+                              style={{ fontSize: isCompact ? '10px' : '14px', fontWeight: '900' }}
+                            >
+                              {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
 
-                        {/* BOTTOM: Open-Close Condition Pair (cn-closeCond) — 14px BOLD */}
-                        {showStats && (
-                          <div
-                            className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-950 leading-none tracking-tight"
-                            style={{ fontSize: '14px', fontWeight: '900' }}
-                          >
-                            {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-
-            {bottomPadding > 0 && (
-              <tr><td colSpan={colsInput + 1} style={{ height: bottomPadding, padding: 0, border: 'none' }} /></tr>
-            )}
-          </tbody>
-        </table>
+              {bottomPadding > 0 && (
+                <tr><td colSpan={colsInput + 1} style={{ height: bottomPadding, padding: 0, border: 'none' }} /></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
