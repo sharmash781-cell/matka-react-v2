@@ -8,8 +8,6 @@ export const ChartStore = () => {
   const [newName, setNewName] = useState('');
   const [newRows, setNewRows] = useState(20);
   const [newCols, setNewCols] = useState(7);
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const safeCharts = charts && typeof charts === 'object' ? charts : {};
   const chartKeys = Object.keys(safeCharts);
@@ -36,24 +34,6 @@ export const ChartStore = () => {
     setActiveTab('editor');
   };
 
-  const handleDelete = (name) => {
-    if (confirmDelete === name) {
-      deleteChart(name);
-      setConfirmDelete(null);
-    } else {
-      setConfirmDelete(name);
-    }
-  };
-
-  const handleClearAllStore = () => {
-    if (confirmClearAll) {
-      clearAllCharts();
-      setConfirmClearAll(false);
-    } else {
-      setConfirmClearAll(true);
-    }
-  };
-
   return (
     <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins">
       
@@ -75,16 +55,11 @@ export const ChartStore = () => {
           {chartKeys.length > 0 && (
             <>
               <button
-                onClick={handleClearAllStore}
-                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 border ${
-                  confirmClearAll
-                    ? 'bg-red-600 border-red-500 text-white animate-pulse'
-                    : 'bg-red-950/60 hover:bg-red-900 text-red-300 border-red-800'
-                }`}
+                onClick={clearAllCharts}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800"
                 title="Wipe all charts permanently"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                {confirmClearAll ? 'Confirm Clear All?' : 'Clear Store'}
+                <Trash2 className="w-3.5 h-3.5" /> Clear All Store
               </button>
 
               <button
@@ -92,7 +67,7 @@ export const ChartStore = () => {
                 className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
                 title="Load optional preset market charts"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Load Presets
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Load Presets
               </button>
             </>
           )}
@@ -145,7 +120,7 @@ export const ChartStore = () => {
           <div>
             <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your chart repository is clean and empty. You can create your own custom chart in the Editor or click below to load optional preset markets.
+              Your chart repository is clean and empty. Create your custom chart in the Editor or click below to load optional presets.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
@@ -183,7 +158,7 @@ export const ChartStore = () => {
               <div key={name}
                 className="bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-xl transition-all duration-200"
               >
-                {/* Chart Name & Delete */}
+                {/* Chart Name & Instant Delete Button */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-base font-black text-amber-400 tracking-wide uppercase leading-snug">{name}</h3>
@@ -192,15 +167,11 @@ export const ChartStore = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDelete(name)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
-                      confirmDelete === name
-                        ? 'bg-red-600 border-red-500 text-white animate-pulse'
-                        : 'bg-slate-950 border-slate-800 text-red-400 hover:bg-red-950'
-                    }`}
+                    onClick={() => deleteChart(name)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition bg-slate-950 border-slate-800 text-red-400 hover:bg-red-950 hover:border-red-600 active:scale-95"
+                    title={`Delete ${name}`}
                   >
-                    <Trash2 className="w-3 h-3" />
-                    {confirmDelete === name ? 'Confirm Delete?' : 'Delete'}
+                    <Trash2 className="w-3 h-3" /> Delete
                   </button>
                 </div>
 
