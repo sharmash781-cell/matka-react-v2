@@ -10,10 +10,10 @@ export const ChartStore = () => {
   const [newCols, setNewCols] = useState(7);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const safeCharts = charts && typeof charts === 'object' ? charts : {};
+  const safeCharts = charts && typeof charts === 'object' && Object.keys(charts).length > 0 ? charts : {};
   const chartKeys = Object.keys(safeCharts);
 
-  // Auto-heal: If store is empty, automatically restore default market presets so it's NEVER empty!
+  // Auto-heal: If store ever has 0 charts, automatically restore default market presets!
   useEffect(() => {
     if (chartKeys.length === 0) {
       resetToDefaultCharts();
@@ -119,8 +119,8 @@ export const ChartStore = () => {
       {/* Chart Cards */}
       {chartKeys.length === 0 ? (
         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl text-center py-16 px-4 text-slate-400 shadow-inner">
-          <Archive className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-          <p className="font-black text-white text-base">Initializing Default Charts...</p>
+          <Archive className="w-12 h-12 mx-auto mb-3 text-slate-600 animate-spin" />
+          <p className="font-black text-white text-base">Loading Default Charts...</p>
           <button
             onClick={resetToDefaultCharts}
             className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md inline-flex items-center gap-1.5"

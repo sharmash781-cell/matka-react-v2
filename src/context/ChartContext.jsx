@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import srideviPreset from '../data/sridevi_preset.json';
 
 const ChartContext = createContext();
@@ -78,22 +78,34 @@ export const DEFAULT_PRESETS = {
   }
 };
 
-export const ChartProvider = ({ children }) => {
-  const [charts, setCharts] = useState(() => {
+const getInitialCharts = () => {
+  try {
     const saved = localStorage.getItem('chartHistory');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          return parsed;
-        }
-      } catch (e) {}
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  try {
+    localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
+  } catch (e) {}
+  return DEFAULT_PRESETS;
+};
+
+export const ChartProvider = ({ children }) => {
+  const [charts, setCharts] = useState(getInitialCharts);
+
+  const activeCharts = useMemo(() => {
+    if (charts && typeof charts === 'object' && Object.keys(charts).length > 0) {
+      return charts;
     }
     return DEFAULT_PRESETS;
-  });
+  }, [charts]);
 
   const [activeChartName, setActiveChartName] = useState(() => {
-    const keys = Object.keys(charts);
+    const keys = Object.keys(activeCharts);
     return keys.length > 0 ? keys[0] : "SRIDEVI";
   });
 
@@ -131,81 +143,86 @@ export const ChartProvider = ({ children }) => {
     return [];
   });
 
-  // Always sync charts state to localStorage
   useEffect(() => {
-    if (charts && Object.keys(charts).length > 0) {
-      localStorage.setItem('chartHistory', JSON.stringify(charts));
+    if (activeCharts && Object.keys(activeCharts).length > 0) {
+      try {
+        localStorage.setItem('chartHistory', JSON.stringify(activeCharts));
+      } catch (e) {}
     }
-  }, [charts]);
+  }, [activeCharts]);
 
   useEffect(() => {
-    localStorage.setItem('matkaLearnedModels', JSON.stringify(learnedModels));
+    try {
+      localStorage.setItem('matkaLearnedModels', JSON.stringify(learnedModels));
+    } catch (e) {}
   }, [learnedModels]);
 
   useEffect(() => {
-    localStorage.setItem('matkaCustomAIPatterns', JSON.stringify(customAIPatterns));
+    try {
+      localStorage.setItem('matkaCustomAIPatterns', JSON.stringify(customAIPatterns));
+    } catch (e) {}
   }, [customAIPatterns]);
 
-  const saveChart = (name, rows, cols, data) => {
+  const saveChart = useCallback((name, rows, cols, data) => {
     const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
-    const updated = {
-      ...charts,
-      [cleanName]: {
-        rows: parseInt(rows) || (data ? data.length : 20),
-        cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
-        updatedAt: new Date().toISOString(),
-        data: data || []
-      }
-    };
-    setCharts(updated);
+    setCharts((prevCharts) => {
+      const base = prevCharts && Object.keys(prevCharts).length > 0 ? prevCharts : DEFAULT_PRESETS;
+      const updated = {
+        ...base,
+        [cleanName]: {
+          rows: parseInt(rows) || (data ? data.length : 20),
+          cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
+          updatedAt: new Date().toISOString(),
+          data: data || []
+        }
+      };
+      try {
+        localStorage.setItem('chartHistory', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setActiveChartName(cleanName);
-    localStorage.setItem('chartHistory', JSON.stringify(updated));
-  };
+  }, []);
 
-  const deleteChart = (name) => {
+  const deleteChart = useCallback((name) => {
     const cleanName = name.trim().toUpperCase();
-    const updated = { ...charts };
-    delete updated[cleanName];
-    setCharts(updated);
-    const keys = Object.keys(updated);
-    if (keys.length > 0) {
-      setActiveChartName(keys[0]);
-    } else {
-      setCharts(DEFAULT_PRESETS);
-      setActiveChartName("SRIDEVI");
-    }
-    localStorage.setItem('chartHistory', JSON.stringify(updated));
-  };
+    setCharts((prevCharts) => {
+      const updated = { ...prevCharts };
+      delete updated[cleanName];
+      const finalCharts = Object.keys(updated).length > 0 ? updated : DEFAULT_PRESETS;
+      try {
+        localStorage.setItem('chartHistory', JSON.stringify(finalCharts));
+      } catch (e) {}
+      return finalCharts;
+    });
+  }, []);
 
-  const resetToDefaultCharts = () => {
+  const resetToDefaultCharts = useCallback(() => {
     setCharts(DEFAULT_PRESETS);
     setActiveChartName("SRIDEVI");
-    localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
-  };
+    try {
+      localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
+    } catch (e) {}
+  }, []);
 
-  const saveCustomAIPattern = (pattern) => {
+  const saveCustomAIPattern = useCallback((pattern) => {
     const newPattern = {
       ...pattern,
       id: `pattern_${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    const updated = [newPattern, ...customAIPatterns];
-    setCustomAIPatterns(updated);
+    setCustomAIPatterns((prev) => [newPattern, ...prev]);
     return newPattern;
-  };
+  }, []);
 
-  const deleteCustomAIPattern = (id) => {
-    const updated = customAIPatterns.filter(p => p.id !== id);
-    setCustomAIPatterns(updated);
-  };
+  const deleteCustomAIPattern = useCallback((id) => {
+    setCustomAIPatterns((prev) => prev.filter(p => p.id !== id));
+  }, []);
 
-  // Universal DPBoss Raw Text Parser
-  const importRawData = (chartName, rawText, customCols = 7, customRows = null) => {
+  const importRawData = useCallback((chartName, rawText, customCols = 7, customRows = null) => {
     if (!rawText || rawText.trim() === '') return false;
-
     const extractedTokens = [];
     const rawTokens = rawText.trim().split(/[\s,\t\r\n]+/);
-
     rawTokens.forEach(token => {
       if (token === '**' || token === 'XX') {
         extractedTokens.push('**');
@@ -224,14 +241,11 @@ export const ChartProvider = ({ children }) => {
     });
 
     if (extractedTokens.length === 0) return false;
-
     const cols = Math.min(8, Math.max(5, parseInt(customCols) || 7));
     const autoCalculatedRows = Math.ceil(extractedTokens.length / cols);
     const rows = customRows && parseInt(customRows) > 0 ? parseInt(customRows) : autoCalculatedRows;
-
     const grid = [];
     let tIdx = 0;
-
     for (let r = 0; r < rows; r++) {
       const row = [];
       for (let c = 0; c < cols; c++) {
@@ -243,13 +257,12 @@ export const ChartProvider = ({ children }) => {
       }
       grid.push(row);
     }
-
     saveChart(chartName, grid.length, cols, grid);
     return true;
-  };
+  }, [saveChart]);
 
-  const trainAIModel = (chartName, epochs = 100, learningRate = 0.05) => {
-    const chart = charts[chartName];
+  const trainAIModel = useCallback((chartName, epochs = 100, learningRate = 0.05) => {
+    const chart = activeCharts[chartName];
     if (!chart) return null;
 
     let totalCells = 0;
@@ -287,18 +300,19 @@ export const ChartProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    const updatedModels = { ...learnedModels, [modelName]: newModel };
-    setLearnedModels(updatedModels);
+    setLearnedModels(prev => ({ ...prev, [modelName]: newModel }));
     setActiveModelName(modelName);
     return newModel;
-  };
+  }, [activeCharts, learnedModels]);
+
+  const currentChart = activeCharts[activeChartName] || activeCharts[Object.keys(activeCharts)[0]] || DEFAULT_PRESETS["SRIDEVI"];
 
   return (
     <ChartContext.Provider value={{
-      charts: charts && typeof charts === 'object' && Object.keys(charts).length > 0 ? charts : DEFAULT_PRESETS,
-      activeChartName: activeChartName || "SRIDEVI",
+      charts: activeCharts,
+      activeChartName: activeChartName in activeCharts ? activeChartName : Object.keys(activeCharts)[0],
       setActiveChartName,
-      activeChart: (charts && charts[activeChartName]) || DEFAULT_PRESETS["SRIDEVI"],
+      activeChart: currentChart,
       saveChart,
       deleteChart,
       resetToDefaultCharts,
