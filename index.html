@@ -5,10 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Number-Cal: High-Performance Matka React Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-DHYsBBGn-1789268575416.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-i9rj_C36-1789268575416.css">
+    <script>
+      // Fallback logger for unhandled errors
+      window.addEventListener('error', function(e) {
+        console.error("Global script error:", e);
+        var root = document.getElementById('root');
+        if (root && root.innerHTML.trim() === '') {
+          root.innerHTML = '<div style="background:#020617;color:#f87171;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;padding:20px;text-align:center;">' +
+            '<h2 style="font-size:20px;font-weight:900;color:#fbbf24;margin-bottom:10px;">Application Loading Update</h2>' +
+            '<p style="font-size:13px;color:#cbd5e1;max-width:400px;margin-bottom:20px;">A new version of the app was deployed. Please tap below to refresh the page cache.</p>' +
+            '<button onclick="window.location.reload(true)" style="background:#2563eb;color:#ffffff;border:none;padding:12px 24px;border-radius:12px;font-weight:bold;font-size:14px;cursor:pointer;">Refresh App</button>' +
+            '</div>';
+        }
+      });
+    </script>
 </head>
 <body class="font-poppins min-h-screen bg-slate-950 text-slate-100 selection:bg-pink-500 selection:text-white">
     <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
