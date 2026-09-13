@@ -40,7 +40,7 @@ export const ChartEditor = () => {
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  // Compact row height (54px) allows 15+ rows on mobile screen (Image 1 match)!
+  // Compact row height (54px) allows 15+ rows on mobile screen
   const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export const ChartEditor = () => {
     setRowsInput(20);
     setColsInput(7);
     initEmptyGrid(20, 7);
-    setSaveSuccessMsg(`Created blank grid for "${newName}". Type numbers and click "Save Chart to Store"!`);
+    setSaveSuccessMsg(`Created blank grid for "${newName}". Fill numbers & click Save to Store!`);
     setTimeout(() => setSaveSuccessMsg(''), 4000);
   };
 
@@ -133,8 +133,10 @@ export const ChartEditor = () => {
     const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
     saveChart(cleanName, grid.length, parseInt(colsInput) || 7, grid);
     if (cleanName !== activeChartName) setActiveChartName(cleanName);
-    setSaveSuccessMsg(`Saved "${cleanName}" to Store repository!`);
-    setTimeout(() => setSaveSuccessMsg(''), 4000);
+    setSaveSuccessMsg(`Saved "${cleanName}" to Store repository! Opening Store...`);
+    setTimeout(() => {
+      setActiveTab('store');
+    }, 600);
   };
 
   const lastFilledRowIndex = useMemo(() => {
@@ -181,7 +183,7 @@ export const ChartEditor = () => {
   return (
     <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
 
-      {/* CONTAINER FOR PC VIEW: CENTERED MAX-W-3XL WITH OUTSIDE CREAM SPACE (IMAGE 2 MATCH) */}
+      {/* CENTERED DESKTOP VIEW WITH SIDE MARGINS */}
       <div className="max-w-3xl mx-auto px-1 sm:px-3">
 
         {/* 1. TOP HEADER PANEL WITH STORE BUTTON BESIDE EDIT CONTROLS */}
@@ -247,7 +249,7 @@ export const ChartEditor = () => {
               </span>
               <button
                 onClick={() => setActiveTab('store')}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow flex items-center gap-1"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow flex items-center gap-1"
               >
                 Open Store <ExternalLink className="w-3 h-3" />
               </button>
@@ -261,7 +263,7 @@ export const ChartEditor = () => {
             
             {/* Quick Action: Start New Blank Chart */}
             <div className="flex items-center justify-between flex-wrap gap-2 bg-slate-900/90 border border-slate-700 rounded-xl p-2.5">
-              <span className="text-xs font-black text-slate-300">Create New Grid:</span>
+              <span className="text-xs font-black text-slate-300">Create New Blank Grid:</span>
               <button
                 onClick={handleCreateNewBlank}
                 className="flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow-md transition-all active:scale-95"
@@ -293,7 +295,7 @@ export const ChartEditor = () => {
                 onClick={handleSave}
                 className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2.5 rounded-lg text-xs font-black shadow-md active:scale-95 box-border"
               >
-                <Save className="w-4 h-4" /> Save Chart to Store
+                <Save className="w-4 h-4" /> 💾 Save Chart to Store & View Card
               </button>
             </div>
 
