@@ -35,7 +35,7 @@ export const calculateDiffTotal = (val) => {
 };
 
 // Default Initial Market Presets
-const DEFAULT_PRESETS = {
+export const DEFAULT_PRESETS = {
   "SRIDEVI": srideviPreset,
   "TIME BAZAR": {
     rows: 15,
@@ -82,12 +82,21 @@ export const ChartProvider = ({ children }) => {
   const [charts, setCharts] = useState(() => {
     const saved = localStorage.getItem('chartHistory');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      } catch (e) {}
     }
     return DEFAULT_PRESETS;
   });
 
-  const [activeChartName, setActiveChartName] = useState("SRIDEVI");
+  const [activeChartName, setActiveChartName] = useState(() => {
+    const keys = Object.keys(charts);
+    return keys.length > 0 ? keys[0] : "SRIDEVI";
+  });
+
   const [activeTab, setActiveTab] = useState('editor');
 
   const [learnedModels, setLearnedModels] = useState(() => {
@@ -114,30 +123,19 @@ export const ChartProvider = ({ children }) => {
 
   const [activeModelName, setActiveModelName] = useState("Default_AI_V1");
 
-  // Custom AI Visual Training Sessions / Patterns State
   const [customAIPatterns, setCustomAIPatterns] = useState(() => {
     const saved = localStorage.getItem('matkaCustomAIPatterns');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      {
-        id: 'pattern_1',
-        name: 'Diagonal Total Crossing',
-        chartName: 'SRIDEVI',
-        explanation: 'Diagonal 3-cell step on Wednesday predicts close total match',
-        markings: [
-          { id: 'm1', r: 1, c: 2, color: '#3b82f6', type: 'highlight' },
-          { id: 'm2', r: 2, c: 3, color: '#3b82f6', type: 'highlight' },
-          { id: 'm3', r: 1, c: 2, color: '#3b82f6', type: 'line', connectedTo: { r: 2, c: 3 } }
-        ],
-        createdAt: new Date().toISOString()
-      }
-    ];
+    return [];
   });
 
+  // Always sync charts state to localStorage
   useEffect(() => {
-    localStorage.setItem('chartHistory', JSON.stringify(charts));
+    if (charts && Object.keys(charts).length > 0) {
+      localStorage.setItem('chartHistory', JSON.stringify(charts));
+    }
   }, [charts]);
 
   useEffect(() => {
@@ -149,18 +147,19 @@ export const ChartProvider = ({ children }) => {
   }, [customAIPatterns]);
 
   const saveChart = (name, rows, cols, data) => {
-    const cleanName = name.trim().toUpperCase();
+    const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
     const updated = {
       ...charts,
       [cleanName]: {
-        rows,
-        cols,
+        rows: parseInt(rows) || (data ? data.length : 20),
+        cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
         updatedAt: new Date().toISOString(),
-        data
+        data: data || []
       }
     };
     setCharts(updated);
     setActiveChartName(cleanName);
+    localStorage.setItem('chartHistory', JSON.stringify(updated));
   };
 
   const deleteChart = (name) => {
@@ -169,7 +168,19 @@ export const ChartProvider = ({ children }) => {
     delete updated[cleanName];
     setCharts(updated);
     const keys = Object.keys(updated);
-    if (keys.length > 0) setActiveChartName(keys[0]);
+    if (keys.length > 0) {
+      setActiveChartName(keys[0]);
+    } else {
+      setCharts(DEFAULT_PRESETS);
+      setActiveChartName("SRIDEVI");
+    }
+    localStorage.setItem('chartHistory', JSON.stringify(updated));
+  };
+
+  const resetToDefaultCharts = () => {
+    setCharts(DEFAULT_PRESETS);
+    setActiveChartName("SRIDEVI");
+    localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
   };
 
   const saveCustomAIPattern = (pattern) => {
@@ -284,12 +295,13 @@ export const ChartProvider = ({ children }) => {
 
   return (
     <ChartContext.Provider value={{
-      charts,
-      activeChartName,
+      charts: charts && typeof charts === 'object' && Object.keys(charts).length > 0 ? charts : DEFAULT_PRESETS,
+      activeChartName: activeChartName || "SRIDEVI",
       setActiveChartName,
-      activeChart: charts[activeChartName] || null,
+      activeChart: (charts && charts[activeChartName]) || DEFAULT_PRESETS["SRIDEVI"],
       saveChart,
       deleteChart,
+      resetToDefaultCharts,
       importRawData,
       activeTab,
       setActiveTab,

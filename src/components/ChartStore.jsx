@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
-import { Archive, Table, Zap, Brain, Trash2, Calendar, Hash, PlusCircle, X } from 'lucide-react';
+import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw } from 'lucide-react';
 
 export const ChartStore = () => {
-  const { charts = {}, setActiveChartName, deleteChart, setActiveTab, saveChart } = useChart();
+  const { charts = {}, setActiveChartName, deleteChart, resetToDefaultCharts, setActiveTab, saveChart } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRows, setNewRows] = useState(20);
@@ -13,7 +13,6 @@ export const ChartStore = () => {
   const handleOpenIn = (chartName, tab) => {
     if (!chartName) return;
     setActiveChartName(chartName);
-    // Tab IDs must match App.jsx: 'editor', 'store', 'ai', 'predict'
     const targetTab = tab === 'ai-trainer' ? 'ai' : tab === 'predictor' ? 'predict' : tab;
     setActiveTab(targetTab);
   };
@@ -46,10 +45,10 @@ export const ChartStore = () => {
   const chartKeys = Object.keys(safeCharts);
 
   return (
-    <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh]">
+    <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins">
       
       {/* Store Header */}
-      <div className="flex items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
+      <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-yellow-500/20 border border-yellow-500/30 rounded-2xl">
             <Archive className="w-6 h-6 text-yellow-400" />
@@ -57,16 +56,26 @@ export const ChartStore = () => {
           <div>
             <h2 className="text-lg font-black text-white">Chart Store Repository</h2>
             <p className="text-[10px] text-slate-400 font-mono">
-              {chartKeys.length} saved market charts in local storage
+              {chartKeys.length} saved market charts in storage
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowNewForm(v => !v)}
-          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
-        >
-          <PlusCircle className="w-4 h-4" /> New Chart
-        </button>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            onClick={resetToDefaultCharts}
+            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
+            title="Restore default market charts"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Restore Defaults
+          </button>
+          <button
+            onClick={() => setShowNewForm(v => !v)}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" /> New Chart
+          </button>
+        </div>
       </div>
 
       {/* New Chart Form */}
@@ -106,13 +115,13 @@ export const ChartStore = () => {
           <Archive className="w-12 h-12 mx-auto mb-3 text-slate-600" />
           <p className="font-black text-white text-base">No Saved Charts Found</p>
           <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            Click "New Chart" above or open the Editor to create and save custom charts.
+            Click "New Chart" above or restore default market charts.
           </p>
           <button
-            onClick={() => handleCreateNew('SRIDEVI')}
+            onClick={resetToDefaultCharts}
             className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md inline-flex items-center gap-1.5"
           >
-            <PlusCircle className="w-4 h-4" /> Create Default SRIDEVI Chart
+            <RefreshCw className="w-4 h-4" /> Restore Default Markets
           </button>
         </div>
       ) : (
