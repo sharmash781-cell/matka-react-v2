@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { ArrowDown, Trash2, Settings2, Save } from 'lucide-react';
+import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 25;
@@ -26,19 +26,19 @@ export const parseJodiTokens = (input) => {
 };
 
 export const ChartEditor = () => {
-  const { charts, activeChartName, setActiveChartName, activeChart, saveChart } = useChart();
+  const { charts, activeChartName, setActiveChartName, activeChart, saveChart, setActiveTab } = useChart();
 
-  const [nameInput, setNameInput] = useState(activeChartName || 'SRIDEVI');
-  const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 440);
+  const [nameInput, setNameInput] = useState(activeChartName || 'NEW CHART');
+  const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 20);
   const [colsInput, setColsInput] = useState(activeChart ? activeChart.cols : 7);
   const [grid, setGrid] = useState([]);
   const [quickInput, setQuickInput] = useState('');
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  // Height per row based on stats toggle
   const rowHeight = showStats ? 88 : 62;
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export const ChartEditor = () => {
       setColsInput(activeChart.cols);
       setGrid(activeChart.data || []);
     } else {
-      initEmptyGrid(440, 7);
+      initEmptyGrid(20, 7);
     }
   }, [activeChartName, activeChart]);
 
@@ -68,8 +68,18 @@ export const ChartEditor = () => {
     setGrid(Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' }))));
   };
 
+  const handleCreateNewBlank = () => {
+    const newName = `NEW CHART ${Object.keys(charts).length + 1}`;
+    setNameInput(newName);
+    setRowsInput(20);
+    setColsInput(7);
+    initEmptyGrid(20, 7);
+    setSaveSuccessMsg(`Created blank grid for "${newName}". Type numbers and click "Save to Store"!`);
+    setTimeout(() => setSaveSuccessMsg(''), 4000);
+  };
+
   const handleApplyResize = () => {
-    const r = Math.max(1, parseInt(rowsInput) || 100);
+    const r = Math.max(1, parseInt(rowsInput) || 20);
     const c = Math.min(8, Math.max(5, parseInt(colsInput) || 7));
     const newGrid = Array.from({ length: r }, (_, i) =>
       Array.from({ length: c }, (_, j) => (grid[i] && grid[i][j]) ? grid[i][j] : { val: '' })
@@ -118,12 +128,13 @@ export const ChartEditor = () => {
   };
 
   const handleSave = () => {
-    const cleanName = nameInput.trim().toUpperCase() || activeChartName;
+    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
     saveChart(cleanName, grid.length, parseInt(colsInput) || 7, grid);
     if (cleanName !== activeChartName) setActiveChartName(cleanName);
+    setSaveSuccessMsg(`Saved "${cleanName}" to Store repository!`);
+    setTimeout(() => setSaveSuccessMsg(''), 4000);
   };
 
-  // Find index of last row with data
   const lastFilledRowIndex = useMemo(() => {
     for (let r = grid.length - 1; r >= 0; r--) {
       if (grid[r]?.some(cell => cell.val && cell.val !== '')) return r;
@@ -131,7 +142,6 @@ export const ChartEditor = () => {
     return Math.max(0, grid.length - 1);
   }, [grid]);
 
-  // Find exact last filled Jodi number in grid
   const lastFilledJodi = useMemo(() => {
     for (let r = grid.length - 1; r >= 0; r--) {
       if (grid[r]) {
@@ -168,10 +178,11 @@ export const ChartEditor = () => {
   return (
     <div className="min-h-screen bg-[#f5d5a7] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
 
-      {/* 1. CLEAN DYNAMIC TOP HEADER: DYNAMIC CHART NAME + LAST JODI + BUTTONS (OUTSIDE TABLE ABOVE) */}
+      {/* 1. TOP HEADER: DYNAMIC CHART NAME + LAST JODI + ACTION BUTTONS (INC. STORE BUTTON BESIDE EDIT CONTROLS) */}
       <div className="mx-2 my-3 bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3.5 shadow-xl space-y-2.5">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          {/* Dynamic Chart Name & Last Jodi Display */}
+          
+          {/* Dynamic Chart Name & Last Jodi */}
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-amber-400 uppercase tracking-wide">
@@ -185,17 +196,17 @@ export const ChartEditor = () => {
               )}
             </div>
             <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-              {grid.length} Rows × {colsInput} Cols | Row #{lastFilledRowIndex + 1}
+              {grid.length} Rows × {colsInput} Cols | Active Row #{lastFilledRowIndex + 1}
             </div>
           </div>
 
-          {/* Action Buttons - Placed UP SIDE of table so zero obstruction! */}
-          <div className="flex items-center gap-2">
+          {/* Action Buttons: Go to Bottom, Edit Controls, AND Store Button beside it! */}
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={scrollToLastRow}
               className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95"
             >
-              <ArrowDown className="w-4 h-4" /> Go to Bottom (#{lastFilledRowIndex + 1})
+              <ArrowDown className="w-4 h-4" /> Go to Bottom
             </button>
 
             <button
@@ -207,15 +218,53 @@ export const ChartEditor = () => {
               <Settings2 className="w-4 h-4" />
               {showControls ? 'Close Controls' : 'Edit Controls'}
             </button>
+
+            <button
+              onClick={() => setActiveTab('store')}
+              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95 border border-purple-400"
+            >
+              <Store className="w-4 h-4" />
+              <span>Store</span>
+              <span className="bg-purple-950 text-purple-200 px-1.5 py-0.2 rounded-full text-[10px]">
+                {Object.keys(charts).length}
+              </span>
+            </button>
           </div>
         </div>
+
+        {/* Save notification feedback message */}
+        {saveSuccessMsg && (
+          <div className="flex items-center justify-between bg-emerald-950 border border-emerald-500 text-emerald-200 text-xs px-3 py-2 rounded-xl font-bold animate-fadeIn">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              {saveSuccessMsg}
+            </span>
+            <button
+              onClick={() => setActiveTab('store')}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow"
+            >
+              View in Store →
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 2. EXPANDABLE EDIT CONTROLS PANEL (SITS INLINE ABOVE TABLE) */}
+      {/* 2. EXPANDABLE EDIT CONTROLS PANEL */}
       {showControls && (
         <div className="mx-2 mb-4 bg-slate-950 text-slate-100 border-2 border-slate-700 rounded-2xl p-3.5 shadow-2xl space-y-3 animate-fadeIn">
           
-          {/* Chart Name Input & Save */}
+          {/* Quick Action: Start New Blank Chart */}
+          <div className="flex items-center justify-between bg-slate-900/90 border border-slate-700 rounded-xl p-2.5">
+            <span className="text-xs font-black text-slate-300">Start Blank Chart:</span>
+            <button
+              onClick={handleCreateNewBlank}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow-md transition-all active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" /> Create Blank Chart Grid
+            </button>
+          </div>
+
+          {/* Chart Name Input & Save to Store */}
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
@@ -235,9 +284,9 @@ export const ChartEditor = () => {
               />
               <button
                 onClick={handleSave}
-                className="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md"
               >
-                <Save className="w-3.5 h-3.5" /> Save Chart
+                <Save className="w-4 h-4" /> Save to Store
               </button>
             </div>
           </div>
@@ -299,7 +348,7 @@ export const ChartEditor = () => {
         </div>
       )}
 
-      {/* 3. CHART TABLE — DYNAMIC TITLE BANNER + STICKY DAY HEADERS */}
+      {/* 3. CHART TABLE GRID */}
       <div ref={containerRef} className="w-full overflow-x-auto shadow-xl">
 
         {/* Dynamic Chart Title Banner */}
@@ -308,7 +357,7 @@ export const ChartEditor = () => {
         </div>
 
         <table className="w-full table-fixed white-chart-table border-collapse">
-          {/* STICKY GOLDEN DAY HEADERS (Mo, Tue, Wed, Thu, Fri, Sat, Sun) */}
+          {/* STICKY GOLDEN DAY HEADERS */}
           <thead className="sticky top-0 z-30 shadow-md">
             <tr className="bg-[#fbbf24] text-slate-950 border-b-2 border-slate-900">
               <th className="w-8 sm:w-10 text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[11px] font-black py-2">#</th>
