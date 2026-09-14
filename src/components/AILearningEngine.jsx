@@ -21,6 +21,7 @@ export const AILearningEngine = () => {
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
   const [show12WeekDashboard, setShow12WeekDashboard] = useState(true);
+  const [showTailEndCellOverlays, setShowTailEndCellOverlays] = useState(false);
 
   // Virtualization Scroll State
   const [scrollTop, setScrollTop] = useState(0);
@@ -467,12 +468,25 @@ export const AILearningEngine = () => {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShow12WeekDashboard(v => !v)}
-                className="bg-cyan-950 border border-cyan-500 text-cyan-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full hover:bg-cyan-900 transition"
-              >
-                {show12WeekDashboard ? 'Hide 12-Wk Analytics' : `Show 12-Wk Analytics (${tailEnd12WeekResult.colPredictions.length} Tail Patterns)`}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowTailEndCellOverlays(v => !v)}
+                  className={`text-[10px] font-mono font-black px-2.5 py-1 rounded-full transition border ${
+                    showTailEndCellOverlays
+                      ? 'bg-cyan-600 border-cyan-400 text-slate-950 font-black'
+                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {showTailEndCellOverlays ? '🎯 Cell Overlays: ON' : '🎯 Cell Overlays: OFF'}
+                </button>
+
+                <button
+                  onClick={() => setShow12WeekDashboard(v => !v)}
+                  className="bg-cyan-950 border border-cyan-500 text-cyan-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full hover:bg-cyan-900 transition"
+                >
+                  {show12WeekDashboard ? 'Hide Analytics' : `Show Analytics (${tailEnd12WeekResult.colPredictions.length})`}
+                </button>
+              </div>
             </div>
 
             {show12WeekDashboard && (
@@ -486,19 +500,19 @@ export const AILearningEngine = () => {
                     <div
                       key={pred.id}
                       onClick={() => scrollToRowIndex(pred.r)}
-                      className="bg-slate-900 border border-cyan-900/80 hover:border-cyan-500 p-2.5 rounded-xl space-y-1.5 cursor-pointer transition shadow-md"
+                      className="bg-slate-900 border border-cyan-900/80 hover:border-cyan-500 p-2.5 rounded-xl space-y-2 cursor-pointer transition shadow-md"
                     >
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="bg-cyan-600 text-slate-950 font-black px-1.5 py-0.5 rounded text-[10px] uppercase">
                           Row #{pred.rowNum} {pred.colName} ({pred.digitType.toUpperCase()})
                         </span>
                         <span className="text-cyan-300 font-bold text-[10px]">
-                          {pred.tailPatternStr}
+                          Pattern: {pred.tailPatternStr}
                         </span>
                       </div>
 
                       <div className="text-[9px] text-slate-400">
-                        Setup: <strong className="text-slate-200">{pred.direction}</strong> ({pred.totalMatches}x 12-wk matches)
+                        Setup Type: <strong className="text-slate-200">{pred.direction}</strong>
                       </div>
 
                       <div className="grid grid-cols-2 gap-1 text-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
@@ -523,6 +537,17 @@ export const AILearningEngine = () => {
                             <span className="text-[8px] text-slate-400 block">{topC.percentage}% ({topC.count}x match)</span>
                           </div>
                         )}
+                      </div>
+
+                      {/* WHY THIS PREDICTION CAME (DETAILED EXPLANATION) */}
+                      <div className="bg-slate-950/90 border border-cyan-900/60 p-2 rounded-lg space-y-1 text-[10px] leading-tight">
+                        <div className="flex items-center gap-1 text-cyan-300 font-bold text-[10px]">
+                          <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span>Why {topO ? `Open ${topO.val}` : ''} {topC ? `Close ${topC.val}` : ''} comes:</span>
+                        </div>
+                        <p className="text-slate-300 text-[9px]">
+                          Matched <strong className="text-emerald-400">{pred.totalMatches} times</strong> in past 12 weeks. Historically after <span className="text-cyan-300 font-bold">{pred.tailPatternStr}</span> ({pred.direction}), Open digit <strong className="text-amber-300">{topO?.val}</strong> appeared in <strong className="text-emerald-400">{topO?.count}/{pred.totalMatches} occurrences ({topO?.percentage}%)</strong>. Cut digit is <span className="text-amber-400 font-bold">{topO?.cutVal}</span>.
+                        </p>
                       </div>
 
                       {/* Top Historical Follow-Up Jodi */}
