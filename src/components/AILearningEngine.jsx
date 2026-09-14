@@ -86,6 +86,7 @@ export const AILearningEngine = () => {
   const visibleMatches = useMemo(() => {
     if (!sequenceResults || !sequenceResults.matches) return [];
     if (activeMatchFilter === 'all') return sequenceResults.matches;
+    if (activeMatchFilter === 'short_range') return sequenceResults.matches.filter(m => m.isShortRangeGap);
     return sequenceResults.matches.filter(m => m.id === activeMatchFilter);
   }, [sequenceResults, activeMatchFilter]);
 
@@ -323,10 +324,31 @@ export const AILearningEngine = () => {
           {/* EXACT MATCH SLNO & DAY LOCATION LIST */}
           {sequenceResults.matches.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-slate-300">
                 <span className="flex items-center gap-1.5 text-cyan-300">
-                  <MapPin className="w-4 h-4 text-cyan-400" /> Match SLNO (Row #) Locations List (Click to jump):
+                  <MapPin className="w-4 h-4 text-cyan-400" /> Match SLNO Locations & Gaps (Click to jump):
                 </span>
+                
+                {/* Short-Range Gap Filter Toggle */}
+                <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 p-0.5 rounded-lg">
+                  <button
+                    onClick={() => setActiveMatchFilter('all')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                      activeMatchFilter === 'all' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All ({sequenceResults.totalMatches})
+                  </button>
+                  <button
+                    onClick={() => setActiveMatchFilter('short_range')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-black flex items-center gap-0.5 ${
+                      activeMatchFilter === 'short_range' ? 'bg-emerald-600 text-white' : 'text-emerald-400 hover:text-emerald-300'
+                    }`}
+                  >
+                    ⚡ 5-12 Row Gaps ({sequenceResults.shortRangeMatchesCount})
+                  </button>
+                </div>
+
                 <button
                   onClick={() => setShowLocationList(v => !v)}
                   className="text-[10px] text-slate-400 hover:text-white"
@@ -363,14 +385,32 @@ export const AILearningEngine = () => {
                           <span className="text-slate-400 text-[10px]">
                             ({m.direction})
                           </span>
+
+                          {/* Gap Indicator Badge */}
+                          {m.rowGap !== null && (
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
+                              m.isShortRangeGap ? 'bg-emerald-950 border border-emerald-500 text-emerald-300' : 'bg-slate-900 text-slate-400'
+                            }`}>
+                              {m.isShortRangeGap ? `⚡ Gap: ${m.rowGap} Rows` : `Gap: ${m.rowGap} Rows`}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="text-amber-300 font-bold text-[10px] shrink-0">
-                          {m.cells.map((c, idx) => (
-                            <span key={idx} className="mr-1">
-                              {COL_HEADERS[c.c]} {c.digitType.toUpperCase()} ({c.digit}) {idx < m.cells.length - 1 ? '→' : ''}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-amber-300 font-bold text-[10px]">
+                            {m.cells.map((c, idx) => (
+                              <span key={idx} className="mr-1">
+                                {COL_HEADERS[c.c]} {c.digitType.toUpperCase()} ({c.digit}) {idx < m.cells.length - 1 ? '→' : ''}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Outcome badge */}
+                          {m.subsequentOutcome && (
+                            <span className="bg-purple-950 border border-purple-500/60 text-purple-300 text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                              Next: {m.subsequentOutcome.nextVal} (O:{m.subsequentOutcome.nextOpen}/C:{m.subsequentOutcome.nextClose})
                             </span>
-                          ))}
+                          )}
                         </div>
                       </div>
                     );
@@ -380,6 +420,71 @@ export const AILearningEngine = () => {
             </div>
           )}
         </div>
+
+        {/* 3. SUBSEQUENT OUTCOME PREDICTION & Analytics DASHBOARD */}
+        {sequenceResults.totalMatches > 0 && sequenceResults.predictions && (
+          <div className="bg-slate-950 border-2 border-emerald-500/80 text-white rounded-2xl p-3.5 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">
+                    Subsequent Outcome Predictor & Follow-Up Analytics
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Historical outcome frequency calculated from past sequence follow-ups
+                  </p>
+                </div>
+              </div>
+
+              {sequenceResults.shortRangeMatchesCount > 0 && (
+                <span className="bg-emerald-950 border border-emerald-500 text-emerald-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full animate-pulse">
+                  ⚡ 5-12 Row Gap Window Active ({sequenceResults.shortRangeMatchesCount} Matches)
+                </span>
+              )}
+            </div>
+
+            {/* PREDICTION SUMMARY CARDS */}
+            <div className="grid grid-cols-1 xs:grid-cols-3 gap-2.5 text-center font-mono">
+              
+              {/* PREDICTED NEXT OPEN */}
+              <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-2.5 space-y-1">
+                <span className="text-[10px] text-amber-400 font-bold uppercase block">Predicted Next Open</span>
+                <div className="text-xl sm:text-2xl font-black text-amber-300">
+                  {sequenceResults.predictions.bestOpen}
+                  <span className="text-xs font-normal text-amber-500/80 ml-1">
+                    (Cut: {sequenceResults.predictions.cutOpen})
+                  </span>
+                </div>
+                <div className="text-[9px] text-slate-400">
+                  {sequenceResults.predictions.topOpen.slice(0, 2).map(o => `Digit ${o.val}: ${o.percentage}%`).join(' | ') || 'No outcome data'}
+                </div>
+              </div>
+
+              {/* PREDICTED NEXT CLOSE */}
+              <div className="bg-slate-900 border border-purple-500/40 rounded-xl p-2.5 space-y-1">
+                <span className="text-[10px] text-purple-400 font-bold uppercase block">Predicted Next Close</span>
+                <div className="text-xl sm:text-2xl font-black text-purple-300">
+                  {sequenceResults.predictions.bestClose}
+                </div>
+                <div className="text-[9px] text-slate-400">
+                  {sequenceResults.predictions.topClose.slice(0, 2).map(c => `Digit ${c.val}: ${c.percentage}%`).join(' | ') || 'No outcome data'}
+                </div>
+              </div>
+
+              {/* TOP PREDICTED NEXT JODI */}
+              <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-2.5 space-y-1">
+                <span className="text-[10px] text-emerald-400 font-bold uppercase block">Top Historical Next Jodi</span>
+                <div className="text-xl sm:text-2xl font-black text-emerald-300">
+                  {sequenceResults.predictions.topJodis.length > 0 ? sequenceResults.predictions.topJodis[0].val : '--'}
+                </div>
+                <div className="text-[9px] text-slate-400">
+                  {sequenceResults.predictions.topJodis.slice(0, 2).map(j => `Jodi ${j.val} (${j.count}x)`).join(', ') || 'No outcome data'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 3. CHART EDITOR STYLE TABLE UI INTERFACE */}
         <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800">

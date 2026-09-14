@@ -118,7 +118,36 @@ export const findSequenceMatches = (grid, sequenceInput) => {
             const pathKey = matchResult.cells.map(cell => `${cell.r}:${cell.c}:${cell.digitType}`).join('|');
             if (!seenPaths.has(pathKey)) {
               seenPaths.add(pathKey);
-              rawMatches.push(matchResult);
+              
+              // Calculate immediate subsequent cell (the outcome cell after pattern completes)
+              const lastCell = matchResult.cells[matchResult.cells.length - 1];
+              let nextR = lastCell.r + (dirName.includes('Vertical') ? 1 : 0);
+              let nextC = lastCell.c + (dirName.includes('Horizontal') ? 1 : 0);
+              if (dirName.includes('Horizontal') && nextC >= cols) {
+                nextC = 0;
+                nextR = lastCell.r + 1;
+              }
+
+              let subsequentOutcome = null;
+              if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols) {
+                const nextVal = grid[nextR][nextC]?.val || '';
+                if (nextVal && nextVal !== '**' && /^\d{2}$/.test(nextVal)) {
+                  subsequentOutcome = {
+                    nextR,
+                    nextC,
+                    nextVal,
+                    nextOpen: nextVal[0],
+                    nextClose: nextVal[1]
+                  };
+                }
+              }
+
+              rawMatches.push({
+                ...matchResult,
+                startRow: matchResult.cells[0].r,
+                endRow: lastCell.r,
+                subsequentOutcome
+              });
             }
           }
         }
@@ -126,21 +155,100 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     }
   }
 
-  // Format matches with distinct colors
-  const matches = rawMatches.map((m, idx) => ({
-    id: `seq_match_${idx + 1}`,
-    matchNumber: idx + 1,
-    color: MATCH_COLORS[idx % MATCH_COLORS.length],
-    direction: m.direction,
-    digitTypeLabel: m.digitTypeLabel,
-    cells: m.cells,
-    summary: `Match #${idx + 1}: ${m.direction} (${m.digitTypeLabel})`
-  }));
+  // Format matches with distinct colors and compute short-range row gaps (5 to 12 rows)
+  const matches = rawMatches.map((m, idx) => {
+    // Check gap from previous match
+    const prevMatch = idx > 0 ? rawMatches[idx - 1] : null;
+    const rowGap = prevMatch ? Math.abs(m.startRow - prevMatch.startRow) : null;
+    const isShortRangeGap = rowGap !== null && rowGap >= 5 && rowGap <= 12;
+
+    return {
+      id: `seq_match_${idx + 1}`,
+      matchNumber: idx + 1,
+      color: MATCH_COLORS[idx % MATCH_COLORS.length],
+      direction: m.direction,
+      digitTypeLabel: m.digitTypeLabel,
+      cells: m.cells,
+      startRow: m.startRow,
+      endRow: m.endRow,
+      rowGap,
+      isShortRangeGap,
+      subsequentOutcome: m.subsequentOutcome,
+      summary: `Match #${idx + 1}: ${m.direction} (${m.digitTypeLabel})${rowGap !== null ? ` | Gap: ${rowGap} Rows` : ''}`
+    };
+  });
+
+  // Calculate Subsequent Predictions and Analytics
+  const predictions = calculateOutcomePredictions(matches);
 
   return {
     targetSeq,
     targetSeqStr: targetSeq.join(' → '),
     totalMatches: matches.length,
-    matches
+    shortRangeMatchesCount: matches.filter(m => m.isShortRangeGap).length,
+    matches,
+    predictions
+  };
+};
+
+/**
+ * Calculates subsequent outcome statistics (Predicted Open, Close, Jodi)
+ */
+export const calculateOutcomePredictions = (matches) => {
+  const openCounts = {};
+  const closeCounts = {};
+  const jodiCounts = {};
+  
+  const shortOpenCounts = {};
+  const shortCloseCounts = {};
+
+  let totalOutcomes = 0;
+  let totalShortOutcomes = 0;
+
+  matches.forEach((m) => {
+    if (m.subsequentOutcome) {
+      const { nextOpen, nextClose, nextVal } = m.subsequentOutcome;
+      totalOutcomes++;
+      openCounts[nextOpen] = (openCounts[nextOpen] || 0) + 1;
+      closeCounts[nextClose] = (closeCounts[nextClose] || 0) + 1;
+      jodiCounts[nextVal] = (jodiCounts[nextVal] || 0) + 1;
+
+      if (m.isShortRangeGap) {
+        totalShortOutcomes++;
+        shortOpenCounts[nextOpen] = (shortOpenCounts[nextOpen] || 0) + 1;
+        shortCloseCounts[nextClose] = (shortCloseCounts[nextClose] || 0) + 1;
+      }
+    }
+  });
+
+  const getTopItems = (countsObj, total) => {
+    return Object.entries(countsObj)
+      .map(([key, count]) => ({
+        val: key,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const topOpen = getTopItems(openCounts, totalOutcomes);
+  const topClose = getTopItems(closeCounts, totalOutcomes);
+  const topJodis = getTopItems(jodiCounts, totalOutcomes);
+
+  const topShortOpen = getTopItems(shortOpenCounts, totalShortOutcomes);
+  const topShortClose = getTopItems(shortCloseCounts, totalShortOutcomes);
+
+  return {
+    totalOutcomes,
+    totalShortOutcomes,
+    topOpen,
+    topClose,
+    topJodis,
+    topShortOpen,
+    topShortClose,
+    // Suggested primary predictions
+    bestOpen: topShortOpen.length > 0 ? topShortOpen[0].val : (topOpen.length > 0 ? topOpen[0].val : '-'),
+    bestClose: topShortClose.length > 0 ? topShortClose[0].val : (topClose.length > 0 ? topClose[0].val : '-'),
+    cutOpen: topShortOpen.length > 0 ? (parseInt(topShortOpen[0].val) + 5) % 10 : (topOpen.length > 0 ? (parseInt(topOpen[0].val) + 5) % 10 : '-')
   };
 };
