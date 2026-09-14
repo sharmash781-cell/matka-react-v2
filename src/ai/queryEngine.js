@@ -117,13 +117,21 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // -------------------------------------------------------------
   // FEATURE 0.1: ORDINAL WEEK MULTI-NUMBER SEARCH
-  // E.g. "tue 81 2 week 01" -> Row 26 Tue 81 to Row 27 Wed 01
+  // E.g. "tue 81 2 week 01"       -> Row 26 Tue 81 to Row 27 Wed 01
   // E.g. "fri 16 4rd week saturday" -> Row 2 Fri 16 to Row 5 Sat 59
+  // E.g. "00 next 3rd week any 1 total" -> Row 3 Wed 00 to any cell on Row 5 with total=1
   // -------------------------------------------------------------
   if (foundDays.length >= 1 && explicitNumberMatches.length >= 1 && (q.includes('week') || ordMatch)) {
     const startDayCol = foundDays[0].col;
     const num1 = explicitNumberMatches[0];
     const num2 = explicitNumberMatches.length >= 2 ? explicitNumberMatches[1] : null;
+
+    // Check if a "total" / "sum" filter is requested for the target row
+    const totalFilterMatch = q.match(/(\d+)\s*total/) || q.match(/total\s*(\d+)/);
+    const targetTotal = totalFilterMatch ? parseInt(totalFilterMatch[1]) : null;
+
+    // "any" keyword means scan all columns on target row
+    const scanAllTargetCols = q.includes('any') || foundDays.length < 2;
 
     let weekOffset = rowOffset;
     if (ordMatch) {
@@ -137,13 +145,30 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       if (grid[r]?.[startDayCol]?.val === num1) {
         const targetR = r + weekOffset;
         if (targetR < grid.length) {
-          const targetColsToScan = foundDays.length >= 2
+          // Decide which columns to check on target row
+          const targetColsToScan = !scanAllTargetCols && foundDays.length >= 2
             ? [foundDays[1].col]
-            : (num2 ? Array.from({ length: cols }, (_, i) => i) : [startDayCol]);
+            : (num2 && !scanAllTargetCols
+                ? Array.from({ length: cols }, (_, i) => i)
+                : Array.from({ length: cols }, (_, i) => i));
 
           targetColsToScan.forEach(targetDayCol => {
             const targetVal = grid[targetR]?.[targetDayCol]?.val || '';
-            if (targetVal && (!num2 || targetVal === num2)) {
+            if (!targetVal || !/^\d{2}$/.test(targetVal)) return;
+
+            // Check explicit number match if provided
+            const numOk = !num2 || targetVal === num2;
+
+            // Check total filter if provided
+            let totalOk = true;
+            if (targetTotal !== null) {
+              const t1 = parseInt(targetVal[0]) + parseInt(targetVal[1]);          // raw sum e.g. 0+1=1
+              const t2 = t1 % 10;                                                   // single digit sum
+              const t3 = calculateTotal ? calculateTotal(targetVal) : t1;          // context helper
+              totalOk = t1 === targetTotal || t2 === targetTotal || t3 === targetTotal;
+            }
+
+            if (numOk && totalOk) {
               const m1 = {
                 r, c: startDayCol,
                 day: DAY_NAMES[startDayCol],
