@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { findSequenceMatches, MATCH_COLORS, parseSequenceInput } from '../ai/sequenceEngine';
+import { findSequenceMatches, MATCH_COLORS, parseSequenceInput, analyzeTailEnd12WeekLookback } from '../ai/sequenceEngine';
 import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Layers, Settings2, Eye, EyeOff, MapPin } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
@@ -20,6 +20,7 @@ export const AILearningEngine = () => {
   const [showStats, setShowStats] = useState(true);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
+  const [show12WeekDashboard, setShow12WeekDashboard] = useState(true);
 
   // Virtualization Scroll State
   const [scrollTop, setScrollTop] = useState(0);
@@ -28,6 +29,11 @@ export const AILearningEngine = () => {
   const activeChartObj = charts[selectedChart] || null;
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
+
+  // Tail-End 12-Week Lookback & Prediction Calculation
+  const tailEnd12WeekResult = useMemo(() => {
+    return analyzeTailEnd12WeekLookback(grid, colsInput);
+  }, [grid, colsInput]);
   
   // Optimized row height allowing 12-14 rows on mobile screen
   const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
@@ -445,9 +451,92 @@ export const AILearningEngine = () => {
           )}
         </div>
 
+        {/* 3. TAIL-END 12-WEEK LOOKBACK & PREDICTION ENGINE */}
+        {tailEnd12WeekResult && tailEnd12WeekResult.colPredictions.length > 0 && (
+          <div className="bg-slate-950 border-2 border-cyan-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-cyan-400">
+                    ⚡ Tail-End 12-Week Lookback & Outcome Predictor
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Analyzing tail rows (#{tailEnd12WeekResult.lastFilledRowIndex} & #{tailEnd12WeekResult.lastFilledRowIndex + 1}) ➔ 12-Week Historical Lookback
+                  </p>
+                </div>
+              </div>
 
+              <button
+                onClick={() => setShow12WeekDashboard(v => !v)}
+                className="bg-cyan-950 border border-cyan-500 text-cyan-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full hover:bg-cyan-900 transition"
+              >
+                {show12WeekDashboard ? 'Hide 12-Wk Analytics' : `Show 12-Wk Analytics (${tailEnd12WeekResult.colPredictions.length} Tail Patterns)`}
+              </button>
+            </div>
 
-        {/* 3. CHART EDITOR STYLE TABLE UI INTERFACE */}
+            {show12WeekDashboard && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono">
+                {tailEnd12WeekResult.colPredictions.map((pred) => {
+                  const topO = pred.topOpen[0];
+                  const topC = pred.topClose[0];
+                  const topJ = pred.topJodi[0];
+
+                  return (
+                    <div
+                      key={pred.id}
+                      onClick={() => scrollToRowIndex(pred.pendingRowR)}
+                      className="bg-slate-900 border border-cyan-900/80 hover:border-cyan-500 p-2.5 rounded-xl space-y-1.5 cursor-pointer transition shadow-md"
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="bg-cyan-600 text-slate-950 font-black px-1.5 py-0.5 rounded text-[10px] uppercase">
+                          {pred.colName} {pred.digitType.toUpperCase()}
+                        </span>
+                        <span className="text-cyan-300 font-bold text-[10px]">
+                          Tail: {pred.tailPatternStr}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1 text-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                        {/* Predicted Open */}
+                        {topO && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] text-amber-400 font-extrabold block">PREDICT OPEN</span>
+                            <div className="text-lg font-black text-amber-300">
+                              {topO.val} <span className="text-[9px] font-normal text-amber-500">(Cut: {topO.cutVal})</span>
+                            </div>
+                            <span className="text-[8px] text-slate-400 block">{topO.percentage}% ({topO.count}x match)</span>
+                          </div>
+                        )}
+
+                        {/* Predicted Close */}
+                        {topC && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] text-purple-400 font-extrabold block">PREDICT CLOSE</span>
+                            <div className="text-lg font-black text-purple-300">
+                              {topC.val}
+                            </div>
+                            <span className="text-[8px] text-slate-400 block">{topC.percentage}% ({topC.count}x match)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Top Historical Follow-Up Jodi */}
+                      {topJ && (
+                        <div className="flex items-center justify-between text-[10px] bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80">
+                          <span className="text-slate-400">Top 12-Wk Follow Jodi:</span>
+                          <span className="text-emerald-400 font-black">
+                            Jodi {topJ.val} ({topJ.percentage}%)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800">
           <div
             ref={containerRef}

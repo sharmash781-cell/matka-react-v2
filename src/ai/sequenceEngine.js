@@ -329,3 +329,120 @@ export const calculateOutcomePredictions = (matches) => {
     cutOpen: topShortOpen.length > 0 ? (parseInt(topShortOpen[0].val) + 5) % 10 : (topOpen.length > 0 ? (parseInt(topOpen[0].val) + 5) % 10 : '-')
   };
 };
+
+/**
+ * Tail-End 12-Week Lookback & Prediction Engine
+ * 1. Analyzes the last 2 to 3 active rows leading up to current/empty row.
+ * 2. Scans backwards through chart within strict 12-row windows to find exact historical matches.
+ * 3. Calculates historical follow-up probabilities for the next empty cell per column!
+ */
+export const analyzeTailEnd12WeekLookback = (grid, cols = 7) => {
+  if (!grid || grid.length < 3) return null;
+
+  const rows = grid.length;
+
+  // Find last filled row index
+  let lastFilledR = -1;
+  for (let r = rows - 1; r >= 0; r--) {
+    if (grid[r] && grid[r].some(c => c.val && c.val !== '')) {
+      lastFilledR = r;
+      break;
+    }
+  }
+
+  if (lastFilledR < 1) return null;
+
+  const pendingRowR = lastFilledR + 1 < rows ? lastFilledR + 1 : lastFilledR;
+  const colPredictions = [];
+
+  const getDigit = (r, c, type) => {
+    const v = grid[r]?.[c]?.val;
+    if (!v || v === '**' || !/^\d{2}$/.test(v)) return null;
+    return type === 'open' ? v[0] : v[1];
+  };
+
+  const colHeaders = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
+
+  for (let c = 0; c < cols; c++) {
+    const r1 = lastFilledR - 1;
+    const r2 = lastFilledR;
+
+    ['open', 'close'].forEach(digitType => {
+      const d1 = getDigit(r1, c, digitType);
+      const d2 = getDigit(r2, c, digitType);
+
+      if (d1 !== null && d2 !== null) {
+        const tailPatternStr = `${d1} ➔ ${d2}`;
+        const lookbackMinR = Math.max(0, lastFilledR - 12);
+        const matchesIn12Week = [];
+        const nextOpenCounts = {};
+        const nextCloseCounts = {};
+        const nextJodiCounts = {};
+        let totalMatches = 0;
+
+        for (let histR = lastFilledR - 2; histR >= lookbackMinR; histR--) {
+          const hd1 = getDigit(histR, c, digitType);
+          const hd2 = getDigit(histR + 1, c, digitType);
+
+          if (hd1 === d1 && hd2 === d2) {
+            const followR = histR + 2;
+            if (followR < rows) {
+              const followVal = grid[followR]?.[c]?.val;
+              if (followVal && followVal !== '**' && /^\d{2}$/.test(followVal)) {
+                totalMatches++;
+                const fOpen = followVal[0];
+                const fClose = followVal[1];
+                nextOpenCounts[fOpen] = (nextOpenCounts[fOpen] || 0) + 1;
+                nextCloseCounts[fClose] = (nextCloseCounts[fClose] || 0) + 1;
+                nextJodiCounts[followVal] = (nextJodiCounts[followVal] || 0) + 1;
+
+                matchesIn12Week.push({
+                  histR,
+                  followR,
+                  followVal,
+                  fOpen,
+                  fClose
+                });
+              }
+            }
+          }
+        }
+
+        if (totalMatches > 0) {
+          const getTop = (obj) => Object.entries(obj)
+            .map(([val, count]) => ({
+              val,
+              count,
+              percentage: Math.round((count / totalMatches) * 100),
+              cutVal: String((parseInt(val) + 5) % 10)
+            }))
+            .sort((a, b) => b.count - a.count);
+
+          colPredictions.push({
+            id: `tail_pred_${c}_${digitType}`,
+            col: c,
+            colName: colHeaders[c] || `C${c + 1}`,
+            pendingRowR,
+            digitType,
+            tailPatternStr,
+            tailDigits: [d1, d2],
+            totalMatches,
+            lookbackMinRow: lookbackMinR + 1,
+            lookbackMaxRow: lastFilledR + 1,
+            matchesIn12Week,
+            topOpen: getTop(nextOpenCounts),
+            topClose: getTop(nextCloseCounts),
+            topJodi: getTop(nextJodiCounts)
+          });
+        }
+      }
+    });
+  }
+
+  return {
+    lastFilledRowIndex: lastFilledR,
+    pendingRowIndex: pendingRowR,
+    lookbackWindowRows: 12,
+    colPredictions
+  };
+};
