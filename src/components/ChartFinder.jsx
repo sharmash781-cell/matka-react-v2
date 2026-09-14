@@ -43,10 +43,10 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    'open to open opposite and close to close opposite wed',
+    'wed dead',
     'fri 16 4rd week saturday',
-    'thu open to open same and close to close opposite 4rd thu',
     'what mostly came after 88 in thursday',
-    'thursday 88 next 3rd thursday 64 and next 5th thursday is 59 and after 5th thursday next day 55',
     'thu open to open 2 down and close to close is 4 down',
     'sat 1 total'
   ];
