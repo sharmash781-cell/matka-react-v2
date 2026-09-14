@@ -268,7 +268,7 @@ export const AILearningEngine = () => {
             <div className="flex items-center gap-2">
               <span className={`px-3.5 py-1 rounded-full text-xs font-mono font-black border shadow-md transition-all ${
                 sequenceResults.totalMatches > 0
-                  ? 'bg-cyan-950 border-cyan-400 text-cyan-300 animate-pulse'
+                  ? 'bg-cyan-950 border-cyan-400 text-cyan-300'
                   : 'bg-slate-900 border-slate-800 text-slate-400'
               }`}>
                 Found {sequenceResults.totalMatches} Matches
@@ -438,7 +438,7 @@ export const AILearningEngine = () => {
               </div>
 
               {sequenceResults.shortRangeMatchesCount > 0 && (
-                <span className="bg-emerald-950 border border-emerald-500 text-emerald-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full animate-pulse">
+                <span className="bg-emerald-950 border border-emerald-500 text-emerald-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full">
                   ⚡ 5-12 Row Gap Window Active ({sequenceResults.shortRangeMatchesCount} Matches)
                 </span>
               )}
@@ -550,7 +550,7 @@ export const AILearningEngine = () => {
                                 borderWidth: primaryMatch ? '3.5px' : '1px',
                                 boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : 'none'
                               }}
-                              className={`relative px-0.5 py-0.5 text-center align-top transition-all duration-150 ${
+                              className={`relative px-0.5 py-0.5 text-center align-top ${
                                 primaryMatch ? 'z-10 bg-amber-50/50' : ''
                               }`}
                             >
@@ -576,9 +576,9 @@ export const AILearningEngine = () => {
                                   onFocus={(e) => e.target.select()}
                                   maxLength={2}
                                   placeholder=""
-                                  className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded transition-transform ${
+                                  className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
                                     primaryMatch
-                                      ? (red ? 'red-pair-text scale-110 font-black drop-shadow-md' : 'text-slate-950 font-black scale-110 drop-shadow-md')
+                                      ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
                                       : (red ? 'red-pair-text' : 'text-slate-950 font-black')
                                   }`}
                                 />
