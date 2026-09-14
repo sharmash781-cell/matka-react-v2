@@ -112,6 +112,26 @@ export const AILearningEngine = () => {
     return map;
   }, [visibleMatches]);
 
+  // Map empty target cells to partial setup predictions for instant O(1) rendering lookup
+  const emptyCellMap = useMemo(() => {
+    const map = {};
+    if (!sequenceResults || !sequenceResults.partialSetups) return map;
+    sequenceResults.partialSetups.forEach((setup) => {
+      const { emptyCell, cells, direction } = setup;
+      const key = `${emptyCell.r}_${emptyCell.c}`;
+      if (!map[key]) map[key] = [];
+      map[key].push({
+        setupId: setup.id,
+        predictedDigit: emptyCell.predictedDigit,
+        cutDigit: emptyCell.cutDigit,
+        predictedDigitType: emptyCell.predictedDigitType,
+        direction,
+        cells
+      });
+    });
+    return map;
+  }, [sequenceResults]);
+
   const lastFilledRowIndex = useMemo(() => {
     for (let r = grid.length - 1; r >= 0; r--) {
       if (grid[r] && grid[r].some(cell => cell.val && cell.val !== '')) {
@@ -483,6 +503,52 @@ export const AILearningEngine = () => {
                 </div>
               </div>
             </div>
+
+            {/* ACTIVE 2-DIGIT PATTERN SETUPS POINTING TO EMPTY CELLS */}
+            {sequenceResults.partialSetups && sequenceResults.partialSetups.length > 0 && (
+              <div className="bg-slate-900 border border-pink-500/50 rounded-xl p-2.5 space-y-2 mt-2">
+                <div className="flex items-center justify-between text-xs font-black text-pink-400 border-b border-pink-900/50 pb-1">
+                  <span className="flex items-center gap-1.5">
+                    🔮 Active 2-Digit Setups Pointing to Empty Cells ({sequenceResults.partialSetups.length} Setups)
+                  </span>
+                  <span className="text-[10px] text-pink-300 font-mono">Auto-Predicting Next Outcome</span>
+                </div>
+
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
+                  {sequenceResults.partialSetups.map((p) => {
+                    const { emptyCell, cells, direction, id } = p;
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => scrollToRowIndex(emptyCell.r)}
+                        className="bg-slate-950 border border-pink-900/60 p-2 rounded-lg flex items-center justify-between gap-2 hover:bg-slate-800 cursor-pointer transition"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="bg-pink-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded uppercase">
+                            Setup #{p.setupNumber}
+                          </span>
+                          <span className="text-white font-bold">
+                            Row #{emptyCell.r + 1} {COL_HEADERS[emptyCell.c]}
+                          </span>
+                          <span className="text-pink-300 font-semibold text-[10px]">
+                            ({cells.map(c => c.digit).join(' ➔ ')} ➔ [EMPTY])
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-pink-400 font-bold text-[10px]">
+                            Need {emptyCell.predictedDigitType.toUpperCase()}:
+                          </span>
+                          <span className="bg-pink-950 border border-pink-500 text-pink-200 text-xs font-black px-2 py-0.5 rounded">
+                            {emptyCell.predictedDigit} <span className="text-[9px] text-pink-400 font-normal">(Cut: {emptyCell.cutDigit})</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -537,21 +603,24 @@ export const AILearningEngine = () => {
                           const closeCond = calculateCloseCond(val);
                           const red = isRedPair(val);
 
-                          // Look up visual sequence matches for cell
+                          // Look up visual sequence matches and empty cell predictions
                           const cellMatches = cellMatchMap[`${rIdx}_${cIdx}`] || [];
                           const primaryMatch = cellMatches[0] || null;
+
+                          const emptyCellPredictions = emptyCellMap[`${rIdx}_${cIdx}`] || [];
+                          const primaryEmptyPred = emptyCellPredictions[0] || null;
 
                           return (
                             <td
                               key={cIdx}
                               style={{
-                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : 'white',
-                                borderColor: primaryMatch ? primaryMatch.color : '#020617',
-                                borderWidth: primaryMatch ? '3.5px' : '1px',
-                                boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : 'none'
+                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : (primaryEmptyPred ? '#fce7f3' : 'white'),
+                                borderColor: primaryMatch ? primaryMatch.color : (primaryEmptyPred ? '#ec4899' : '#020617'),
+                                borderWidth: primaryMatch || primaryEmptyPred ? '3.5px' : '1px',
+                                boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : (primaryEmptyPred ? '0 0 12px #ec489980 inset' : 'none')
                               }}
                               className={`relative px-0.5 py-0.5 text-center align-top ${
-                                primaryMatch ? 'z-10 bg-amber-50/50' : ''
+                                primaryMatch ? 'z-10 bg-amber-50/50' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
                               {/* Top stats badges (when Stats ON) */}
@@ -566,7 +635,7 @@ export const AILearningEngine = () => {
                                 </div>
                               )}
 
-                              {/* Center Jodi Input (Extra Bold Highlighted Number) */}
+                              {/* Center Jodi Input (Extra Bold Highlighted Number or Empty Prediction) */}
                               <div className={`${showStats ? '-mt-1 mb-1' : 'my-auto'} flex items-center justify-center relative z-10`}>
                                 <input
                                   id={`ai-cell-${rIdx}-${cIdx}`}
@@ -583,6 +652,18 @@ export const AILearningEngine = () => {
                                   }`}
                                 />
                               </div>
+
+                              {/* EMPTY CELL PREDICTION OVERLAY BADGE */}
+                              {primaryEmptyPred && !val && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-pink-100/90 rounded border-2 border-pink-500 shadow-md p-0.5">
+                                  <span className="text-[7px] sm:text-[9px] font-mono font-black text-pink-700 tracking-tighter uppercase leading-none">
+                                    🔮 {primaryEmptyPred.predictedDigitType.toUpperCase()} NEEDED
+                                  </span>
+                                  <span className="text-sm sm:text-2xl font-black font-mono text-pink-950 leading-none mt-0.5">
+                                    {primaryEmptyPred.predictedDigit} <span className="text-[9px] text-pink-700 font-bold">({primaryEmptyPred.cutDigit})</span>
+                                  </span>
+                                </div>
+                              )}
 
                               {/* SIDE MATCH BADGE (Positioned at Top-Left / Side Margin so it NEVER covers the center number) */}
                               {cellMatches.length > 0 && (

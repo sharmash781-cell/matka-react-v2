@@ -97,6 +97,59 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     };
   };
 
+  // Helper to check partial setups (e.g. 2 digits filled + 3rd step lands on EMPTY cell)
+  const checkPartialSequenceAlongPath = (rStart, cStart, rStep, cStep, digitTypeCombo, dirName) => {
+    if (seqLen < 3) return null;
+
+    const matchedCells = [];
+
+    // Check first (seqLen - 1) steps match targetSeq
+    for (let i = 0; i < seqLen - 1; i++) {
+      const r = rStart + i * rStep;
+      const c = cStart + i * cStep;
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return null;
+
+      const digitType = digitTypeCombo[i];
+      const digit = getCellDigit(r, c, digitType);
+      if (digit === null || digit !== targetSeq[i]) {
+        return null;
+      }
+      matchedCells.push({
+        r,
+        c,
+        digit,
+        digitType,
+        val: grid[r][c].val
+      });
+    }
+
+    // Step (seqLen - 1) must land on an EMPTY cell (unfilled)
+    const targetR = rStart + (seqLen - 1) * rStep;
+    const targetC = cStart + (seqLen - 1) * cStep;
+    if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols) return null;
+
+    const targetVal = grid[targetR][targetC]?.val || '';
+    if (targetVal !== '' && targetVal !== null) return null; // Must be EMPTY!
+
+    const predictedDigit = targetSeq[seqLen - 1];
+    const cutDigit = String((parseInt(predictedDigit) + 5) % 10);
+    const predictedDigitType = digitTypeCombo[seqLen - 1];
+
+    return {
+      direction: dirName,
+      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → '),
+      cells: matchedCells,
+      isPartialSetup: true,
+      emptyCell: {
+        r: targetR,
+        c: targetC,
+        predictedDigit,
+        cutDigit,
+        predictedDigitType
+      }
+    };
+  };
+
   // Digit type combinations to evaluate:
   // Strictly ALL OPEN digits (Open -> Open -> Open) OR ALL CLOSE digits (Close -> Close -> Close)
   const digitCombos = [
@@ -106,6 +159,7 @@ export const findSequenceMatches = (grid, sequenceInput) => {
 
   // Deduplication tracker
   const seenPaths = new Set();
+  const rawPartialSetups = [];
 
   // Scan entire grid
   for (let r = 0; r < rows; r++) {
@@ -149,6 +203,16 @@ export const findSequenceMatches = (grid, sequenceInput) => {
                 subsequentOutcome
               });
             }
+          } else {
+            // Check for partial setup (2 digits completed + 3rd empty cell)
+            const partialResult = checkPartialSequenceAlongPath(r, c, rStep, cStep, combo, dirName);
+            if (partialResult) {
+              const partialKey = `${partialResult.emptyCell.r}:${partialResult.emptyCell.c}:${partialResult.emptyCell.predictedDigitType}`;
+              if (!seenPaths.has(partialKey)) {
+                seenPaths.add(partialKey);
+                rawPartialSetups.push(partialResult);
+              }
+            }
           }
         }
       }
@@ -178,6 +242,17 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     };
   });
 
+  const partialSetups = rawPartialSetups.map((p, idx) => ({
+    id: `partial_setup_${idx + 1}`,
+    setupNumber: idx + 1,
+    color: '#ec4899', // Bright Hot Pink for Active Unfilled Predictions
+    direction: p.direction,
+    digitTypeLabel: p.digitTypeLabel,
+    cells: p.cells,
+    emptyCell: p.emptyCell,
+    summary: `Partial Setup #${idx + 1}: ${p.cells.map(c => c.digit).join('➔')} ➔ Requires ${p.emptyCell.predictedDigit} (Cut: ${p.emptyCell.cutDigit}) at Row #${p.emptyCell.r + 1}`
+  }));
+
   // Calculate Subsequent Predictions and Analytics
   const predictions = calculateOutcomePredictions(matches);
 
@@ -186,7 +261,9 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     targetSeqStr: targetSeq.join(' → '),
     totalMatches: matches.length,
     shortRangeMatchesCount: matches.filter(m => m.isShortRangeGap).length,
+    partialSetupsCount: partialSetups.length,
     matches,
+    partialSetups,
     predictions
   };
 };
