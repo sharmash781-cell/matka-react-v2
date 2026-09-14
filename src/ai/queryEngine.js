@@ -20,7 +20,7 @@ const DAY_MAP = {
   thu: 3, thursday: 3, th: 3, thur: 3, thurs: 3,
   fri: 4, friday: 4, fr: 4,
   sat: 5, saturday: 5, sa: 5,
-  sun: 6, sunday: 6, su: su, sund: 6
+  sun: 6, sunday: 6, su: 6, sund: 6
 };
 
 const DAY_NAMES = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
