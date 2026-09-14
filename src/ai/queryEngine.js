@@ -1,6 +1,7 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
  * Supports strict day filtering, multi-row offsets ("next 2nd row"), reverse total syntax ("sat 1 total"),
+ * UP / DOWN digit relationship engine ("one up open to open same row", "1 down close to close same col"),
  * open-to-open / close-to-close same-row processors, same col consecutive N times ("98 2 times in same col"),
  * same row ("same row 59 sat and sunday"), and star holiday filtering (** / * / XX are holidays, not red pairs).
  */
@@ -58,7 +59,123 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0: OPEN TO OPEN / CLOSE TO CLOSE SAME ROW PROCESSOR
+  // FEATURE 0: UP / DOWN DIGIT RELATIONSHIP ENGINE
+  // E.g. "one up open to open same row", "1 down close to close same col"
+  // E.g. "two up open to close mon and tue"
+  // -------------------------------------------------------------
+  const isUpQuery = q.includes('up');
+  const isDownQuery = q.includes('down');
+
+  if (isUpQuery || isDownQuery) {
+    let step = 1;
+    if (q.includes('two up') || q.includes('2 up') || q.includes('double up')) step = 2;
+    else if (q.includes('three up') || q.includes('3 up')) step = 3;
+    else if (q.includes('four up') || q.includes('4 up')) step = 4;
+    else if (q.includes('two down') || q.includes('2 down') || q.includes('double down')) step = -2;
+    else if (q.includes('three down') || q.includes('3 down')) step = -3;
+    else if (q.includes('four down') || q.includes('4 down')) step = -4;
+    else if (isDownQuery) step = -1;
+    else step = 1;
+
+    const isCloseToClose = q.includes('close to close') || q.includes('close-to-close');
+    const isOpenToClose = q.includes('open to close') || q.includes('open-to-close');
+    const isCloseToOpen = q.includes('close to open') || q.includes('close-to-open');
+    const isOpenToOpen = !isCloseToClose && !isOpenToClose && !isCloseToOpen;
+
+    const isSameCol = q.includes('same col') || q.includes('same column');
+    const isSameRow = q.includes('same row') || !isSameCol;
+
+    const targetCols = foundDays.map(d => d.col);
+
+    if (isSameRow) {
+      for (let r = 0; r < grid.length; r++) {
+        const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
+
+        for (let i = 0; i < colsToScan.length; i++) {
+          const c1 = colsToScan[i];
+          const val1 = grid[r]?.[c1]?.val || '';
+          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+
+          for (let j = i + 1; j < colsToScan.length; j++) {
+            const c2 = colsToScan[j];
+            const val2 = grid[r]?.[c2]?.val || '';
+            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+
+            let d1 = 0, d2 = 0, typeLabel = '';
+            if (isOpenToOpen) {
+              d1 = parseInt(val1[0]); d2 = parseInt(val2[0]);
+              typeLabel = 'Open-to-Open';
+            } else if (isCloseToClose) {
+              d1 = parseInt(val1[1]); d2 = parseInt(val2[1]);
+              typeLabel = 'Close-to-Close';
+            } else if (isOpenToClose) {
+              d1 = parseInt(val1[0]); d2 = parseInt(val2[1]);
+              typeLabel = 'Open-to-Close';
+            } else if (isCloseToOpen) {
+              d1 = parseInt(val1[1]); d2 = parseInt(val2[0]);
+              typeLabel = 'Close-to-Open';
+            }
+
+            const targetD2 = (d1 + step + 10) % 10;
+            const targetD1 = (d2 + step + 10) % 10;
+
+            if (d2 === targetD2 || d1 === targetD1) {
+              const labelStr = step > 0 ? `${step} Up` : `${Math.abs(step)} Down`;
+              const m1 = { r, c: c1, day: DAY_NAMES[c1], rowNum: r + 1, val: val1, reason: `${labelStr} ${typeLabel} (${d1} ➔ ${d2}) on ${DAY_NAMES[c1]} & ${DAY_NAMES[c2]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+              const m2 = { r, c: c2, day: DAY_NAMES[c2], rowNum: r + 1, val: val2, reason: `${labelStr} ${typeLabel} (${d1} ➔ ${d2}) on ${DAY_NAMES[c1]} & ${DAY_NAMES[c2]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+              matches.push(m1, m2);
+              matchMap[`${r}_${c1}`] = m1;
+              matchMap[`${r}_${c2}`] = m2;
+            }
+          }
+        }
+      }
+    }
+
+    if (isSameCol) {
+      const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
+      colsToScan.forEach(c => {
+        for (let r = 0; r < grid.length - rowOffset; r++) {
+          const val1 = grid[r]?.[c]?.val || '';
+          const val2 = grid[r + rowOffset]?.[c]?.val || '';
+          if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
+
+          let d1 = 0, d2 = 0, typeLabel = '';
+          if (isOpenToOpen) {
+            d1 = parseInt(val1[0]); d2 = parseInt(val2[0]);
+            typeLabel = 'Open-to-Open';
+          } else if (isCloseToClose) {
+            d1 = parseInt(val1[1]); d2 = parseInt(val2[1]);
+            typeLabel = 'Close-to-Close';
+          } else if (isOpenToClose) {
+            d1 = parseInt(val1[0]); d2 = parseInt(val2[1]);
+            typeLabel = 'Open-to-Close';
+          } else if (isCloseToOpen) {
+            d1 = parseInt(val1[1]); d2 = parseInt(val2[0]);
+            typeLabel = 'Close-to-Open';
+          }
+
+          const targetD2 = (d1 + step + 10) % 10;
+          if (d2 === targetD2) {
+            const labelStr = step > 0 ? `${step} Up` : `${Math.abs(step)} Down`;
+            const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: val1, reason: `${labelStr} ${typeLabel} (${d1} ➔ ${d2}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: PURPLE_MATCH_COLOR };
+            const m2 = { r: r + rowOffset, c, day: DAY_NAMES[c], rowNum: r + 1 + rowOffset, val: val2, reason: `${labelStr} ${typeLabel} (${d1} ➔ ${d2}) on ${DAY_NAMES[c]} (Row #${r+1+rowOffset})`, color: PURPLE_MATCH_COLOR };
+            matches.push(m1, m2);
+            matchMap[`${r}_${c}`] = m1;
+            matchMap[`${r+rowOffset}_${c}`] = m2;
+          }
+        }
+      });
+    }
+
+    if (matches.length > 0) {
+      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}"`;
+      return { matches, summary, matchMap };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.5: OPEN TO OPEN / CLOSE TO CLOSE SAME ROW PROCESSOR
   // -------------------------------------------------------------
   const isOpenToOpen = q.includes('open to open') || q.includes('open-to-open') || q.includes('open 2 open') || q.includes('open to close') || q.includes('close to close') || q.includes('close-to-close');
 
@@ -155,7 +272,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // -------------------------------------------------------------
   // FEATURE 1: SAME COL WITH CONSECUTIVE / "N TIMES" SEARCH
-  // E.g. "98 2 times in same col" or "consecutive 98 on Friday"
   // -------------------------------------------------------------
   const isSameColQuery = q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same');
   const isTimesQuery = q.includes('times') || q.includes('twice') || q.includes('repeat');
@@ -174,7 +290,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     colsToScan.forEach(c => {
       if (numToFind) {
         if (isStrictConsecutive) {
-          // Check CONSECUTIVE countN rows in column c
           for (let r = 0; r <= grid.length - countN; r++) {
             let isConsecutiveMatch = true;
             for (let k = 0; k < countN; k++) {
@@ -232,7 +347,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // -------------------------------------------------------------
   // FEATURE 2: SAME ROW QUERY PROCESSOR
-  // E.g. "same row 59 sat and sunday"
   // -------------------------------------------------------------
   const isSameRowQuery = q.includes('same row') || q.includes('in same row') || q.includes('row same');
 
@@ -601,7 +715,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   const summary = matches.length > 0
     ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "98 2 times in same col", "open to open 3 same row", or "same row 59 sat and sunday".`;
+    : `No matches found for "${queryStr}". Try e.g. "one up open to open same row", "1 down close to close same col", or "two up open to close mon and tue".`;
 
   return { matches, summary, matchMap };
 };
