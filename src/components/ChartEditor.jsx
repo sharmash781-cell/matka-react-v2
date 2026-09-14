@@ -41,8 +41,8 @@ export const ChartEditor = () => {
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
-  // Compact row height (54px) allows 15+ rows on mobile screen
-  const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
+  // Optimized row height allowing 12-14 rows on mobile screen
+  const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
 
   useEffect(() => {
     if (activeChart) {
@@ -480,7 +480,7 @@ export const ChartEditor = () => {
                       return (
                         <td
                           key={cIdx}
-                          className="border border-slate-800 relative text-center align-top transition-colors hover:bg-amber-200"
+                          className="border border-slate-800 relative text-center align-middle transition-colors hover:bg-amber-200"
                           style={{ backgroundColor: '#fef3c7' }}
                         >
 

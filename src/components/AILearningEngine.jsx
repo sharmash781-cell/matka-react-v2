@@ -29,8 +29,8 @@ export const AILearningEngine = () => {
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
   
-  // Compact row height allows 15+ rows on mobile screen (matching ChartEditor)
-  const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
+  // Optimized row height allowing 12-14 rows on mobile screen
+  const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
 
   const handleAICellChange = (rIdx, cIdx, value) => {
     if (!activeChartObj) return;
@@ -619,7 +619,7 @@ export const AILearningEngine = () => {
                                 borderWidth: primaryMatch || primaryEmptyPred ? '3.5px' : '1px',
                                 boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : (primaryEmptyPred ? '0 0 12px #ec489980 inset' : 'none')
                               }}
-                              className={`relative px-0.5 py-0.5 text-center align-top ${
+                              className={`relative px-0.5 py-0.5 text-center align-middle ${
                                 primaryMatch ? 'z-10 bg-amber-50/50' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
@@ -635,8 +635,8 @@ export const AILearningEngine = () => {
                                 </div>
                               )}
 
-                              {/* Center Jodi Input (Extra Bold Highlighted Number or Empty Prediction) */}
-                              <div className={`${showStats ? '-mt-1 mb-1' : 'my-auto'} flex items-center justify-center relative z-10`}>
+                              {/* Center Jodi Input (Perfectly Centered in Middle of Cell) */}
+                              <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
                                 <input
                                   id={`ai-cell-${rIdx}-${cIdx}`}
                                   type="text"
@@ -645,7 +645,7 @@ export const AILearningEngine = () => {
                                   onFocus={(e) => e.target.select()}
                                   maxLength={2}
                                   placeholder=""
-                                  className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
+                                  className={`w-full text-center text-lg xs:text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
                                     primaryMatch
                                       ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
                                       : (red ? 'red-pair-text' : 'text-slate-950 font-black')
