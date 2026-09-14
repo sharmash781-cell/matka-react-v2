@@ -10,8 +10,9 @@ export const parseJodiTokens = (input) => {
   const rawTokens = input.trim().split(/[\s,\t\r\n]+/).filter(Boolean);
   const finalTokens = [];
   for (const raw of rawTokens) {
-    if (raw === '**' || raw.toUpperCase() === 'XX') {
-      finalTokens.push('**');
+    const upper = raw.toUpperCase();
+    if (raw === '**' || raw === '*' || upper === 'XX' || upper === 'X') {
+      finalTokens.push(raw === '*' ? '*' : upper === 'X' ? 'X' : upper === 'XX' ? 'XX' : '**');
     } else if (/^\d+$/.test(raw)) {
       for (let i = 0; i < raw.length; i += 2) {
         let pair = raw.slice(i, i + 2);
@@ -94,10 +95,25 @@ export const ChartEditor = () => {
       row.map((cell, c) => (r === rIdx && c === cIdx) ? { val: value } : cell)
     );
     setGrid(updated);
-    if (value.length === 2) {
+
+    // AUTO SAVE INSTANTLY TO LOCAL STORAGE & STORE
+    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+    saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
+
+    // AUTO SHIFT FOCUS TO NEXT COL ON SAME ROW (OR NEXT ROW FIRST COL IF LAST COL)
+    const valUpper = value.toUpperCase();
+    if (value.length >= 2 || value === '*' || valUpper === 'X') {
       let nextR = rIdx, nextC = cIdx + 1;
       if (nextC >= colsInput) { nextC = 0; nextR++; }
-      document.getElementById(`cell-${nextR}-${nextC}`)?.focus();
+      if (nextR < updated.length) {
+        setTimeout(() => {
+          const nextInput = document.getElementById(`cell-${nextR}-${nextC}`);
+          if (nextInput) {
+            nextInput.focus();
+            if (nextInput.select) nextInput.select();
+          }
+        }, 15);
+      }
     }
   };
 

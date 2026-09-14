@@ -7,7 +7,7 @@ const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 20;
 
 export const AILearningEngine = () => {
-  const { charts = {}, activeChartName, setActiveChartName, setActiveTab } = useChart();
+  const { charts = {}, activeChartName, setActiveChartName, setActiveTab, saveChart } = useChart();
 
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
 
@@ -31,6 +31,30 @@ export const AILearningEngine = () => {
   
   // Compact row height allows 15+ rows on mobile screen (matching ChartEditor)
   const rowHeight = isCompact ? (showStats ? 54 : 40) : (showStats ? 84 : 60);
+
+  const handleAICellChange = (rIdx, cIdx, value) => {
+    if (!activeChartObj) return;
+    const newGrid = grid.map((row, r) =>
+      row.map((cell, c) => (r === rIdx && c === cIdx) ? { val: value } : cell)
+    );
+    if (saveChart) {
+      saveChart(selectedChart, newGrid.length, colsInput, newGrid);
+    }
+    const valUpper = value.toUpperCase();
+    if (value.length >= 2 || value === '*' || valUpper === 'X') {
+      let nextR = rIdx, nextC = cIdx + 1;
+      if (nextC >= colsInput) { nextC = 0; nextR++; }
+      if (nextR < newGrid.length) {
+        setTimeout(() => {
+          const nextInput = document.getElementById(`ai-cell-${nextR}-${nextC}`);
+          if (nextInput) {
+            nextInput.focus();
+            if (nextInput.select) nextInput.select();
+          }
+        }, 15);
+      }
+    }
+  };
 
   // Sync selected chart if context changes
   useEffect(() => {
@@ -402,10 +426,10 @@ export const AILearningEngine = () => {
                             <td
                               key={cIdx}
                               style={{
-                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : 'white',
+                                backgroundColor: primaryMatch ? `${primaryMatch.color}25` : 'white',
                                 borderColor: primaryMatch ? primaryMatch.color : '#020617',
-                                borderWidth: primaryMatch ? '3.5px' : '1px',
-                                boxShadow: primaryMatch ? `0 0 14px ${primaryMatch.color}90 inset` : 'none'
+                                borderWidth: primaryMatch ? '3px' : '1px',
+                                boxShadow: primaryMatch ? `0 0 10px ${primaryMatch.color}80 inset` : 'none'
                               }}
                               className={`relative px-0.5 py-0.5 text-center align-top transition-all duration-150 ${
                                 primaryMatch ? 'z-10' : ''
@@ -423,28 +447,33 @@ export const AILearningEngine = () => {
                                 </div>
                               )}
 
-                              {/* Center Jodi Number */}
-                              <div className={`${showStats ? '-mt-1 mb-1' : 'my-auto'} flex items-center justify-center relative`}>
-                                <span
-                                  className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none select-none ${
-                                    red ? 'red-pair-text' : 'normal-jodi-text'
+                              {/* Center Jodi Input (Click to type, auto-shifts to next cell & auto-saves) */}
+                              <div className={`${showStats ? '-mt-1 mb-1' : 'my-auto'} flex items-center justify-center relative z-10`}>
+                                <input
+                                  id={`ai-cell-${rIdx}-${cIdx}`}
+                                  type="text"
+                                  value={val}
+                                  onChange={(e) => handleAICellChange(rIdx, cIdx, e.target.value)}
+                                  onFocus={(e) => e.target.select()}
+                                  maxLength={2}
+                                  placeholder=""
+                                  className={`w-full text-center text-lg xs:text-xl sm:text-3xl md:text-4xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
+                                    red ? 'red-pair-text' : 'text-slate-950 font-black'
                                   }`}
-                                >
-                                  {val}
-                                </span>
+                                />
                               </div>
 
-                              {/* MATCH SEQUENCE OVERLAY BADGES */}
+                              {/* COMPACT MICRO MATCH SEQUENCE OVERLAY BADGES (Top-Right, Non-blocking) */}
                               {cellMatches.length > 0 && (
-                                <div className="absolute top-0.5 right-0.5 flex flex-col items-end gap-0.5 z-20">
+                                <div className="absolute top-0.5 right-0.5 flex flex-col items-end gap-0.5 z-20 pointer-events-none">
                                   {cellMatches.map((m, idx) => (
                                     <span
                                       key={idx}
                                       style={{ backgroundColor: m.color, color: '#020617' }}
-                                      className="text-[9px] font-black font-mono px-1 py-0.2 rounded-md shadow-md leading-none border border-black uppercase"
-                                      title={`Match #${m.matchNumber}: Step ${m.stepIdx} of ${m.totalSteps} (${m.digitType.toUpperCase()} digit = ${m.digit})`}
+                                      className="text-[7px] xs:text-[8px] font-black font-mono px-0.5 py-0.1 rounded shadow-sm leading-none border border-black/80 uppercase"
+                                      title={`Match #${m.matchNumber}: Step ${m.stepIdx} of ${m.totalSteps}`}
                                     >
-                                      #{m.matchNumber} S{m.stepIdx}
+                                      #{m.matchNumber}:S{m.stepIdx}
                                     </span>
                                   ))}
                                 </div>
@@ -452,7 +481,7 @@ export const AILearningEngine = () => {
 
                               {/* Bottom CN & Cond (when Stats ON) */}
                               {showStats && (
-                                <div className="absolute bottom-0.5 left-0 right-0 text-center text-slate-950 font-black text-[9px] sm:text-xs font-mono tracking-tighter leading-none">
+                                <div className="absolute bottom-0.5 left-0 right-0 text-center text-slate-950 font-black text-[9px] sm:text-xs font-mono tracking-tighter leading-none pointer-events-none">
                                   {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
                                 </div>
                               )}

@@ -6,7 +6,9 @@ const ChartContext = createContext();
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
 
 export const isRedPair = (num) => {
-  if (!num || num.length !== 2 || num === '**' || !/^\d{2}$/.test(num)) return false;
+  if (!num) return false;
+  if (num === '**' || num === '*' || num.toUpperCase() === 'XX' || num.toUpperCase() === 'X') return true;
+  if (num.length !== 2 || !/^\d{2}$/.test(num)) return false;
   const a = parseInt(num[0]), b = parseInt(num[1]);
   return a === b || RED_PAIRS[a] === b;
 };
