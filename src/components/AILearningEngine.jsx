@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { findSequenceMatches, MATCH_COLORS, parseSequenceInput, analyzeTailEnd12WeekLookback } from '../ai/sequenceEngine';
+import { findSequenceMatches, MATCH_COLORS, parseSequenceInput } from '../ai/sequenceEngine';
 import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Layers, Settings2, Eye, EyeOff, MapPin } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
@@ -20,8 +20,6 @@ export const AILearningEngine = () => {
   const [showStats, setShowStats] = useState(true);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
-  const [show12WeekDashboard, setShow12WeekDashboard] = useState(true);
-  const [showTailEndCellOverlays, setShowTailEndCellOverlays] = useState(false);
 
   // Virtualization Scroll State
   const [scrollTop, setScrollTop] = useState(0);
@@ -30,11 +28,6 @@ export const AILearningEngine = () => {
   const activeChartObj = charts[selectedChart] || null;
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
-
-  // Tail-End 12-Week Lookback & Prediction Calculation
-  const tailEnd12WeekResult = useMemo(() => {
-    return analyzeTailEnd12WeekLookback(grid, colsInput);
-  }, [grid, colsInput]);
   
   // Optimized row height allowing 12-14 rows on mobile screen
   const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
@@ -452,120 +445,6 @@ export const AILearningEngine = () => {
           )}
         </div>
 
-        {/* 3. TAIL-END 12-WEEK LOOKBACK & PREDICTION ENGINE */}
-        {tailEnd12WeekResult && tailEnd12WeekResult.colPredictions.length > 0 && (
-          <div className="bg-slate-950 border-2 border-cyan-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-cyan-400" />
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-cyan-400">
-                    ⚡ Tail-End 12-Week Auto-Predictor ({tailEnd12WeekResult.colPredictions.length} Setups Found)
-                  </h3>
-                  <p className="text-[10px] text-slate-400">
-                    Auto-scanning 12-week history for Vertical & Horizontal digit flows leading to Empty Cells
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowTailEndCellOverlays(v => !v)}
-                  className={`text-[10px] font-mono font-black px-2.5 py-1 rounded-full transition border ${
-                    showTailEndCellOverlays
-                      ? 'bg-cyan-600 border-cyan-400 text-slate-950 font-black'
-                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  {showTailEndCellOverlays ? '🎯 Cell Overlays: ON' : '🎯 Cell Overlays: OFF'}
-                </button>
-
-                <button
-                  onClick={() => setShow12WeekDashboard(v => !v)}
-                  className="bg-cyan-950 border border-cyan-500 text-cyan-300 text-[10px] font-mono font-black px-2.5 py-1 rounded-full hover:bg-cyan-900 transition"
-                >
-                  {show12WeekDashboard ? 'Hide Analytics' : `Show Analytics (${tailEnd12WeekResult.colPredictions.length})`}
-                </button>
-              </div>
-            </div>
-
-            {show12WeekDashboard && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono">
-                {tailEnd12WeekResult.colPredictions.map((pred) => {
-                  const topO = pred.topOpen[0];
-                  const topC = pred.topClose[0];
-                  const topJ = pred.topJodi[0];
-
-                  return (
-                    <div
-                      key={pred.id}
-                      onClick={() => scrollToRowIndex(pred.r)}
-                      className="bg-slate-900 border border-cyan-900/80 hover:border-cyan-500 p-2.5 rounded-xl space-y-2 cursor-pointer transition shadow-md"
-                    >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="bg-cyan-600 text-slate-950 font-black px-1.5 py-0.5 rounded text-[10px] uppercase">
-                          Row #{pred.rowNum} {pred.colName} ({pred.digitType.toUpperCase()})
-                        </span>
-                        <span className="text-cyan-300 font-bold text-[10px]">
-                          Pattern: {pred.tailPatternStr}
-                        </span>
-                      </div>
-
-                      <div className="text-[9px] text-slate-400">
-                        Setup Type: <strong className="text-slate-200">{pred.direction}</strong>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-1 text-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
-                        {/* Predicted Open */}
-                        {topO && (
-                          <div className="space-y-0.5">
-                            <span className="text-[9px] text-amber-400 font-extrabold block">PREDICT OPEN</span>
-                            <div className="text-lg font-black text-amber-300">
-                              {topO.val} <span className="text-[9px] font-normal text-amber-500">(Cut: {topO.cutVal})</span>
-                            </div>
-                            <span className="text-[8px] text-slate-400 block">{topO.percentage}% ({topO.count}x match)</span>
-                          </div>
-                        )}
-
-                        {/* Predicted Close */}
-                        {topC && (
-                          <div className="space-y-0.5">
-                            <span className="text-[9px] text-purple-400 font-extrabold block">PREDICT CLOSE</span>
-                            <div className="text-lg font-black text-purple-300">
-                              {topC.val}
-                            </div>
-                            <span className="text-[8px] text-slate-400 block">{topC.percentage}% ({topC.count}x match)</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* WHY THIS PREDICTION CAME (DETAILED EXPLANATION) */}
-                      <div className="bg-slate-950/90 border border-cyan-900/60 p-2 rounded-lg space-y-1 text-[10px] leading-tight">
-                        <div className="flex items-center gap-1 text-cyan-300 font-bold text-[10px]">
-                          <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-                          <span>Why {topO ? `Open ${topO.val}` : ''} {topC ? `Close ${topC.val}` : ''} comes:</span>
-                        </div>
-                        <p className="text-slate-300 text-[9px]">
-                          Matched <strong className="text-emerald-400">{pred.totalMatches} times</strong> in past 12 weeks. Historically after <span className="text-cyan-300 font-bold">{pred.tailPatternStr}</span> ({pred.direction}), Open digit <strong className="text-amber-300">{topO?.val}</strong> appeared in <strong className="text-emerald-400">{topO?.count}/{pred.totalMatches} occurrences ({topO?.percentage}%)</strong>. Cut digit is <span className="text-amber-400 font-bold">{topO?.cutVal}</span>.
-                        </p>
-                      </div>
-
-                      {/* Top Historical Follow-Up Jodi */}
-                      {topJ && (
-                        <div className="flex items-center justify-between text-[10px] bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80">
-                          <span className="text-slate-400">12-Wk Follow Jodi:</span>
-                          <span className="text-emerald-400 font-black">
-                            Jodi {topJ.val} ({topJ.percentage}%)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
         <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800">
           <div
             ref={containerRef}
@@ -623,20 +502,17 @@ export const AILearningEngine = () => {
                           const emptyCellPredictions = emptyCellMap[`${rIdx}_${cIdx}`] || [];
                           const primaryEmptyPred = emptyCellPredictions[0] || null;
 
-                          const tail12WkPreds = tailEnd12WeekResult?.emptyCellMap?.[`${rIdx}_${cIdx}`] || [];
-                          const primaryTail12WkPred = tail12WkPreds[0] || null;
-
                           return (
                             <td
                               key={cIdx}
                               style={{
-                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : (primaryTail12WkPred ? '#cffaff' : (primaryEmptyPred ? '#fce7f3' : 'white')),
-                                borderColor: primaryMatch ? primaryMatch.color : (primaryTail12WkPred ? '#06b6d4' : (primaryEmptyPred ? '#ec4899' : '#020617')),
-                                borderWidth: primaryMatch || primaryTail12WkPred || primaryEmptyPred ? '3.5px' : '1px',
-                                boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : (primaryTail12WkPred ? '0 0 12px #06b6d480 inset' : (primaryEmptyPred ? '0 0 12px #ec489980 inset' : 'none'))
+                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : (primaryEmptyPred ? '#fce7f3' : 'white'),
+                                borderColor: primaryMatch ? primaryMatch.color : (primaryEmptyPred ? '#ec4899' : '#020617'),
+                                borderWidth: primaryMatch || primaryEmptyPred ? '3.5px' : '1px',
+                                boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : (primaryEmptyPred ? '0 0 12px #ec489980 inset' : 'none')
                               }}
                               className={`relative px-0.5 py-0.5 text-center align-middle ${
-                                primaryMatch ? 'z-10 bg-amber-50/50' : (primaryTail12WkPred ? 'z-10 bg-cyan-100/60' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : ''))
+                                primaryMatch ? 'z-10 bg-amber-50/50' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
                               {/* Top stats badges (when Stats ON) */}
@@ -669,23 +545,8 @@ export const AILearningEngine = () => {
                                 />
                               </div>
 
-                              {/* EMPTY CELL 12-WEEK TAIL PREDICTION OVERLAY BADGE */}
-                              {primaryTail12WkPred && !val && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-cyan-100/90 rounded border-2 border-cyan-500 shadow-md p-0.5">
-                                  <span className="text-[7px] sm:text-[8px] font-mono font-black text-cyan-900 tracking-tighter uppercase leading-none">
-                                    ⚡ 12-WK {primaryTail12WkPred.digitType.toUpperCase()}
-                                  </span>
-                                  <span className="text-xs sm:text-lg font-black font-mono text-cyan-950 leading-none mt-0.5">
-                                    {primaryTail12WkPred.topOpen[0]?.val} <span className="text-[8px] text-cyan-700 font-bold">({primaryTail12WkPred.topOpen[0]?.cutVal})</span>
-                                  </span>
-                                  <span className="text-[7px] font-bold text-slate-700">
-                                    {primaryTail12WkPred.topOpen[0]?.percentage}% ({primaryTail12WkPred.totalMatches}x)
-                                  </span>
-                                </div>
-                              )}
-
                               {/* EMPTY CELL PREDICTION OVERLAY BADGE */}
-                              {primaryEmptyPred && !primaryTail12WkPred && !val && (
+                              {primaryEmptyPred && !val && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-pink-100/90 rounded border-2 border-pink-500 shadow-md p-0.5">
                                   <span className="text-[7px] sm:text-[9px] font-mono font-black text-pink-700 tracking-tighter uppercase leading-none">
                                     🔮 {primaryEmptyPred.predictedDigitType.toUpperCase()} NEEDED
