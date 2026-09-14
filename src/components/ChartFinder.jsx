@@ -43,11 +43,11 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    'find tuesday 11 and next tuesday 70',
+    'find sat 99 and next 2nd row 94',
+    'sat 1 total',
     'find 91 in tues and next tues 92',
-    'find 56 in Mon',
     'open 9 in mon',
-    'Tuesday total 2',
-    'consecutive red numbers on Tuesday',
     'find red pairs'
   ];
 

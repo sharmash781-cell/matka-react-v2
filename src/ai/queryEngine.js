@@ -1,11 +1,7 @@
 /**
- * Ultra-Advanced Matka Natural Language Query Engine
- * Parses multi-number sequence instructions, opens/closes, red pairs, totals, and relational queries like:
- * - "find 91 in tues and next tues 92"
- * - "open 9 in mon and close 2 in tue"
- * - "Tuesday total 2"
- * - "find 56 in Mon and next 88"
- * - "consecutive red numbers on Tuesday"
+ * Ultra-Advanced Natural Language Query Engine for Matka Chart
+ * Supports strict day filtering, multi-row offsets ("next 2nd row"), reverse total syntax ("sat 1 total"),
+ * open/close digit constraints, and multi-step sequence chains.
  */
 import { isRedPair, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -36,46 +32,55 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   const PURPLE_MATCH_COLOR = '#a855f7'; // Purple
   const GREEN_MATCH_COLOR = '#10b981'; // Emerald Green
 
-  // Extract all 2-digit numbers in the query sentence
-  const explicitNumberMatches = q.match(/\b\d{2}\b/g) || [];
-
-  // Detect days mentioned in query
+  // 1. Detect explicit days mentioned in the query sentence
+  const words = q.split(/\s+/);
   const foundDays = [];
-  Object.keys(DAY_MAP).forEach(dayKey => {
-    if (q.includes(dayKey)) {
-      foundDays.push({ key: dayKey, col: DAY_MAP[dayKey] });
+  words.forEach(word => {
+    const cleanWord = word.replace(/[^a-z]/g, '');
+    if (DAY_MAP[cleanWord] !== undefined) {
+      foundDays.push({ key: cleanWord, col: DAY_MAP[cleanWord] });
     }
   });
 
-  const isNextMentioned = q.includes('next') || q.includes('then') || q.includes('after') || q.includes('n+1') || q.includes('consecutive') || q.includes('following');
+  // Extract explicit 2-digit numbers (e.g., "11", "70", "99", "94")
+  const explicitNumberMatches = q.match(/\b\d{2}\b/g) || [];
+
+  // Parse row offset (e.g. "next 2nd row" -> offset 2, "next 3rd row" -> offset 3, "next row" -> offset 1)
+  let rowOffset = 1;
+  const offsetMatch = q.match(/(?:next|after|following)?\s*(\d+)(?:st|nd|rd|th)?\s*row/) || q.match(/(\d+)\s*row[s]?\s*down/);
+  if (offsetMatch) {
+    rowOffset = parseInt(offsetMatch[1]);
+  } else if (q.includes('next') || q.includes('then') || q.includes('after')) {
+    rowOffset = 1;
+  }
 
   // -------------------------------------------------------------
-  // RULE 1: MULTI-NUMBER / RELATIONAL SEQUENCE QUERY
-  // Example: "find 91 in tues and next tues 92" or "91 in tuesday and next 92"
+  // FEATURE A: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
+  // E.g. "find tuesday 11 and next tuesday 70"
+  // E.g. "find sat 99 and next 2nd row 94"
   // -------------------------------------------------------------
   if (explicitNumberMatches.length >= 2) {
     const num1 = explicitNumberMatches[0];
     const num2 = explicitNumberMatches[1];
 
-    // Determine target columns if mentioned
     const day1Col = foundDays.length > 0 ? foundDays[0].col : null;
     const day2Col = foundDays.length > 1 ? foundDays[1].col : (day1Col !== null ? day1Col : null);
 
-    // Search for sequence chain: num1 at Row r (col1), num2 at Row r+1 (col2)
+    // Search for sequential chain: num1 at Row r (col1), num2 at Row r + rowOffset (col2)
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < cols; c++) {
+        // STRICT DAY FILTER: If day1 specified, MUST match day1Col strictly!
         if (day1Col !== null && c !== day1Col) continue;
         const val1 = grid[r]?.[c]?.val || '';
 
         if (val1 === num1) {
-          // Check next row or relative offset for num2
-          const targetR = r + 1; // Check next row
+          const targetR = r + rowOffset;
           const targetC = day2Col !== null ? day2Col : c;
 
           if (targetR < grid.length) {
             const val2 = grid[targetR]?.[targetC]?.val || '';
             if (val2 === num2) {
-              // Found exact sequence chain! Highlight BOTH cells!
+              // FOUND EXACT SEQUENCE MATCH! Highlight BOTH cells!
               const m1 = {
                 r, c,
                 day: DAY_NAMES[c],
@@ -89,7 +94,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 day: DAY_NAMES[targetC],
                 rowNum: targetR + 1,
                 val: val2,
-                reason: `Step 2 (${val2}) on ${DAY_NAMES[targetC]} (Row #${targetR+1})`,
+                reason: `Step 2 (+${rowOffset} row): ${val2} on ${DAY_NAMES[targetC]} (Row #${targetR+1})`,
                 color: GREEN_MATCH_COLOR
               };
               matches.push(m1, m2);
@@ -101,19 +106,63 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // Fallback: If no strict sequential chain found, highlight all instances of both numbers
-    if (matches.length === 0) {
-      for (let r = 0; r < grid.length; r++) {
-        for (let c = 0; c < cols; c++) {
-          const val = grid[r]?.[c]?.val || '';
-          if (val === num1 || val === num2) {
+    const summary = matches.length > 0
+      ? `Found ${matches.length / 2} sequence match(es) for "${queryStr}" (${num1} ➔ ${num2})`
+      : `No sequence match (${num1} ➔ ${num2}) found on ${day1Col !== null ? DAY_NAMES[day1Col] : 'the chart'}.`;
+
+    return { matches, summary, matchMap };
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE B: TOTAL / SUM / DIFFERENCE SEARCH (FLEXIBLE SYNTAX)
+  // E.g. "sat 1 total", "1 total in sat", "total 1 in sat", "tuesday 2 total"
+  // -------------------------------------------------------------
+  const isTotalQuery = q.includes('total') || q.includes('sum') || q.includes('diff');
+  if (isTotalQuery) {
+    const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
+
+    // Match both "total 1" AND "1 total" / "sum 2" AND "2 sum"
+    const totalMatch = q.match(/(?:total|sum)\s*(\d+)/) || q.match(/(\d+)\s*(?:total|sum)/);
+    const diffMatch = q.match(/(?:diff|difference)\s*(\d+)/) || q.match(/(\d+)\s*(?:diff|difference)/);
+
+    const targetTotal = totalMatch ? parseInt(totalMatch[1]) : null;
+    const targetDiff = diffMatch ? parseInt(diffMatch[1]) : null;
+
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < cols; c++) {
+        // STRICT DAY FILTER
+        if (targetCol !== null && c !== targetCol) continue;
+        const val = grid[r]?.[c]?.val || '';
+
+        if (targetTotal !== null && val && /^\d{2}$/.test(val)) {
+          const tot1 = calculateTotal(val); // (a+b)%10
+          const tot2 = (parseInt(val[0]) + parseInt(val[1])) % 10;
+          const tot3 = parseInt(val[0]) + parseInt(val[1]);
+
+          if (tot1 === targetTotal || tot2 === targetTotal || tot3 === targetTotal) {
             const matchItem = {
               r, c,
               day: DAY_NAMES[c],
               rowNum: r + 1,
               val,
-              reason: `Found ${val} on ${DAY_NAMES[c]} (Row #${r+1})`,
-              color: isRedPair(val) ? RED_MATCH_COLOR : HIGHLIGHT_COLOR
+              reason: `Total = ${targetTotal} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`,
+              color: BLUE_MATCH_COLOR
+            };
+            matches.push(matchItem);
+            matchMap[`${r}_${c}`] = matchItem;
+          }
+        }
+
+        if (targetDiff !== null && val && /^\d{2}$/.test(val)) {
+          const diff = calculateDiffTotal(val);
+          if (diff === targetDiff) {
+            const matchItem = {
+              r, c,
+              day: DAY_NAMES[c],
+              rowNum: r + 1,
+              val,
+              reason: `Difference = ${targetDiff} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`,
+              color: PURPLE_MATCH_COLOR
             };
             matches.push(matchItem);
             matchMap[`${r}_${c}`] = matchItem;
@@ -121,17 +170,25 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       }
     }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} cell(s) with Total = ${targetTotal ?? targetDiff} on ${targetCol !== null ? DAY_NAMES[targetCol] : 'chart'}`
+      : `No cells found with Total = ${targetTotal ?? targetDiff} on ${targetCol !== null ? DAY_NAMES[targetCol] : 'chart'}.`;
+
+    return { matches, summary, matchMap };
   }
 
   // -------------------------------------------------------------
-  // RULE 2: SINGLE NUMBER SEARCH WITH DAY (e.g. "find 56 in Mon" or "find 91 in tues")
+  // FEATURE C: SINGLE NUMBER SEARCH WITH STRICT DAY FILTER
+  // E.g. "find 56 in Mon" or "find 91 in tues"
   // -------------------------------------------------------------
-  else if (explicitNumberMatches.length === 1) {
+  if (explicitNumberMatches.length === 1) {
     const numToFind = explicitNumberMatches[0];
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
 
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < cols; c++) {
+        // STRICT DAY FILTER
         if (targetCol !== null && c !== targetCol) continue;
         const val = grid[r]?.[c]?.val || '';
 
@@ -141,40 +198,47 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             day: DAY_NAMES[c],
             rowNum: r + 1,
             val,
-            reason: `Found exact number ${val} on ${DAY_NAMES[c]} (Row #${r+1})`,
+            reason: `Found ${val} on ${DAY_NAMES[c]} (Row #${r+1})`,
             color: isRedPair(val) ? RED_MATCH_COLOR : HIGHLIGHT_COLOR
           };
           matches.push(matchItem);
           matchMap[`${r}_${c}`] = matchItem;
 
-          // If "next" or "next row" is mentioned, also check the next row cell!
-          if (isNextMentioned && r + 1 < grid.length) {
-            const nextVal = grid[r + 1]?.[c]?.val || '';
+          // If "next row" is mentioned, also highlight the target next row cell!
+          if (q.includes('next') && r + rowOffset < grid.length) {
+            const nextVal = grid[r + rowOffset]?.[c]?.val || '';
             if (nextVal) {
               const nextItem = {
-                r: r + 1, c,
+                r: r + rowOffset, c,
                 day: DAY_NAMES[c],
-                rowNum: r + 2,
+                rowNum: r + rowOffset + 1,
                 val: nextVal,
-                reason: `Next Row follow-up to ${val}: ${nextVal} on ${DAY_NAMES[c]} (Row #${r+2})`,
+                reason: `Follow-up (+${rowOffset} row): ${nextVal} on ${DAY_NAMES[c]} (Row #${r+rowOffset+1})`,
                 color: GREEN_MATCH_COLOR
               };
               matches.push(nextItem);
-              matchMap[`${r+1}_${c}`] = nextItem;
+              matchMap[`${r+rowOffset}_${c}`] = nextItem;
             }
           }
         }
       }
     }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
+      : `No matches found for number ${numToFind} on ${targetCol !== null ? DAY_NAMES[targetCol] : 'chart'}.`;
+
+    return { matches, summary, matchMap };
   }
 
   // -------------------------------------------------------------
-  // RULE 3: OPEN / CLOSE DIGIT SEARCH (e.g. "open 9 in mon", "close 2 in tuesday")
+  // FEATURE D: OPEN / CLOSE DIGIT SEARCH
+  // E.g. "open 9 in mon", "close 2 in tuesday", "tue open 8"
   // -------------------------------------------------------------
-  else if (q.includes('open') || q.includes('close')) {
+  if (q.includes('open') || q.includes('close')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
-    const openMatch = q.match(/open[s]?\s*(\d)/);
-    const closeMatch = q.match(/close[s]?\s*(\d)/);
+    const openMatch = q.match(/open[s]?\s*(\d)/) || q.match(/(\d)\s*open[s]?/);
+    const closeMatch = q.match(/close[s]?\s*(\d)/) || q.match(/(\d)\s*close[s]?/);
 
     const targetOpen = openMatch ? openMatch[1] : null;
     const targetClose = closeMatch ? closeMatch[1] : null;
@@ -203,33 +267,38 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       }
     }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
+      : `No matching Open/Close digits found for "${queryStr}".`;
+
+    return { matches, summary, matchMap };
   }
 
   // -------------------------------------------------------------
-  // RULE 4: CONSECUTIVE / SAME RED NUMBERS SEARCH (e.g. "red numbers on Tuesday", "11 11 or 11 66")
+  // FEATURE E: RED PAIRS SEARCH (STRICT DAY SUPPORT)
+  // E.g. "red numbers on tuesday", "sat red pairs"
   // -------------------------------------------------------------
-  else if (q.includes('red')) {
+  if (q.includes('red')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
-    const isConsecutive = isNextMentioned || q.includes('consecutive') || q.includes('same row') || q.includes('column');
+    const isConsecutive = q.includes('consecutive') || q.includes('next') || q.includes('same row') || q.includes('column');
 
     if (isConsecutive) {
-      // Vertical consecutive search
       for (let c = 0; c < cols; c++) {
         if (targetCol !== null && c !== targetCol) continue;
-        for (let r = 0; r < grid.length - 1; r++) {
+        for (let r = 0; r < grid.length - rowOffset; r++) {
           const val1 = grid[r]?.[c]?.val || '';
-          const val2 = grid[r + 1]?.[c]?.val || '';
+          const val2 = grid[r + rowOffset]?.[c]?.val || '';
           if (isRedPair(val1) && isRedPair(val2)) {
-            const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: val1, reason: `Consecutive Red Pair ${val1} (Row #${r+1}) ➔ ${val2} (Row #${r+2})`, color: RED_MATCH_COLOR };
-            const m2 = { r: r + 1, c, day: DAY_NAMES[c], rowNum: r + 2, val: val2, reason: `Consecutive Red Pair ${val1} (Row #${r+1}) ➔ ${val2} (Row #${r+2})`, color: RED_MATCH_COLOR };
+            const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: val1, reason: `Red Pair ${val1} (Row #${r+1}) ➔ ${val2} (Row #${r+1+rowOffset})`, color: RED_MATCH_COLOR };
+            const m2 = { r: r + rowOffset, c, day: DAY_NAMES[c], rowNum: r + 1 + rowOffset, val: val2, reason: `Red Pair ${val1} (Row #${r+1}) ➔ ${val2} (Row #${r+1+rowOffset})`, color: RED_MATCH_COLOR };
             matches.push(m1, m2);
             matchMap[`${r}_${c}`] = m1;
-            matchMap[`${r+1}_${c}`] = m2;
+            matchMap[`${r+rowOffset}_${c}`] = m2;
           }
         }
       }
     } else {
-      // Single red pair search
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < cols; c++) {
           if (targetCol !== null && c !== targetCol) continue;
@@ -242,64 +311,47 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       }
     }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} Red Pair cell(s) on ${targetCol !== null ? DAY_NAMES[targetCol] : 'chart'}`
+      : `No Red Pairs found on ${targetCol !== null ? DAY_NAMES[targetCol] : 'chart'}.`;
+
+    return { matches, summary, matchMap };
   }
 
   // -------------------------------------------------------------
-  // RULE 5: TOTAL / SUM / DIFFERENCE SEARCH
+  // FEATURE F: GENERAL DAY / SUBSTRING FALLBACK
+  // E.g. "find tuesday" or "sat"
   // -------------------------------------------------------------
-  else if (q.includes('total') || q.includes('sum') || q.includes('diff')) {
-    const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
-    const totalMatch = q.match(/(?:total|sum)\s*(\d+)/);
-    const diffMatch = q.match(/(?:diff|difference)\s*(\d+)/);
+  const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
+  const cleanSearchStr = q.replace(/find|search|where|is|the|number|in|of|and|next/g, '').trim();
 
-    const targetTotal = totalMatch ? parseInt(totalMatch[1]) : null;
-    const targetDiff = diffMatch ? parseInt(diffMatch[1]) : null;
-
+  if (targetCol !== null && cleanSearchStr.length === 0) {
+    for (let r = 0; r < grid.length; r++) {
+      const val = grid[r]?.[targetCol]?.val || '';
+      if (val) {
+        const matchItem = { r, c: targetCol, day: DAY_NAMES[targetCol], rowNum: r + 1, val, reason: `Value ${val} on ${DAY_NAMES[targetCol]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
+        matches.push(matchItem);
+        matchMap[`${r}_${targetCol}`] = matchItem;
+      }
+    }
+  } else if (cleanSearchStr.length > 0) {
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < cols; c++) {
         if (targetCol !== null && c !== targetCol) continue;
         const val = grid[r]?.[c]?.val || '';
-
-        if (targetTotal !== null && calculateTotal(val) === targetTotal) {
-          const matchItem = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Total = ${targetTotal} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+        if (val && val.toLowerCase().includes(cleanSearchStr)) {
+          const matchItem = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Matched "${cleanSearchStr}" (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
           matches.push(matchItem);
           matchMap[`${r}_${c}`] = matchItem;
-        }
-
-        if (targetDiff !== null && calculateDiffTotal(val) === targetDiff) {
-          const matchItem = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Difference = ${targetDiff} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: PURPLE_MATCH_COLOR };
-          matches.push(matchItem);
-          matchMap[`${r}_${c}`] = matchItem;
-        }
-      }
-    }
-  }
-
-  // -------------------------------------------------------------
-  // RULE 6: FALLBACK SUBSTRING SEARCH
-  // -------------------------------------------------------------
-  else {
-    const cleanSearchStr = q.replace(/find|search|where|is|the|number|in|of|and|next/g, '').trim();
-    const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
-
-    if (cleanSearchStr.length > 0) {
-      for (let r = 0; r < grid.length; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (targetCol !== null && c !== targetCol) continue;
-          const val = grid[r]?.[c]?.val || '';
-          if (val && val.toLowerCase().includes(cleanSearchStr)) {
-            const matchItem = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Matched "${cleanSearchStr}" (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
-            matches.push(matchItem);
-            matchMap[`${r}_${c}`] = matchItem;
-          }
         }
       }
     }
   }
 
   const summary = matches.length > 0
-    ? `Found ${matches.length} matching cell${matches.length > 1 ? 's' : ''} for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "find 91 in tues and next tues 92", "open 9 in mon", or "tuesday total 2".`;
+    ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
+    : `No matches found for "${queryStr}". Try e.g. "find tuesday 11 and next tuesday 70", "find sat 99 and next 2nd row 94", or "sat 1 total".`;
 
   return { matches, summary, matchMap };
 };
