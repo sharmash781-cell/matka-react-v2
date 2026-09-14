@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { useChart, isRedPair, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
+import { useChart, isRedPair, isHoliday, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
 import { parseAndSearchChart } from '../ai/queryEngine';
 import { Search, Sparkles, MapPin, Eye, Filter, Table, Layers, ArrowRight } from 'lucide-react';
 
@@ -43,11 +43,11 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    'same row 59 sat and sunday',
+    'same col 59',
     'find tuesday 11 and next tuesday 70',
     'find sat 99 and next 2nd row 94',
     'sat 1 total',
-    'find 91 in tues and next tues 92',
-    'open 9 in mon',
     'find red pairs'
   ];
 
@@ -213,6 +213,7 @@ export const ChartFinder = () => {
                       {row.map((cell, cIdx) => {
                         const val = cell.val || '';
                         const red = isRedPair(val);
+                        const holiday = isHoliday(val);
 
                         // Look up match for this cell
                         const matchItem = matchMap[`${rIdx}_${cIdx}`];
@@ -234,7 +235,7 @@ export const ChartFinder = () => {
                             <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
                               <span
                                 className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-wider leading-none ${
-                                  red ? 'text-red-600 drop-shadow-sm font-black' : 'text-slate-950 font-black'
+                                  red ? 'text-red-600 drop-shadow-sm font-black' : (holiday ? 'text-slate-400 font-bold' : 'text-slate-950 font-black')
                                 }`}
                               >
                                 {val || ''}
