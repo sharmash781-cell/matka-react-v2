@@ -4,7 +4,8 @@ import { ChartEditor } from './components/ChartEditor';
 import { ChartStore } from './components/ChartStore';
 import { AILearningEngine } from './components/AILearningEngine';
 import { PredictorEngine } from './components/PredictorEngine';
-import { Table, Archive, Brain, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ChartFinder } from './components/ChartFinder';
+import { Table, Archive, Brain, Zap, Search, AlertTriangle, RefreshCw } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -59,16 +60,17 @@ const BottomNav = () => {
     { id: 'store', label: 'Store', icon: Archive },
     { id: 'ai', label: 'AI', icon: Brain },
     { id: 'predict', label: 'Predict', icon: Zap },
+    { id: 'finder', label: 'Find', icon: Search },
   ];
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-slate-950/95 border-t border-slate-800 backdrop-blur-md py-2 px-2 shadow-2xl">
       {navItems.map(({ id, label, icon: Icon }) => {
-        const active = activeTab === id || (id === 'ai' && activeTab === 'ai-trainer') || (id === 'predict' && activeTab === 'predictor');
+        const active = activeTab === id || (id === 'ai' && activeTab === 'ai-trainer') || (id === 'predict' && activeTab === 'predictor') || (id === 'finder' && activeTab === 'chart-finder');
         return (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 px-3 sm:px-4 py-1 rounded-xl transition-all ${
               active
                 ? 'bg-gradient-to-t from-pink-600/30 to-purple-600/20 text-pink-400'
                 : 'text-slate-500 hover:text-slate-300'
@@ -98,6 +100,9 @@ const MainContent = () => {
       )}
       {(activeTab === 'predict' || activeTab === 'predictor') && (
         <div className="p-2 sm:p-4"><PredictorEngine /></div>
+      )}
+      {(activeTab === 'finder' || activeTab === 'chart-finder') && (
+        <div className="p-2 sm:p-4"><ChartFinder /></div>
       )}
     </main>
   );

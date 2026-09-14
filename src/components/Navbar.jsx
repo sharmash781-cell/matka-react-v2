@@ -1,6 +1,6 @@
 import React from 'react';
 import { useChart } from '../context/ChartContext';
-import { Table, Archive, Brain, Zap } from 'lucide-react';
+import { Table, Archive, Brain, Zap, Search } from 'lucide-react';
 
 export const Navbar = () => {
   const { activeTab, setActiveTab } = useChart();
@@ -10,6 +10,7 @@ export const Navbar = () => {
     { id: 'store', label: 'Store', shortLabel: 'Store', icon: Archive },
     { id: 'ai-trainer', label: 'AI Model Trainer', shortLabel: 'AI Trainer', icon: Brain },
     { id: 'predictor', label: 'Predictor Engine', shortLabel: 'Predictor', icon: Zap },
+    { id: 'finder', label: 'Chart Finder', shortLabel: 'Find', icon: Search },
   ];
 
   return (
