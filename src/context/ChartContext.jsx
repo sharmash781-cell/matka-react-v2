@@ -58,9 +58,15 @@ export const DEFAULT_PRESETS = {
   }
 };
 
+const STORAGE_KEY = 'userStoreCharts_v3';
+
 const getInitialCharts = () => {
   try {
-    const saved = localStorage.getItem('chartHistory');
+    // Clean legacy storage keys so old auto-presets don't resurrect
+    localStorage.removeItem('chartHistory');
+    localStorage.removeItem('matkaCharts');
+    
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
@@ -68,7 +74,7 @@ const getInitialCharts = () => {
       }
     }
   } catch (e) {}
-  return {}; // Start with 0 charts!
+  return {}; // ALWAYS START EMPTY (0 CHARTS)
 };
 
 export const ChartProvider = ({ children }) => {
@@ -115,7 +121,7 @@ export const ChartProvider = ({ children }) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem('chartHistory', JSON.stringify(charts));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(charts));
     } catch (e) {}
   }, [charts]);
 
@@ -144,7 +150,7 @@ export const ChartProvider = ({ children }) => {
         }
       };
       try {
-        localStorage.setItem('chartHistory', JSON.stringify(updated));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -157,7 +163,7 @@ export const ChartProvider = ({ children }) => {
       const updated = { ...prevCharts };
       delete updated[cleanName];
       try {
-        localStorage.setItem('chartHistory', JSON.stringify(updated));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch (e) {}
       const keys = Object.keys(updated);
       if (keys.length > 0) {
@@ -173,7 +179,7 @@ export const ChartProvider = ({ children }) => {
     setCharts(DEFAULT_PRESETS);
     setActiveChartName("SRIDEVI");
     try {
-      localStorage.setItem('chartHistory', JSON.stringify(DEFAULT_PRESETS));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PRESETS));
     } catch (e) {}
   }, []);
 
@@ -181,7 +187,9 @@ export const ChartProvider = ({ children }) => {
     setCharts({});
     setActiveChartName("MY NEW CHART");
     try {
-      localStorage.setItem('chartHistory', JSON.stringify({}));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
+      localStorage.removeItem('chartHistory');
+      localStorage.removeItem('matkaCharts');
     } catch (e) {}
   }, []);
 
