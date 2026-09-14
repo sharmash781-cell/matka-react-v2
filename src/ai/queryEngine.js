@@ -249,7 +249,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // -------------------------------------------------------------
   // FEATURE 0.5: STRICT NUMBER DEAD PAIR ENGINE
-  // E.g. "88 dead same col" or "88 dead wed"
+  // E.g. "88 dead same col" or "81 dead fri"
+  // Calculates dead pair: open+5, close+5 (mod 10)
+  // ALWAYS early-returns so general scanner is never triggered
   // -------------------------------------------------------------
   const isDeadQuery = q.includes('dead');
   if (isDeadQuery && explicitNumberMatches.length > 0) {
@@ -261,26 +263,28 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const targetCols = foundDays.map(d => d.col);
     const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
 
+    // Highlight every occurrence of source number
     colsToScan.forEach(c => {
       for (let r = 0; r < grid.length; r++) {
         if (grid[r]?.[c]?.val === targetNum) {
-          for (let off = 1; off <= 10; off++) {
-            if (r + off < grid.length && grid[r + off]?.[c]?.val === deadVal) {
-              const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: targetNum, reason: `Target ${targetNum} on ${DAY_NAMES[c]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
-              const m2 = { r: r + off, c, day: DAY_NAMES[c], rowNum: r + 1 + off, val: deadVal, reason: `Dead Pair ${deadVal} (+${off} rows) on ${DAY_NAMES[c]} (Row #${r+1+off})`, color: GREEN_MATCH_COLOR };
-              matches.push(m1, m2);
-              matchMap[`${r}_${c}`] = m1;
-              matchMap[`${r+off}_${c}`] = m2;
-            }
-          }
+          const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: targetNum, reason: `${targetNum} on ${DAY_NAMES[c]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
+          matches.push(m);
+          matchMap[`${r}_${c}`] = m;
+        }
+        // Highlight every occurrence of the dead pair value
+        if (grid[r]?.[c]?.val === deadVal) {
+          const m2 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: deadVal, reason: `Dead of ${targetNum} → ${deadVal} on ${DAY_NAMES[c]} (Row #${r+1})`, color: GREEN_MATCH_COLOR };
+          matches.push(m2);
+          matchMap[`${r}_${c}`] = m2;
         }
       }
     });
 
-    if (matches.length > 0) {
-      const summary = `Found ${matches.length / 2} dead pair match(es) (${targetNum} ➔ ${deadVal})`;
-      return { matches, summary, matchMap };
-    }
+    // ALWAYS return from strict engine — never fall through to general scanner
+    const deadSummary = matches.length > 0
+      ? `Found ${matches.length} cell(s): ${targetNum} and its dead pair ${deadVal} on ${colsToScan.map(c => DAY_NAMES[c]).join('/')}`
+      : `Dead pair of ${targetNum} is ${deadVal}. Neither found on ${colsToScan.map(c => DAY_NAMES[c]).join('/')}.`;
+    return { matches, summary: deadSummary, matchMap };
   }
 
   // -------------------------------------------------------------
