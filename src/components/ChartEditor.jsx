@@ -200,12 +200,16 @@ export const ChartEditor = () => {
   const totalRows = grid.length;
   const visibleHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
 
+  // Chunked virtualization: Render all rows directly for totalRows <= 250.
+  // For totalRows > 250, update in 25-row chunks to eliminate per-pixel reflow jitter.
   const { startRow, endRow, topPadding, bottomPadding } = useMemo(() => {
-    if (totalRows <= 30) return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
-    const s = Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN);
-    const e = Math.min(totalRows, Math.ceil((scrollTop + visibleHeight) / rowHeight) + OVERSCAN);
+    if (totalRows <= 250) return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
+    const chunkSize = 25;
+    const currentChunk = Math.floor(scrollTop / (chunkSize * rowHeight));
+    const s = Math.max(0, (currentChunk - 1) * chunkSize);
+    const e = Math.min(totalRows, (currentChunk + 3) * chunkSize);
     return { startRow: s, endRow: e, topPadding: s * rowHeight, bottomPadding: (totalRows - e) * rowHeight };
-  }, [scrollTop, totalRows, rowHeight, visibleHeight]);
+  }, [scrollTop, totalRows, rowHeight]);
 
   const visibleRows = useMemo(() => grid.slice(startRow, endRow), [grid, startRow, endRow]);
 

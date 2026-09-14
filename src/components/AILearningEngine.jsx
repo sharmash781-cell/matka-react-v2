@@ -158,16 +158,20 @@ export const AILearningEngine = () => {
     setScrollTop(e.target.scrollTop);
   };
 
+  // Chunked virtualization: Render all rows directly for totalRows <= 250.
+  // For totalRows > 250, update in 25-row chunks to eliminate per-pixel reflow jitter.
   const { startRow, endRow, topPadding, bottomPadding } = useMemo(() => {
-    if (totalRows <= 30) {
+    if (totalRows <= 250) {
       return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
     }
-    const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN);
-    const endIndex = Math.min(totalRows, Math.ceil((scrollTop + visibleHeight) / rowHeight) + OVERSCAN);
+    const chunkSize = 25;
+    const currentChunk = Math.floor(scrollTop / (chunkSize * rowHeight));
+    const startIndex = Math.max(0, (currentChunk - 1) * chunkSize);
+    const endIndex = Math.min(totalRows, (currentChunk + 3) * chunkSize);
     const topPad = startIndex * rowHeight;
     const bottomPad = (totalRows - endIndex) * rowHeight;
     return { startRow: startIndex, endRow: endIndex, topPadding: topPad, bottomPadding: bottomPad };
-  }, [scrollTop, totalRows, rowHeight, visibleHeight]);
+  }, [scrollTop, totalRows, rowHeight]);
 
   const visibleRows = useMemo(() => {
     return grid.slice(startRow, endRow);
