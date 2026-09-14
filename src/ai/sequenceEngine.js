@@ -100,31 +100,11 @@ export const findSequenceMatches = (grid, sequenceInput) => {
   };
 
   // Digit type combinations to evaluate:
-  // 1. All Open digits (Open -> Open -> Open)
-  // 2. All Close digits (Close -> Close -> Close)
-  // 3. Open -> Close -> Open
-  // 4. Close -> Open -> Close
-  const digitCombos = [];
-  
-  if (seqLen === 3) {
-    digitCombos.push(['open', 'open', 'open']);
-    digitCombos.push(['close', 'close', 'close']);
-    digitCombos.push(['open', 'close', 'open']);
-    digitCombos.push(['close', 'open', 'close']);
-  } else {
-    // Generate open/close combos for arbitrary sequence length
-    const combos = [['open'], ['close']];
-    for (let step = 1; step < seqLen; step++) {
-      const nextCombos = [];
-      for (const combo of combos) {
-        nextCombos.push([...combo, 'open']);
-        nextCombos.push([...combo, 'close']);
-      }
-      combos.length = 0;
-      combos.push(...nextCombos);
-    }
-    digitCombos.push(...combos);
-  }
+  // Strictly ALL OPEN digits (Open -> Open -> Open) OR ALL CLOSE digits (Close -> Close -> Close)
+  const digitCombos = [
+    Array(seqLen).fill('open'),
+    Array(seqLen).fill('close')
+  ];
 
   // Deduplication tracker
   const seenPaths = new Set();
