@@ -43,12 +43,12 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    'find 91 in tues and next tues 92',
     'find 56 in Mon',
+    'open 9 in mon',
     'Tuesday total 2',
     'consecutive red numbers on Tuesday',
-    'find red pairs',
-    'find 88 in Thu',
-    'same digit in Mon'
+    'find red pairs'
   ];
 
   // Virtualization slicing
