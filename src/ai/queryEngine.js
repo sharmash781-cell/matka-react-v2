@@ -1,9 +1,9 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
- * Supports strict day filtering, multi-row offsets ("next 2nd row"), reverse total syntax ("sat 1 total"),
- * UP / DOWN digit relationship engine ("one up open to open same row", "1 down close to close same col"),
- * open-to-open / close-to-close same-row processors, same col consecutive N times ("98 2 times in same col"),
- * same row ("same row 59 sat and sunday"), and star holiday filtering (** / * / XX are holidays, not red pairs).
+ * Supports strict day filtering, multi-row ordinal offsets ("71 after next 3 at 81" -> checks row 1 to row 3),
+ * reverse total syntax ("sat 1 total"), UP / DOWN digit relationship engine ("one up open to open same row"),
+ * strict same-row matching ("98 2 times in same row"), same col consecutive N times ("98 2 times in same col"),
+ * and star holiday filtering (** / * / XX are holidays, not red pairs).
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -46,10 +46,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   });
 
-  // Extract explicit 2-digit numbers (e.g., "11", "70", "99", "94", "59", "98")
+  // Extract explicit 2-digit numbers (e.g., "11", "70", "99", "94", "59", "98", "71", "81")
   const explicitNumberMatches = q.match(/\b\d{2}\b/g) || [];
 
-  // Parse row offset (e.g. "next 2nd row" -> offset 2, "next 3rd row" -> offset 3, "next row" -> offset 1)
+  // Parse default row offset
   let rowOffset = 1;
   const offsetMatch = q.match(/(?:next|after|following)?\s*(\d+)(?:st|nd|rd|th)?\s*row/) || q.match(/(\d+)\s*row[s]?\s*down/);
   if (offsetMatch) {
@@ -60,8 +60,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // -------------------------------------------------------------
   // FEATURE 0: UP / DOWN DIGIT RELATIONSHIP ENGINE
-  // E.g. "one up open to open same row", "1 down close to close same col"
-  // E.g. "two up open to close mon and tue"
   // -------------------------------------------------------------
   const isUpQuery = q.includes('up');
   const isDownQuery = q.includes('down');
@@ -175,7 +173,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.5: OPEN TO OPEN / CLOSE TO CLOSE SAME ROW PROCESSOR
+  // FEATURE 0.5: OPEN TO OPEN / CLOSE TO CLOSE PROCESSOR
   // -------------------------------------------------------------
   const isOpenToOpen = q.includes('open to open') || q.includes('open-to-open') || q.includes('open 2 open') || q.includes('open to close') || q.includes('close to close') || q.includes('close-to-close');
 
@@ -271,12 +269,86 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 1: SAME COL WITH CONSECUTIVE / "N TIMES" SEARCH
+  // FEATURE 1: STRICT SAME ROW QUERY PROCESSOR
+  // Must run BEFORE same col if "same row" is explicitly requested!
+  // E.g. "98 2 times in same row"
   // -------------------------------------------------------------
-  const isSameColQuery = q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same');
-  const isTimesQuery = q.includes('times') || q.includes('twice') || q.includes('repeat');
+  const isSameRowQuery = q.includes('same row') || q.includes('in same row') || q.includes('row same');
+  const isSameColQuery = (q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same')) && !isSameRowQuery;
 
-  if (isSameColQuery || (explicitNumberMatches.length > 0 && isTimesQuery)) {
+  if (isSameRowQuery) {
+    const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
+    const targetCols = foundDays.map(d => d.col);
+
+    const timesMatch = q.match(/(\d+)\s*(?:times|x|repeat[s]?)/);
+    const requiredTimes = timesMatch ? parseInt(timesMatch[1]) : 2;
+
+    for (let r = 0; r < grid.length; r++) {
+      if (numToFind) {
+        if (targetCols.length >= 2) {
+          const allMatch = targetCols.every(c => grid[r]?.[c]?.val === numToFind);
+          if (allMatch) {
+            targetCols.forEach(c => {
+              const m = {
+                r, c,
+                day: DAY_NAMES[c],
+                rowNum: r + 1,
+                val: numToFind,
+                reason: `Same Row ${numToFind} on ${targetCols.map(tc => DAY_NAMES[tc]).join(' & ')} (Row #${r+1})`,
+                color: GREEN_MATCH_COLOR
+              };
+              matches.push(m);
+              matchMap[`${r}_${c}`] = m;
+            });
+          }
+        } else {
+          const matchingCols = [];
+          for (let c = 0; c < cols; c++) {
+            if (targetCols.length > 0 && !targetCols.includes(c)) continue;
+            if (grid[r]?.[c]?.val === numToFind) matchingCols.push(c);
+          }
+          if (matchingCols.length >= requiredTimes) {
+            matchingCols.forEach(c => {
+              const m = {
+                r, c,
+                day: DAY_NAMES[c],
+                rowNum: r + 1,
+                val: numToFind,
+                reason: `Same Row repeat (${matchingCols.length}x) ${numToFind} on ${DAY_NAMES[c]} (Row #${r+1})`,
+                color: GREEN_MATCH_COLOR
+              };
+              matches.push(m);
+              matchMap[`${r}_${c}`] = m;
+            });
+          }
+        }
+      } else if (q.includes('red')) {
+        const redCols = [];
+        for (let c = 0; c < cols; c++) {
+          if (targetCols.length > 0 && !targetCols.includes(c)) continue;
+          if (isRedPair(grid[r]?.[c]?.val)) redCols.push(c);
+        }
+        if (redCols.length >= 2) {
+          redCols.forEach(c => {
+            const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: grid[r][c].val, reason: `Same Row Red Pair ${grid[r][c].val} (Row #${r+1})`, color: RED_MATCH_COLOR };
+            matches.push(m);
+            matchMap[`${r}_${c}`] = m;
+          });
+        }
+      }
+    }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
+      : `No matching cells found where ${numToFind || 'number'} appears ${requiredTimes} times in the same row.`;
+
+    return { matches, summary, matchMap };
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 2: STRICT SAME COL QUERY PROCESSOR
+  // -------------------------------------------------------------
+  if (isSameColQuery) {
     const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
     const targetCols = foundDays.map(d => d.col);
     const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
@@ -346,94 +418,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 2: SAME ROW QUERY PROCESSOR
-  // -------------------------------------------------------------
-  const isSameRowQuery = q.includes('same row') || q.includes('in same row') || q.includes('row same');
-
-  if (isSameRowQuery) {
-    const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
-    const targetCols = foundDays.map(d => d.col);
-
-    for (let r = 0; r < grid.length; r++) {
-      if (numToFind) {
-        if (targetCols.length >= 2) {
-          const allMatch = targetCols.every(c => grid[r]?.[c]?.val === numToFind);
-          if (allMatch) {
-            targetCols.forEach(c => {
-              const m = {
-                r, c,
-                day: DAY_NAMES[c],
-                rowNum: r + 1,
-                val: numToFind,
-                reason: `Same Row ${numToFind} on ${targetCols.map(tc => DAY_NAMES[tc]).join(' & ')} (Row #${r+1})`,
-                color: GREEN_MATCH_COLOR
-              };
-              matches.push(m);
-              matchMap[`${r}_${c}`] = m;
-            });
-          }
-        } else if (targetCols.length === 1) {
-          const dayC = targetCols[0];
-          if (grid[r]?.[dayC]?.val === numToFind) {
-            for (let c = 0; c < cols; c++) {
-              if (grid[r]?.[c]?.val === numToFind) {
-                const m = {
-                  r, c,
-                  day: DAY_NAMES[c],
-                  rowNum: r + 1,
-                  val: numToFind,
-                  reason: `Same Row ${numToFind} match (Row #${r+1})`,
-                  color: GREEN_MATCH_COLOR
-                };
-                matches.push(m);
-                matchMap[`${r}_${c}`] = m;
-              }
-            }
-          }
-        } else {
-          const matchingCols = [];
-          for (let c = 0; c < cols; c++) {
-            if (grid[r]?.[c]?.val === numToFind) matchingCols.push(c);
-          }
-          if (matchingCols.length >= 2) {
-            matchingCols.forEach(c => {
-              const m = {
-                r, c,
-                day: DAY_NAMES[c],
-                rowNum: r + 1,
-                val: numToFind,
-                reason: `Same Row repeat ${numToFind} on ${DAY_NAMES[c]} (Row #${r+1})`,
-                color: GREEN_MATCH_COLOR
-              };
-              matches.push(m);
-              matchMap[`${r}_${c}`] = m;
-            });
-          }
-        }
-      } else if (q.includes('red')) {
-        const redCols = [];
-        for (let c = 0; c < cols; c++) {
-          if (targetCols.length > 0 && !targetCols.includes(c)) continue;
-          if (isRedPair(grid[r]?.[c]?.val)) redCols.push(c);
-        }
-        if (redCols.length >= 2) {
-          redCols.forEach(c => {
-            const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: grid[r][c].val, reason: `Same Row Red Pair ${grid[r][c].val} (Row #${r+1})`, color: RED_MATCH_COLOR };
-            matches.push(m);
-            matchMap[`${r}_${c}`] = m;
-          });
-        }
-      }
-    }
-
-    if (matches.length > 0) {
-      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}"`;
-      return { matches, summary, matchMap };
-    }
-  }
-
-  // -------------------------------------------------------------
   // FEATURE 3: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
+  // E.g. "71 after next 3 at 81" or "71 next 2 sat"
   // -------------------------------------------------------------
   if (explicitNumberMatches.length >= 2) {
     const num1 = explicitNumberMatches[0];
@@ -442,39 +428,52 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const day1Col = foundDays.length > 0 ? foundDays[0].col : null;
     const day2Col = foundDays.length > 1 ? foundDays[1].col : (day1Col !== null ? day1Col : null);
 
+    // Parse requested row offset N (e.g. "next 3" -> check +2 and +3, "3rd" -> check +2 and +3)
+    const numOffsetMatch = q.match(/(?:next|after|following)?\s*(\d+)(?:st|nd|rd|th)?/);
+    let candidateOffsets = [rowOffset];
+
+    if (numOffsetMatch) {
+      const parsedN = parseInt(numOffsetMatch[1]);
+      if (parsedN > 1 && parsedN < 50) {
+        candidateOffsets = [parsedN - 1, parsedN]; // Checks both ordinal (3rd row = +2) and cardinal (+3)
+      }
+    }
+
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < cols; c++) {
         if (day1Col !== null && c !== day1Col) continue;
         const val1 = grid[r]?.[c]?.val || '';
 
         if (val1 === num1) {
-          const targetR = r + rowOffset;
-          const targetC = day2Col !== null ? day2Col : c;
+          candidateOffsets.forEach(off => {
+            const targetR = r + off;
+            const targetC = day2Col !== null ? day2Col : c;
 
-          if (targetR < grid.length) {
-            const val2 = grid[targetR]?.[targetC]?.val || '';
-            if (val2 === num2) {
-              const m1 = {
-                r, c,
-                day: DAY_NAMES[c],
-                rowNum: r + 1,
-                val: val1,
-                reason: `Step 1 (${val1}) on ${DAY_NAMES[c]} (Row #${r+1})`,
-                color: GREEN_MATCH_COLOR
-              };
-              const m2 = {
-                r: targetR, c: targetC,
-                day: DAY_NAMES[targetC],
-                rowNum: targetR + 1,
-                val: val2,
-                reason: `Step 2 (+${rowOffset} row): ${val2} on ${DAY_NAMES[targetC]} (Row #${targetR+1})`,
-                color: GREEN_MATCH_COLOR
-              };
-              matches.push(m1, m2);
-              matchMap[`${r}_${c}`] = m1;
-              matchMap[`${targetR}_${targetC}`] = m2;
+            if (targetR < grid.length) {
+              const val2 = grid[targetR]?.[targetC]?.val || '';
+              if (val2 === num2) {
+                const m1 = {
+                  r, c,
+                  day: DAY_NAMES[c],
+                  rowNum: r + 1,
+                  val: val1,
+                  reason: `Step 1 (${val1}) on ${DAY_NAMES[c]} (Row #${r+1})`,
+                  color: GREEN_MATCH_COLOR
+                };
+                const m2 = {
+                  r: targetR, c: targetC,
+                  day: DAY_NAMES[targetC],
+                  rowNum: targetR + 1,
+                  val: val2,
+                  reason: `Step 2 (+${off} rows): ${val2} on ${DAY_NAMES[targetC]} (Row #${targetR+1})`,
+                  color: GREEN_MATCH_COLOR
+                };
+                matches.push(m1, m2);
+                matchMap[`${r}_${c}`] = m1;
+                matchMap[`${targetR}_${targetC}`] = m2;
+              }
             }
-          }
+          });
         }
       }
     }
@@ -715,7 +714,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   const summary = matches.length > 0
     ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "one up open to open same row", "1 down close to close same col", or "two up open to close mon and tue".`;
+    : `No matches found for "${queryStr}". Try e.g. "71 after next 3 at 81", "98 2 times in same row", or "one up open to open same row".`;
 
   return { matches, summary, matchMap };
 };
