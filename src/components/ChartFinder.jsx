@@ -43,9 +43,9 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    'what mostly came after 88 in thursday',
+    'thursday 88 next 3rd thursday 64 and next 5th thursday is 59 and after 5th thursday next day 55',
     'thu open to open 2 down and close to close is 4 down',
-    '71 after next 3 at 81',
-    'one up open to open same row',
     '98 2 times in same col',
     '98 2 times in same row',
     'sat 1 total'

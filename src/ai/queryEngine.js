@@ -1,9 +1,12 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
- * Supports strict day filtering, multi-row ordinal offsets ("71 after next 3 at 81"),
- * compound open & close UP/DOWN engine ("thu open to open 2 down and close to close is 4 down"),
- * single UP/DOWN relationship engine, strict same-row/same-col matching,
- * and star holiday filtering (** / * / XX are holidays, not red pairs).
+ * Features:
+ * - Multi-Step Sentence Chain Parser ("thursday 88 next 3rd thursday 64 and next 5th thursday is 59 and after 5th thursday next day 55")
+ * - Statistical Outcome Predictor ("what mostly came after 88 in thursday")
+ * - Compound Open/Close UP & DOWN Engine ("thu open to open 2 down and close to close is 4 down")
+ * - Strict Same Row vs Same Col Disambiguation
+ * - Ordinal Row Offset Sequence Search ("71 after next 3 at 81")
+ * - Holiday Filtering (** / * / XX are holidays, not red pairs)
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -59,9 +62,160 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0: COMPOUND OPEN & CLOSE UP/DOWN ENGINE
+  // FEATURE 0: STATISTICAL OUTCOME PREDICTOR
+  // E.g. "what mostly came after 88 in thursday" or "what comes after 88"
+  // -------------------------------------------------------------
+  const isPredictorQuery = q.includes('mostly') || q.includes('comes after') || q.includes('came after') || q.includes('what comes') || q.includes('prediction');
+
+  if (isPredictorQuery && explicitNumberMatches.length > 0) {
+    const targetNum = explicitNumberMatches[0];
+    const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
+    const colsToScan = targetCol !== null ? [targetCol] : Array.from({ length: cols }, (_, i) => i);
+
+    const followUps = [];
+    const openFreq = {};
+    const closeFreq = {};
+    const jodiFreq = {};
+
+    colsToScan.forEach(c => {
+      for (let r = 0; r < grid.length - 1; r++) {
+        const val = grid[r]?.[c]?.val || '';
+        if (val === targetNum) {
+          const nextVal = grid[r + 1]?.[c]?.val || '';
+          if (nextVal && /^\d{2}$/.test(nextVal)) {
+            followUps.push({ r: r + 1, c, val: nextVal });
+            openFreq[nextVal[0]] = (openFreq[nextVal[0]] || 0) + 1;
+            closeFreq[nextVal[1]] = (closeFreq[nextVal[1]] || 0) + 1;
+            jodiFreq[nextVal] = (jodiFreq[nextVal] || 0) + 1;
+
+            // Mark origin cell
+            const mOrigin = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Target ${val} on ${DAY_NAMES[c]} (Row #${r+1})`, color: HIGHLIGHT_COLOR };
+            matches.push(mOrigin);
+            matchMap[`${r}_${c}`] = mOrigin;
+
+            // Mark follow-up cell
+            const mNext = { r: r + 1, c, day: DAY_NAMES[c], rowNum: r + 2, val: nextVal, reason: `Follow-up after ${val}: ${nextVal} on ${DAY_NAMES[c]} (Row #${r+2})`, color: GREEN_MATCH_COLOR };
+            matches.push(mNext);
+            matchMap[`${r+1}_${c}`] = mNext;
+          }
+        }
+      }
+    });
+
+    if (followUps.length > 0) {
+      const topOpen = Object.keys(openFreq).sort((a, b) => openFreq[b] - openFreq[a])[0];
+      const topClose = Object.keys(closeFreq).sort((a, b) => closeFreq[b] - closeFreq[a])[0];
+      const topJodi = Object.keys(jodiFreq).sort((a, b) => jodiFreq[b] - jodiFreq[a])[0];
+
+      const openPct = Math.round((openFreq[topOpen] / followUps.length) * 100);
+      const closePct = Math.round((closeFreq[topClose] / followUps.length) * 100);
+
+      const dayLabel = targetCol !== null ? DAY_NAMES[targetCol] : 'chart';
+      const summary = `After ${targetNum} on ${dayLabel}: Most common Open is ${topOpen} (${openPct}%), Close is ${topClose} (${closePct}%). Top predicted Jodi: ${topJodi}`;
+
+      return { matches, summary, matchMap };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.5: MULTI-STEP SENTENCE CHAIN PARSER
+  // E.g. "thursday 88 next 3rd thursday 64 and next 5th thursday is 59 and after 5th thursday next day 55"
+  // -------------------------------------------------------------
+  if (explicitNumberMatches.length >= 3 || (explicitNumberMatches.length >= 2 && q.includes('and'))) {
+    const chainItems = [];
+
+    // Parse clauses separated by 'and', 'next', 'then', or numbers
+    const segments = q.split(/(?:and|then|,)+/);
+    segments.forEach(seg => {
+      const numMatch = seg.match(/\b\d{2}\b/);
+      if (numMatch) {
+        const val = numMatch[0];
+
+        // Day detection for this segment
+        let segCol = null;
+        Object.keys(DAY_MAP).forEach(dk => {
+          if (seg.includes(dk) && segCol === null) segCol = DAY_MAP[dk];
+        });
+
+        // Offset detection (e.g. "3rd thursday" -> 2, "5th thursday" -> 4, "next day" -> +1 col)
+        let segOffset = 0;
+        const ordMatch = seg.match(/(\d+)(?:st|nd|rd|th)/);
+        if (ordMatch) {
+          segOffset = parseInt(ordMatch[1]) - 1; // 3rd -> 2, 5th -> 4
+        } else if (seg.includes('next day')) {
+          segOffset = 'NEXT_DAY';
+        }
+
+        chainItems.push({ val, col: segCol, offset: segOffset, raw: seg });
+      }
+    });
+
+    if (chainItems.length >= 2) {
+      const firstItem = chainItems[0];
+      const startCol = firstItem.col !== null ? firstItem.col : (foundDays.length > 0 ? foundDays[0].col : null);
+      const colsToScan = startCol !== null ? [startCol] : Array.from({ length: cols }, (_, i) => i);
+
+      colsToScan.forEach(c => {
+        for (let r = 0; r < grid.length; r++) {
+          if (grid[r]?.[c]?.val === firstItem.val) {
+            let fullMatch = true;
+            const currentChain = [{ r, c, val: firstItem.val, day: DAY_NAMES[c], rowNum: r + 1 }];
+
+            for (let k = 1; k < chainItems.length; k++) {
+              const item = chainItems[k];
+              let targetR = r;
+              let targetC = item.col !== null ? item.col : c;
+
+              if (item.offset === 'NEXT_DAY') {
+                targetC = (targetC + 1) % cols;
+                // If wrapped to Monday, advance 1 row
+                if (targetC === 0) targetR = targetR + 1;
+                // If previous item was offset 4, match that row
+                if (k > 1 && typeof chainItems[k-1].offset === 'number') {
+                  targetR = r + chainItems[k-1].offset;
+                }
+              } else if (typeof item.offset === 'number' && item.offset > 0) {
+                targetR = r + item.offset;
+              } else {
+                targetR = r + k;
+              }
+
+              if (targetR < grid.length && grid[targetR]?.[targetC]?.val === item.val) {
+                currentChain.push({ r: targetR, c: targetC, val: item.val, day: DAY_NAMES[targetC], rowNum: targetR + 1 });
+              } else {
+                fullMatch = false;
+                break;
+              }
+            }
+
+            if (fullMatch && currentChain.length >= 2) {
+              currentChain.forEach((stepItem, idx) => {
+                const m = {
+                  r: stepItem.r, c: stepItem.c,
+                  day: stepItem.day,
+                  rowNum: stepItem.rowNum,
+                  val: stepItem.val,
+                  reason: `Chain Step ${idx + 1}: ${stepItem.val} on ${stepItem.day} (Row #${stepItem.rowNum})`,
+                  color: GREEN_MATCH_COLOR
+                };
+                matches.push(m);
+                matchMap[`${stepItem.r}_${stepItem.c}`] = m;
+              });
+            }
+          }
+        }
+      });
+
+      if (matches.length > 0) {
+        const summary = `Found ${matches.length / chainItems.length} complete sentence chain match(es) for "${queryStr}"`;
+        return { matches, summary, matchMap };
+      }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 1: COMPOUND OPEN & CLOSE UP/DOWN ENGINE
   // E.g. "thu open to open 2 down and close to close is 4 down"
-  // E.g. "open to open 1 up and close to close 2 down same row"
   // -------------------------------------------------------------
   const hasOpenClause = q.includes('open');
   const hasCloseClause = q.includes('close');
@@ -149,7 +303,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.5: SINGLE UP / DOWN DIGIT RELATIONSHIP ENGINE
+  // FEATURE 2: SINGLE UP / DOWN DIGIT RELATIONSHIP ENGINE
   // -------------------------------------------------------------
   if (hasUpDown) {
     let step = 1;
@@ -159,7 +313,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     else if (q.includes('two down') || q.includes('2 down') || q.includes('double down')) step = -2;
     else if (q.includes('three down') || q.includes('3 down')) step = -3;
     else if (q.includes('four down') || q.includes('4 down')) step = -4;
-    else if (isDownQuery) step = -1;
+    else if (q.includes('down')) step = -1;
     else step = 1;
 
     const isCloseToClose = q.includes('close to close') || q.includes('close-to-close');
@@ -215,7 +369,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.6: OPEN TO OPEN / CLOSE TO CLOSE PROCESSOR
+  // FEATURE 3: OPEN TO OPEN / CLOSE TO CLOSE PROCESSOR
   // -------------------------------------------------------------
   const isOpenToOpen = q.includes('open to open') || q.includes('open-to-open') || q.includes('open 2 open') || q.includes('open to close') || q.includes('close to close') || q.includes('close-to-close');
 
@@ -311,7 +465,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 1: STRICT SAME ROW QUERY PROCESSOR
+  // FEATURE 4: STRICT SAME ROW QUERY PROCESSOR
   // -------------------------------------------------------------
   const isSameRowQuery = q.includes('same row') || q.includes('in same row') || q.includes('row same');
   const isSameColQuery = (q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same')) && !isSameRowQuery;
@@ -386,7 +540,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 2: STRICT SAME COL QUERY PROCESSOR
+  // FEATURE 5: STRICT SAME COL QUERY PROCESSOR
   // -------------------------------------------------------------
   if (isSameColQuery) {
     const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
@@ -458,7 +612,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 3: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
+  // FEATURE 6: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
+  // E.g. "71 after next 3 at 81"
   // -------------------------------------------------------------
   if (explicitNumberMatches.length >= 2) {
     const num1 = explicitNumberMatches[0];
@@ -524,7 +679,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 4: TOTAL / SUM / DIFFERENCE SEARCH
+  // FEATURE 7: TOTAL / SUM / DIFFERENCE SEARCH
   // -------------------------------------------------------------
   const isTotalQuery = q.includes('total') || q.includes('sum') || q.includes('diff');
   if (isTotalQuery) {
@@ -586,7 +741,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 5: SINGLE NUMBER SEARCH WITH STRICT DAY FILTER
+  // FEATURE 8: SINGLE NUMBER SEARCH WITH STRICT DAY FILTER
   // -------------------------------------------------------------
   if (explicitNumberMatches.length === 1) {
     const numToFind = explicitNumberMatches[0];
@@ -636,7 +791,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 6: SINGLE OPEN / CLOSE DIGIT SEARCH
+  // FEATURE 9: SINGLE OPEN / CLOSE DIGIT SEARCH
   // -------------------------------------------------------------
   if (q.includes('open') || q.includes('close')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
@@ -679,7 +834,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 7: RED PAIRS SEARCH
+  // FEATURE 10: RED PAIRS SEARCH
   // -------------------------------------------------------------
   if (q.includes('red')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
@@ -722,7 +877,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 8: GENERAL DAY / SUBSTRING FALLBACK
+  // FEATURE 11: GENERAL DAY / SUBSTRING FALLBACK
   // -------------------------------------------------------------
   const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
   const cleanSearchStr = q.replace(/find|search|where|is|the|number|in|of|and|next/g, '').trim();
@@ -752,7 +907,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   const summary = matches.length > 0
     ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "thu open to open 2 down and close to close is 4 down", "71 after next 3 at 81", or "one up open to open same row".`;
+    : `No matches found for "${queryStr}". Try e.g. "what mostly came after 88 in thursday" or "thursday 88 next 3rd thursday 64 and next 5th thursday is 59 and after 5th thursday next day 55".`;
 
   return { matches, summary, matchMap };
 };
