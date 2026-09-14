@@ -1,6 +1,7 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
  * Features:
+ * - Ordinal Week Target Day Search ("fri 16 4rd week saturday" -> Row 2 Fri 16 ➔ Row 5 Sat 59)
  * - Same & Opposite (Cut Digit) Engine ("thu open to open same and close to close opposite")
  * - Ordinal Column/Row offsets ("4rd thu", "next 3rd thursday")
  * - Multi-Step Sentence Chain Parser ("thursday 88 next 3rd thursday 64...")
@@ -88,11 +89,11 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   // Extract explicit 2-digit numbers
   const explicitNumberMatches = q.match(/\b\d{2}\b/g) || [];
 
-  // Parse default row offset or ordinal (e.g. "4rd thu", "4th thu", "next 3rd")
+  // Parse default row offset or ordinal (e.g. "4rd thu", "4th thu", "4rd week")
   let rowOffset = 1;
   const ordMatch = q.match(/(\d+)(?:st|nd|rd|th)/);
   if (ordMatch) {
-    rowOffset = parseInt(ordMatch[1]) - 1; // 4th -> +3 rows, 3rd -> +2 rows
+    rowOffset = parseInt(ordMatch[1]) - 1; // 4th -> +3 rows
   } else {
     const offsetMatch = q.match(/(?:next|after|following)?\s*(\d+)(?:st|nd|rd|th)?\s*row/) || q.match(/(\d+)\s*row[s]?\s*down/);
     if (offsetMatch) {
@@ -103,9 +104,61 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0: DIGIT RELATIONSHIPS ENGINE (SAME / OPPOSITE / UP / DOWN)
+  // FEATURE 0: ORDINAL WEEK TARGET DAY RELATIONAL SEARCH
+  // E.g. "fri 16 4rd week saturday" -> Row 2 Fri 16 ➔ Row 5 Sat 59
+  // -------------------------------------------------------------
+  if (foundDays.length >= 1 && explicitNumberMatches.length === 1 && (q.includes('week') || ordMatch)) {
+    const startDayCol = foundDays[0].col;
+    const targetDayCol = foundDays.length >= 2 ? foundDays[1].col : startDayCol;
+    const numToFind = explicitNumberMatches[0];
+
+    let weekOffset = rowOffset;
+    if (ordMatch) {
+      weekOffset = parseInt(ordMatch[1]) - 1;
+    } else {
+      const wMatch = q.match(/(\d+)(?:st|nd|rd|th)?\s*week/);
+      if (wMatch) weekOffset = parseInt(wMatch[1]) - 1;
+    }
+
+    for (let r = 0; r < grid.length; r++) {
+      if (grid[r]?.[startDayCol]?.val === numToFind) {
+        const targetR = r + weekOffset;
+        if (targetR < grid.length) {
+          const targetVal = grid[targetR]?.[targetDayCol]?.val || '';
+          if (targetVal) {
+            const m1 = {
+              r, c: startDayCol,
+              day: DAY_NAMES[startDayCol],
+              rowNum: r + 1,
+              val: numToFind,
+              reason: `Start: ${DAY_NAMES[startDayCol]} ${numToFind} (Row #${r+1})`,
+              color: HIGHLIGHT_COLOR
+            };
+            const m2 = {
+              r: targetR, c: targetDayCol,
+              day: DAY_NAMES[targetDayCol],
+              rowNum: targetR + 1,
+              val: targetVal,
+              reason: `${weekOffset + 1}th Week ${DAY_NAMES[targetDayCol]}: ${targetVal} (Row #${targetR+1})`,
+              color: GREEN_MATCH_COLOR
+            };
+            matches.push(m1, m2);
+            matchMap[`${r}_${startDayCol}`] = m1;
+            matchMap[`${targetR}_${targetDayCol}`] = m2;
+          }
+        }
+      }
+    }
+
+    if (matches.length > 0) {
+      const summary = `Found ${matches.length / 2} ordinal week match(es) for "${queryStr}"`;
+      return { matches, summary, matchMap };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.5: DIGIT RELATIONSHIPS ENGINE (SAME / OPPOSITE / UP / DOWN)
   // E.g. "thu open to open same and close to close opposite"
-  // E.g. "thu open to open same and close to close opposite 4rd thu"
   // -------------------------------------------------------------
   const hasOpenClause = q.includes('open');
   const hasCloseClause = q.includes('close');
@@ -124,7 +177,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const isSameRow = q.includes('same row');
     const isSameCol = q.includes('same col') || q.includes('same column') || targetCols.length > 0;
 
-    // Check candidate offsets: exact ordinal (e.g. 4th -> +3), cardinal (+4), or default +1
     let candidateOffsets = [rowOffset > 0 ? rowOffset : 1];
     if (ordMatch) {
       const parsedN = parseInt(ordMatch[1]);
@@ -192,7 +244,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.5: STATISTICAL OUTCOME PREDICTOR
+  // FEATURE 0.6: STATISTICAL OUTCOME PREDICTOR
   // -------------------------------------------------------------
   const isPredictorQuery = q.includes('mostly') || q.includes('comes after') || q.includes('came after') || q.includes('what comes') || q.includes('prediction');
 
@@ -245,7 +297,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.6: MULTI-STEP SENTENCE CHAIN PARSER
+  // FEATURE 0.7: MULTI-STEP SENTENCE CHAIN PARSER
   // -------------------------------------------------------------
   if (explicitNumberMatches.length >= 3 || (explicitNumberMatches.length >= 2 && q.includes('and'))) {
     const chainItems = [];
@@ -872,7 +924,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   const summary = matches.length > 0
     ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "thu open to open same and close to close opposite 4th thu".`;
+    : `No matches found for "${queryStr}". Try e.g. "fri 16 4rd week saturday".`;
 
   return { matches, summary, matchMap };
 };
