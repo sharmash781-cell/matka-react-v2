@@ -48,14 +48,12 @@ export const findSequenceMatches = (grid, sequenceInput) => {
   const seqLen = targetSeq.length;
   const rawMatches = [];
 
-  // Direction vectors: [rowStep, colStep, directionName]
+  // Direction vectors strictly restricted to adjacent cells:
+  // 1. Horizontal (Same Row, consecutive columns: Col 1 -> Col 2 -> Col 3)
+  // 2. Vertical (Same Column, consecutive rows: Row 3 -> Row 4 -> Row 5)
   const directions = [
-    [0, 1, 'Horizontal (Right)'],
-    [1, 0, 'Vertical (Down)'],
-    [1, 1, 'Diagonal (Down-Right)'],
-    [1, -1, 'Diagonal (Down-Left)'],
-    [2, 0, 'Vertical Skip 1 Row (Down)'],
-    [1, 2, 'Knight Step (Down-Right)']
+    [0, 1, 'Horizontal (Same Row)'],
+    [1, 0, 'Vertical (Same Column)']
   ];
 
   // Helper to extract digit from cell ('open' = index 0, 'close' = index 1)
