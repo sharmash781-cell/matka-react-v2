@@ -91,29 +91,42 @@ export const ChartEditor = () => {
   };
 
   const handleCellChange = (rIdx, cIdx, value) => {
-    const updated = grid.map((row, r) =>
+    let updated = grid.map((row, r) =>
       row.map((cell, c) => (r === rIdx && c === cIdx) ? { val: value } : cell)
     );
-    setGrid(updated);
 
-    // AUTO SAVE INSTANTLY TO LOCAL STORAGE & STORE
-    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
-    saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
-
-    // AUTO SHIFT FOCUS TO NEXT COL ON SAME ROW (OR NEXT ROW FIRST COL IF LAST COL)
     const valUpper = value.toUpperCase();
     if (value.length >= 2 || value === '*' || valUpper === 'X') {
       let nextR = rIdx, nextC = cIdx + 1;
-      if (nextC >= colsInput) { nextC = 0; nextR++; }
-      if (nextR < updated.length) {
-        setTimeout(() => {
-          const nextInput = document.getElementById(`cell-${nextR}-${nextC}`);
-          if (nextInput) {
-            nextInput.focus();
-            if (nextInput.select) nextInput.select();
-          }
-        }, 15);
+      if (nextC >= colsInput) {
+        nextC = 0;
+        nextR++;
       }
+
+      // IF AT THE LAST CELL OF THE LAST ROW, AUTOMATICALLY CREATE A NEW EMPTY ROW!
+      if (nextR >= updated.length) {
+        const emptyRow = Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' }));
+        updated = [...updated, emptyRow];
+        setRowsInput(updated.length);
+      }
+
+      setGrid(updated);
+
+      // AUTO SAVE INSTANTLY TO LOCAL STORAGE & STORE
+      const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+      saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
+
+      setTimeout(() => {
+        const nextInput = document.getElementById(`cell-${nextR}-${nextC}`);
+        if (nextInput) {
+          nextInput.focus();
+          if (nextInput.select) nextInput.select();
+        }
+      }, 15);
+    } else {
+      setGrid(updated);
+      const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+      saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
     }
   };
 
