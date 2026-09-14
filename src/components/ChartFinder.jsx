@@ -43,12 +43,12 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
+    '98 2 times in same col',
+    'open to open 3 same row',
     'same row 59 sat and sunday',
-    'same col 59',
     'find tuesday 11 and next tuesday 70',
     'find sat 99 and next 2nd row 94',
-    'sat 1 total',
-    'find red pairs'
+    'sat 1 total'
   ];
 
   // Virtualization slicing
@@ -241,18 +241,6 @@ export const ChartFinder = () => {
                                 {val || ''}
                               </span>
                             </div>
-
-                            {/* SEARCH MATCH BADGE */}
-                            {matchItem && (
-                              <div className="absolute top-0.5 left-0.5 z-20 pointer-events-none">
-                                <span
-                                  style={{ backgroundColor: matchItem.color, color: '#020617' }}
-                                  className="text-[7px] font-black font-mono px-1 py-0.2 rounded-full shadow-sm leading-none border border-black/90 uppercase tracking-tighter"
-                                >
-                                  MATCH
-                                </span>
-                              </div>
-                            )}
                           </td>
                         );
                       })}

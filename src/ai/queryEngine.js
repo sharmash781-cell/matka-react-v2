@@ -1,8 +1,8 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
  * Supports strict day filtering, multi-row offsets ("next 2nd row"), reverse total syntax ("sat 1 total"),
- * open/close digit constraints, same row ("same row 59 sat and sunday"), same col ("same col 59"),
- * and star holiday filtering (** / * / XX are holidays, not red pairs).
+ * open-to-open / close-to-close same-row processors, same col consecutive N times ("98 2 times in same col"),
+ * same row ("same row 59 sat and sunday"), and star holiday filtering (** / * / XX are holidays, not red pairs).
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -45,7 +45,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   });
 
-  // Extract explicit 2-digit numbers (e.g., "11", "70", "99", "94", "59")
+  // Extract explicit 2-digit numbers (e.g., "11", "70", "99", "94", "59", "98")
   const explicitNumberMatches = q.match(/\b\d{2}\b/g) || [];
 
   // Parse row offset (e.g. "next 2nd row" -> offset 2, "next 3rd row" -> offset 3, "next row" -> offset 1)
@@ -58,12 +58,183 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 1: SAME ROW / SAME COL QUERY PROCESSOR
+  // FEATURE 0: OPEN TO OPEN / CLOSE TO CLOSE SAME ROW PROCESSOR
+  // -------------------------------------------------------------
+  const isOpenToOpen = q.includes('open to open') || q.includes('open-to-open') || q.includes('open 2 open') || q.includes('open to close') || q.includes('close to close') || q.includes('close-to-close');
+
+  if (isOpenToOpen) {
+    const isCloseToClose = q.includes('close to close') || q.includes('close-to-close');
+    const isOpenToClose = q.includes('open to close') || q.includes('close to open');
+
+    const singleDigitMatch = q.match(/\b\d\b/);
+    const targetDigit = singleDigitMatch ? singleDigitMatch[0] : null;
+
+    const targetCols = foundDays.map(d => d.col);
+    const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
+
+    for (let r = 0; r < grid.length; r++) {
+      if (isCloseToClose) {
+        if (targetDigit !== null) {
+          const matchCols = colsToScan.filter(c => grid[r]?.[c]?.val && grid[r][c].val[1] === targetDigit);
+          if (matchCols.length >= 2) {
+            matchCols.forEach(c => {
+              const val = grid[r][c].val;
+              const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Close-to-Close Digit ${targetDigit} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+              matches.push(m);
+              matchMap[`${r}_${c}`] = m;
+            });
+          }
+        } else {
+          for (let d = 0; d <= 9; d++) {
+            const digitStr = d.toString();
+            const matchCols = colsToScan.filter(c => grid[r]?.[c]?.val && grid[r][c].val[1] === digitStr);
+            if (matchCols.length >= 2) {
+              matchCols.forEach(c => {
+                const val = grid[r][c].val;
+                const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Close-to-Close Digit ${digitStr} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+                matches.push(m);
+                matchMap[`${r}_${c}`] = m;
+              });
+            }
+          }
+        }
+      } else if (isOpenToClose) {
+        for (let c1 = 0; c1 < colsToScan.length; c1++) {
+          const col1 = colsToScan[c1];
+          const val1 = grid[r]?.[col1]?.val || '';
+          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+
+          for (let c2 = c1 + 1; c2 < colsToScan.length; c2++) {
+            const col2 = colsToScan[c2];
+            const val2 = grid[r]?.[col2]?.val || '';
+            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+
+            if (val1[0] === val2[1] || val1[1] === val2[0]) {
+              const m1 = { r, c: col1, day: DAY_NAMES[col1], rowNum: r + 1, val: val1, reason: `Open-to-Close match (${val1} & ${val2}) Row #${r+1}`, color: PURPLE_MATCH_COLOR };
+              const m2 = { r, c: col2, day: DAY_NAMES[col2], rowNum: r + 1, val: val2, reason: `Open-to-Close match (${val1} & ${val2}) Row #${r+1}`, color: PURPLE_MATCH_COLOR };
+              matches.push(m1, m2);
+              matchMap[`${r}_${col1}`] = m1;
+              matchMap[`${r}_${col2}`] = m2;
+            }
+          }
+        }
+      } else {
+        if (targetDigit !== null) {
+          const matchCols = colsToScan.filter(c => grid[r]?.[c]?.val && grid[r][c].val[0] === targetDigit);
+          if (matchCols.length >= 2) {
+            matchCols.forEach(c => {
+              const val = grid[r][c].val;
+              const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Open-to-Open Digit ${targetDigit} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+              matches.push(m);
+              matchMap[`${r}_${c}`] = m;
+            });
+          }
+        } else {
+          for (let d = 0; d <= 9; d++) {
+            const digitStr = d.toString();
+            const matchCols = colsToScan.filter(c => grid[r]?.[c]?.val && grid[r][c].val[0] === digitStr);
+            if (matchCols.length >= 2) {
+              matchCols.forEach(c => {
+                const val = grid[r][c].val;
+                const m = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val, reason: `Open-to-Open Digit ${digitStr} (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`, color: BLUE_MATCH_COLOR };
+                matches.push(m);
+                matchMap[`${r}_${c}`] = m;
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
+      : `No multi-cell matches found for "${queryStr}".`;
+
+    return { matches, summary, matchMap };
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 1: SAME COL WITH CONSECUTIVE / "N TIMES" SEARCH
+  // E.g. "98 2 times in same col" or "consecutive 98 on Friday"
+  // -------------------------------------------------------------
+  const isSameColQuery = q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same');
+  const isTimesQuery = q.includes('times') || q.includes('twice') || q.includes('repeat');
+
+  if (isSameColQuery || (explicitNumberMatches.length > 0 && isTimesQuery)) {
+    const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
+    const targetCols = foundDays.map(d => d.col);
+    const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
+
+    const timesMatch = q.match(/(\d+)\s*(?:times|x|row[s]?|repeat[s]?)/) || q.match(/(?:repeat[s]?|times)\s*(\d+)/);
+    const countN = timesMatch ? parseInt(timesMatch[1]) : 2;
+    const isStrictConsecutive = q.includes('times') || q.includes('consecutive') || q.includes('next row');
+
+    let matchedAny = false;
+
+    colsToScan.forEach(c => {
+      if (numToFind) {
+        if (isStrictConsecutive) {
+          // Check CONSECUTIVE countN rows in column c
+          for (let r = 0; r <= grid.length - countN; r++) {
+            let isConsecutiveMatch = true;
+            for (let k = 0; k < countN; k++) {
+              if (grid[r + k]?.[c]?.val !== numToFind) {
+                isConsecutiveMatch = false;
+                break;
+              }
+            }
+            if (isConsecutiveMatch) {
+              matchedAny = true;
+              for (let k = 0; k < countN; k++) {
+                const rowIdx = r + k;
+                const m = {
+                  r: rowIdx, c,
+                  day: DAY_NAMES[c],
+                  rowNum: rowIdx + 1,
+                  val: numToFind,
+                  reason: `${numToFind} ${countN} Consecutive Times on ${DAY_NAMES[c]} (Row #${rowIdx+1})`,
+                  color: GREEN_MATCH_COLOR
+                };
+                matches.push(m);
+                matchMap[`${rowIdx}_${c}`] = m;
+              }
+            }
+          }
+        } else {
+          const matchingRows = [];
+          for (let r = 0; r < grid.length; r++) {
+            if (grid[r]?.[c]?.val === numToFind) matchingRows.push(r);
+          }
+          if (matchingRows.length >= countN) {
+            matchedAny = true;
+            matchingRows.forEach(r => {
+              const m = {
+                r, c,
+                day: DAY_NAMES[c],
+                rowNum: r + 1,
+                val: numToFind,
+                reason: `Same Column repeat ${numToFind} on ${DAY_NAMES[c]} (Row #${r+1})`,
+                color: GREEN_MATCH_COLOR
+              };
+              matches.push(m);
+              matchMap[`${r}_${c}`] = m;
+            });
+          }
+        }
+      }
+    });
+
+    if (matchedAny) {
+      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}"`;
+      return { matches, summary, matchMap };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 2: SAME ROW QUERY PROCESSOR
   // E.g. "same row 59 sat and sunday"
-  // E.g. "same col 59" or "same column 59 sat"
   // -------------------------------------------------------------
   const isSameRowQuery = q.includes('same row') || q.includes('in same row') || q.includes('row same');
-  const isSameColQuery = q.includes('same col') || q.includes('same column') || q.includes('in same col') || q.includes('col same');
 
   if (isSameRowQuery) {
     const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
@@ -147,49 +318,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   }
 
-  if (isSameColQuery) {
-    const numToFind = explicitNumberMatches.length > 0 ? explicitNumberMatches[0] : null;
-    const targetCols = foundDays.map(d => d.col);
-    const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
-
-    colsToScan.forEach(c => {
-      const matchingRows = [];
-      for (let r = 0; r < grid.length; r++) {
-        const val = grid[r]?.[c]?.val || '';
-        if (numToFind) {
-          if (val === numToFind) matchingRows.push(r);
-        } else if (q.includes('red')) {
-          if (isRedPair(val)) matchingRows.push(r);
-        }
-      }
-
-      if (matchingRows.length >= 2) {
-        matchingRows.forEach(r => {
-          const val = grid[r][c].val;
-          const m = {
-            r, c,
-            day: DAY_NAMES[c],
-            rowNum: r + 1,
-            val,
-            reason: `Same Column repeat ${val} on ${DAY_NAMES[c]} (Row #${r+1})`,
-            color: GREEN_MATCH_COLOR
-          };
-          matches.push(m);
-          matchMap[`${r}_${c}`] = m;
-        });
-      }
-    });
-
-    if (matches.length > 0) {
-      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}"`;
-      return { matches, summary, matchMap };
-    }
-  }
-
   // -------------------------------------------------------------
-  // FEATURE 2: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
-  // E.g. "find tuesday 11 and next tuesday 70"
-  // E.g. "find sat 99 and next 2nd row 94"
+  // FEATURE 3: MULTI-NUMBER / RELATIONAL SEQUENCE SEARCH
   // -------------------------------------------------------------
   if (explicitNumberMatches.length >= 2) {
     const num1 = explicitNumberMatches[0];
@@ -243,8 +373,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 3: TOTAL / SUM / DIFFERENCE SEARCH
-  // E.g. "sat 1 total", "1 total in sat", "tuesday 2 total"
+  // FEATURE 4: TOTAL / SUM / DIFFERENCE SEARCH
   // -------------------------------------------------------------
   const isTotalQuery = q.includes('total') || q.includes('sum') || q.includes('diff');
   if (isTotalQuery) {
@@ -306,8 +435,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 4: SINGLE NUMBER SEARCH WITH STRICT DAY FILTER
-  // E.g. "find 56 in Mon" or "find 91 in tues"
+  // FEATURE 5: SINGLE NUMBER SEARCH WITH STRICT DAY FILTER
   // -------------------------------------------------------------
   if (explicitNumberMatches.length === 1) {
     const numToFind = explicitNumberMatches[0];
@@ -357,8 +485,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 5: OPEN / CLOSE DIGIT SEARCH
-  // E.g. "open 9 in mon", "close 2 in tuesday"
+  // FEATURE 6: SINGLE OPEN / CLOSE DIGIT SEARCH
   // -------------------------------------------------------------
   if (q.includes('open') || q.includes('close')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
@@ -401,8 +528,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 6: RED PAIRS SEARCH (STRICT DAY SUPPORT, EXCLUDING HOLIDAYS)
-  // E.g. "red numbers on tuesday", "sat red pairs"
+  // FEATURE 7: RED PAIRS SEARCH
   // -------------------------------------------------------------
   if (q.includes('red')) {
     const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
@@ -445,7 +571,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 7: GENERAL DAY / SUBSTRING FALLBACK
+  // FEATURE 8: GENERAL DAY / SUBSTRING FALLBACK
   // -------------------------------------------------------------
   const targetCol = foundDays.length > 0 ? foundDays[0].col : null;
   const cleanSearchStr = q.replace(/find|search|where|is|the|number|in|of|and|next/g, '').trim();
@@ -475,7 +601,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   const summary = matches.length > 0
     ? `Found ${matches.length} matching cell(s) for "${queryStr}"`
-    : `No matches found for "${queryStr}". Try e.g. "same row 59 sat and sunday", "same col 59", or "find tuesday 11 and next tuesday 70".`;
+    : `No matches found for "${queryStr}". Try e.g. "98 2 times in same col", "open to open 3 same row", or "same row 59 sat and sunday".`;
 
   return { matches, summary, matchMap };
 };
