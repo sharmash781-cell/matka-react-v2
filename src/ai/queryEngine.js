@@ -1,6 +1,8 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 86-89)
+ * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
  * - Strict Day Propagation across clauses (e.g. "mon ..." restricts all clauses to Monday)
  * - Independent Multi-Clause Pipeline with Relative Ordinal Week Context
@@ -35,13 +37,11 @@ const preprocessTeluguQuery = (str) => {
   if (!str) return '';
   let q = str.toLowerCase();
 
-  // Convert Telugu Digits (౦-౯) to English Digits (0-9)
   const teluguDigits = ['౦', '౧', '౨', '౩', '౪', '౫', '౬', '౭', '౮', '౯'];
   teluguDigits.forEach((td, idx) => {
     q = q.replaceAll(td, idx.toString());
   });
 
-  // Telugu Days Mapping (Script + Transliteration)
   q = q.replace(/\b(సోమవారం|somavaramu|somavaram|sombharam|sombharamu|somvar)\b/gi, 'mon');
   q = q.replace(/\b(మంగళవారం|mangalavaramu|mangalavaram|mangalvar|mangal)\b/gi, 'tue');
   q = q.replace(/\b(బుధవారం|budhavaramu|budhavaram|budhvar|budha|budh)\b/gi, 'wed');
@@ -50,7 +50,6 @@ const preprocessTeluguQuery = (str) => {
   q = q.replace(/\b(శనివారం|sanivaramu|sanivaram|shanivaram|sani)\b/gi, 'sat');
   q = q.replace(/\b(ఆదివారం|adivaramu|adivaram|aadivaram|aadi)\b/gi, 'sun');
 
-  // Telugu Keywords Mapping
   q = q.replace(/\b(దగ్గర|daggara|pakkana|చేరువ|cheruva)\b/gi, 'near');
   q = q.replace(/\b(తరువాత|taruvatha|tarvata|tharuwatha|tarwata)\b/gi, 'after');
   q = q.replace(/\b(ముందు|mundu|munde|ముందే)\b/gi, 'before');
@@ -116,33 +115,39 @@ const parseRelation = (textStr) => {
   if (lower.includes('opposite') || lower.includes('cut')) return { type: 'OPPOSITE' };
   if (lower.includes('same')) return { type: 'SAME' };
 
-  let step = 1;
+  let step = null;
+
+  // Check word step first ("one down", "two up")
   Object.keys(WORD_TO_NUM).forEach(wKey => {
     if (lower.includes(`${wKey} down`) || lower.includes(`${wKey} up`)) {
       step = WORD_TO_NUM[wKey];
     }
   });
 
-  const upMatch = lower.match(/(\d+)?\s*up/);
-  if (upMatch || lower.includes('up')) {
-    if (upMatch && upMatch[1]) step = parseInt(upMatch[1]);
-    return { type: 'UP', step };
+  // Check digit step ("1 down", "2 up")
+  const digitMatch = lower.match(/(\d+)\s*(?:down|up)/);
+  if (digitMatch) {
+    step = parseInt(digitMatch[1]);
   }
-  const downMatch = lower.match(/(\d+)?\s*down/);
-  if (downMatch || lower.includes('down')) {
-    if (downMatch && downMatch[1]) step = parseInt(downMatch[1]);
-    return { type: 'DOWN', step };
+
+  // Default to 1 step if "down" or "up" is specified without a number
+  if (step === null) {
+    if (lower.includes('down') || lower.includes('up')) step = 1;
   }
+
+  if (lower.includes('down')) return { type: 'DOWN', step: step || 1 };
+  if (lower.includes('up')) return { type: 'UP', step: step || 1 };
+
   return null;
 };
 
 const checkDigitRelation = (d1, d2, rel) => {
-  if (!rel) return true;
+  if (!rel) return false; // Strict failure if relation is not specified or unparseable
   if (rel.type === 'SAME') return d1 === d2;
   if (rel.type === 'OPPOSITE') return d2 === (d1 + 5) % 10;
   if (rel.type === 'UP') return d2 === (d1 + rel.step + 10) % 10;
   if (rel.type === 'DOWN') return d2 === (d1 - rel.step + 10) % 10;
-  return true;
+  return false;
 };
 
 export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
@@ -197,6 +202,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   const rawClauses = q.split(/\s*(?:and|then)\s*/i);
 
   let lastOriginRow = 0;
+  let pairCounter = 1;
 
   rawClauses.forEach(clauseStr => {
     const cStr = clauseStr.trim();
@@ -251,8 +257,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
     const isCrossDigitQuery = (cStr.includes('open to close') || cStr.includes('close to open') || cStr.includes('open to open') || cStr.includes('close to close'));
-
-    let pairCounter = 1;
 
     // CLAUSE TYPE CROSS-DIGIT: Cross-Digit Relations with "OR" / "AND" support
     if (isCrossDigitQuery) {
