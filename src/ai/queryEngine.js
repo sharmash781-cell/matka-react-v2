@@ -1,6 +1,7 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Pair Search Row-Bound Extension: Allows pair searches (like "fri jodi same from 6-8") starting on Row 8 to match with Row 9.
  * - Autonomous Same Jodi Scanner: "fri jodi same" or "jodi same" scans for identical jodis (e.g. Row 8 Fri 98 & Row 9 Fri 98).
  * - Day Token Stripping in Cross-Digit Relations: Ensures queries like "open to open mon and close to close one down" match strictly 53 & 52 on Monday without false positives.
  * - Intelligent Multi-Clause Splitter: Splits clauses on 'and', 'then', 'next', 'after' while preserving compound cross-digit pairs.
@@ -303,9 +304,11 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       });
 
       const targetCols = effectiveDays;
+      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
+
       targetCols.forEach(c => {
-        for (let r1 = cMinR; r1 < cMaxR; r1++) {
-          for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
+        for (let r1 = cMinR; r1 <= cMaxR; r1++) {
+          for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
             const val1 = grid[r1]?.[c]?.val || '';
             const val2 = grid[r2]?.[c]?.val || '';
             if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
@@ -347,9 +350,11 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     // CLAUSE TYPE G: Autonomous Same Jodi Scanner (e.g. "fri jodi same")
     else if (hasSameJodi) {
       const targetCols = effectiveDays;
+      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
+
       targetCols.forEach(c => {
-        for (let r1 = cMinR; r1 < cMaxR; r1++) {
-          for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
+        for (let r1 = cMinR; r1 <= cMaxR; r1++) {
+          for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
             const val1 = grid[r1]?.[c]?.val || '';
             const val2 = grid[r2]?.[c]?.val || '';
             if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
@@ -463,6 +468,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
       const num2 = num1 ? getFaltiNumber(num1) : null;
       const targetCols = effectiveDays;
+      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
 
       if (num1) {
         for (let r = cMinR; r <= cMaxR; r++) {
@@ -490,8 +496,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       } else {
         targetCols.forEach(c => {
-          for (let r1 = cMinR; r1 < cMaxR; r1++) {
-            for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
+          for (let r1 = cMinR; r1 <= cMaxR; r1++) {
+            for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
               const val1 = grid[r1]?.[c]?.val || '';
               const val2 = grid[r2]?.[c]?.val || '';
               if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
@@ -555,7 +561,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const t2 = parseInt(val[0]) + parseInt(val[1]);
             if (t1 === reqTotal || t2 === reqTotal) {
               lastOriginRow = Math.max(lastOriginRow, r);
-              const m = {
+              const mOrigin = {
                 r, c,
                 day: DAY_NAMES[c],
                 rowNum: r + 1,
@@ -564,8 +570,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 color: '#10b981'
               };
               if (!matchMap[`${r}_${c}`]) {
-                matches.push(m);
-                matchMap[`${r}_${c}`] = m;
+                matches.push(mOrigin);
+                matchMap[`${r}_${c}`] = mOrigin;
               }
             }
           }
