@@ -1,12 +1,12 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME (e.g. "open to open and close to close 3 up" strictly enforces open_to_open SAME AND close_to_close 3 UP)
- * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs (e.g. 75 & 57 on Thursday)
- * - Unified Cross-Digit Clause Matching: joins multiple cross-digit conditions into a single strict pair search
+ * - Intelligent Clause Tokenizer (splits mixed queries on 'and'/'then' while protecting compound cross-digit pairs e.g. open-to-open same AND close-to-close 2 down stays unified, while near 8 total & 20 family run in parallel)
+ * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME
+ * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs
  * - Clause Scoping Isolation: row ranges & day filters in one clause do not restrict independent compound clauses
  * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡)
- * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 84-88, 86-89, 86-59)
+ * - Strict Cross-Digit Validation
  * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
  */
@@ -138,7 +138,6 @@ const parseRelation = (textStr) => {
   if (lower.includes('down')) return { type: 'DOWN', step: step || 1 };
   if (lower.includes('up')) return { type: 'UP', step: step || 1 };
 
-  // If no direction or step specified (e.g. "open to open and ..."), default to SAME!
   return { type: 'SAME' };
 };
 
@@ -149,6 +148,17 @@ const checkDigitRelation = (d1, d2, rel) => {
   if (rel.type === 'UP') return d2 === (d1 + rel.step + 10) % 10;
   if (rel.type === 'DOWN') return d2 === (d1 - rel.step + 10) % 10;
   return false;
+};
+
+// Split clauses on 'and'/'then', keeping cross-digit compound pairs protected
+const splitClausesIntelligently = (queryText) => {
+  const protectedQuery = queryText.replace(
+    /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)\s+and\s+(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/gi,
+    '$1 $2 ___CROSS_AND___ $3'
+  );
+
+  const clauses = protectedQuery.split(/\s*(?:and|then)\s*/i);
+  return clauses.map(c => c.replace(/___CROSS_AND___/g, 'and'));
 };
 
 export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
@@ -167,32 +177,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   // Global default row range for entire chart
   const globalRowRange = parseRowRange(q, grid.length);
 
-  // Directional Row Filtering (e.g. "after 43", "from 43", "below 43")
-  const directionalMatch = q.match(/(?:after|from|below|following)\s*(\d{2})/i);
-  let globalAnchorRow = -1;
-  if (directionalMatch) {
-    const anchorNum = directionalMatch[1];
-    for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (grid[r]?.[c]?.val === anchorNum) {
-          globalAnchorRow = r;
-          break;
-        }
-      }
-      if (globalAnchorRow !== -1) break;
-    }
-  }
-
-  // Check if query is a cross-digit pattern query (e.g. open to close opposite ... AND close to open 4 down)
-  const isCrossDigitTerm = (str) => /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close/i.test(str);
-
-  let rawClauses = [];
-  if (isCrossDigitTerm(q)) {
-    // Treat entire cross-digit query as a UNIFIED single clause to prevent splitting compound conditions into separate searches!
-    rawClauses = [q];
-  } else {
-    rawClauses = q.split(/\s*(?:and|then)\s*/i);
-  }
+  // Split query into intelligent clauses
+  const rawClauses = splitClausesIntelligently(q);
 
   let lastOriginRow = 0;
   let pairCounter = 1;
@@ -201,13 +187,29 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const cStr = clauseStr.trim();
     if (!cStr) return;
 
+    // Check clause-level directional row filtering (e.g. "after 59")
+    let cAnchorRow = -1;
+    const directionalMatch = cStr.match(/(?:after|from|below|following)\s*(\d{2})/i);
+    if (directionalMatch) {
+      const anchorNum = directionalMatch[1];
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r]?.[c]?.val === anchorNum) {
+            cAnchorRow = r;
+            break;
+          }
+        }
+        if (cAnchorRow !== -1) break;
+      }
+    }
+
     // Determine row range specific to this clause
     const clauseRange = parseRowRange(cStr, grid.length);
     let cMinR = clauseRange.isRestricted ? clauseRange.minR : globalRowRange.minR;
     let cMaxR = clauseRange.isRestricted ? clauseRange.maxR : globalRowRange.maxR;
 
-    if (globalAnchorRow !== -1 && !clauseRange.isRestricted) {
-      cMinR = Math.max(cMinR, globalAnchorRow + 1);
+    if (cAnchorRow !== -1 && !clauseRange.isRestricted) {
+      cMinR = Math.max(cMinR, cAnchorRow + 1);
     }
 
     const wMatch = cStr.match(/(\d+)(?:st|nd|rd|th)?\s*week/i);
@@ -252,9 +254,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasReverse = cStr.includes('reverse') || cStr.includes('falti') || cStr.includes('palat');
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
-    const isCrossDigitQuery = isCrossDigitTerm(cStr);
+    const isCrossDigitQuery = /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close/i.test(cStr);
 
-    // CLAUSE TYPE CROSS-DIGIT: Unified Non-Greedy Tokenized Multi-Clause Matcher
+    // CLAUSE TYPE CROSS-DIGIT: Multi-Relation Cross-Digit Matcher
     if (isCrossDigitQuery) {
       const crossClauses = [];
       const hasOrLogic = cStr.includes(' or ');
@@ -397,14 +399,13 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE E: Reverse / Falti Search (Supports both explicit number e.g. "75 reverse" AND autonomous pair search e.g. "thu jodi reverse")
+    // CLAUSE TYPE E: Reverse / Falti Search
     else if (hasReverse) {
       const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
       const num2 = num1 ? getFaltiNumber(num1) : null;
       const targetCols = effectiveDays;
 
       if (num1) {
-        // Specific number reverse search
         for (let r = cMinR; r <= cMaxR; r++) {
           targetCols.forEach(c => {
             const val = grid[r]?.[c]?.val || '';
@@ -428,7 +429,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           });
         }
       } else {
-        // General Reverse / Falti pair scanner across column pairs
         targetCols.forEach(c => {
           for (let r1 = cMinR; r1 < cMaxR; r1++) {
             for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
