@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useChart, isRedPair, isHoliday, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
 import { parseAndSearchChart } from '../ai/queryEngine';
-import { Search, Sparkles, MapPin, Eye, Filter, Table, Layers, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, MapPin, Eye, Filter, Table, Layers, ArrowRight, Link } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 20;
@@ -10,7 +10,8 @@ export const ChartFinder = () => {
   const { charts = {}, activeChartName, setActiveChartName, saveChart } = useChart();
 
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
-  const [searchQuery, setSearchQuery] = useState('find 56 in Mon');
+  const [searchQuery, setSearchQuery] = useState('mon open to open same and close to close one down between 1 to 4 row');
+  const [hoveredPairId, setHoveredPairId] = useState(null);
 
   // Virtualization Scroll State
   const [scrollTop, setScrollTop] = useState(0);
@@ -27,7 +28,18 @@ export const ChartFinder = () => {
 
   const { matches = [], summary = '', matchMap = {} } = searchResult;
 
-  // Optimized row height allowing 12-14 rows on mobile screen
+  // Group matches by pairId if available
+  const pairedGroupMap = useMemo(() => {
+    const groups = {};
+    matches.forEach(m => {
+      if (m.pairId) {
+        if (!groups[m.pairId]) groups[m.pairId] = [];
+        groups[m.pairId].push(m);
+      }
+    });
+    return groups;
+  }, [matches]);
+
   const rowHeight = 44;
 
   const handleScroll = (e) => {
@@ -48,15 +60,13 @@ export const ChartFinder = () => {
     }
   }, [searchQuery, matches.length]);
 
-  // Preset example search queries for quick 1-click testing
   const presetQueries = [
     '03 family',
     '56 falti',
-    '10th 88 near 1 total',
-    'fri 16 4rd week saturday',
-    '88 dead same col',
-    '00 next 3rd week any 1 total',
-    'what mostly came after 88 in thursday'
+    'mon open to open same and close to close one down',
+    'wed 9 total near 6 total',
+    'somavaram 03 family and 5th varam red pair',
+    'sat 6 total near 8 total'
   ];
 
   // Virtualization slicing
@@ -71,7 +81,7 @@ export const ChartFinder = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-3 p-1.5 sm:p-4 text-slate-100 font-poppins">
-      {/* HEADER & CHART SELECTOR BAR */}
+      {/* HEADER & SEARCH BAR */}
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
           <div className="flex items-center gap-2">
@@ -83,12 +93,11 @@ export const ChartFinder = () => {
                 Chart Natural Language Search & Finder
               </h2>
               <p className="text-[10px] text-slate-400">
-                Ask in simple English: e.g. "find 56 in Mon", "Tuesday total 2", or "consecutive red numbers"
+                Ask in English or Telugu (e.g. "mon open to open same", "somavaram 03 family", "wed 9 total near 6 total")
               </p>
             </div>
           </div>
 
-          {/* SELECT EXISTING CHART DROPDOWN */}
           <div className="flex items-center gap-2">
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:block">Select Chart:</label>
             <select
@@ -108,7 +117,7 @@ export const ChartFinder = () => {
           </div>
         </div>
 
-        {/* PROMINENT NATURAL LANGUAGE SEARCH BAR */}
+        {/* SEARCH INPUT FIELD */}
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="w-4 h-4 text-pink-400" />
@@ -117,7 +126,7 @@ export const ChartFinder = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder='Type search e.g. "find 56 in Mon", "Tuesday total 2", "consecutive red numbers"...'
+            placeholder='Type search in English or Telugu e.g. "mon open to open same", "somavaram 03 family"...'
             className="w-full pl-9 pr-24 py-2.5 bg-slate-900 border-2 border-pink-500/80 focus:border-pink-400 rounded-xl text-xs sm:text-sm font-mono text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-pink-500/40 shadow-inner transition"
           />
           {searchQuery && (
@@ -130,7 +139,7 @@ export const ChartFinder = () => {
           )}
         </div>
 
-        {/* QUICK PRESET CHIPS */}
+        {/* PRESET QUERY CHIPS */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" /> Try:
@@ -160,36 +169,66 @@ export const ChartFinder = () => {
           </span>
         </div>
 
-        {/* MATCHES LOCATION CHIPS (JUMP TO ROW) */}
+        {/* MATCHES LOCATION CHIPS (WITH CONNECTED PAIR VISUALIZER) */}
         {matches.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-t border-slate-900">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0">
-              Matched Locations ({matches.length}):
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
+              <Link className="w-3 h-3 text-emerald-400" /> Matches ({Object.keys(pairedGroupMap).length > 0 ? `${Object.keys(pairedGroupMap).length} Connected Pairs` : matches.length}):
             </span>
-            {matches.map((m, idx) => (
-              <button
-                key={idx}
-                onClick={() => scrollToRowIndex(m.r)}
-                style={{ backgroundColor: m.color, color: '#020617' }}
-                className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
-              >
-                <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
-                <ArrowRight className="w-2.5 h-2.5" />
-              </button>
-            ))}
+
+            {/* Display Grouped Pairs */}
+            {Object.keys(pairedGroupMap).length > 0 ? (
+              Object.entries(pairedGroupMap).map(([pId, pairItems]) => (
+                <div
+                  key={pId}
+                  onMouseEnter={() => setHoveredPairId(pId)}
+                  onMouseLeave={() => setHoveredPairId(null)}
+                  className={`flex items-center gap-1 bg-slate-900 border px-2 py-1 rounded-lg transition shrink-0 cursor-pointer ${
+                    hoveredPairId === pId ? 'border-emerald-400 bg-emerald-950/60 shadow-lg' : 'border-slate-800'
+                  }`}
+                >
+                  <span className="text-[8px] font-black font-mono bg-emerald-500 text-slate-950 px-1 py-0.5 rounded">
+                    {pId}
+                  </span>
+                  {pairItems.map((m, idx) => (
+                    <React.Fragment key={idx}>
+                      {idx > 0 && <span className="text-[10px] text-emerald-400 font-black">↔</span>}
+                      <button
+                        onClick={() => scrollToRowIndex(m.r)}
+                        className="text-[9px] font-mono text-white font-bold hover:text-emerald-300 underline"
+                      >
+                        #{m.rowNum} {m.day}: <strong>{m.val}</strong>
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              ))
+            ) : (
+              matches.map((m, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => scrollToRowIndex(m.r)}
+                  style={{ backgroundColor: m.color, color: '#020617' }}
+                  className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
+                >
+                  <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
+                  <ArrowRight className="w-2.5 h-2.5" />
+                </button>
+              ))
+            )}
           </div>
         )}
       </div>
 
-      {/* MATKA GRID (MATCHING THE SCREENSHOT STYLING & UI SIZE EXACTLY) */}
-      <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800">
+      {/* MATKA GRID WITH VISUAL PAIR CONNECTION INDICATORS */}
+      <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="overflow-y-auto overflow-x-auto max-h-[calc(100vh-280px)] border border-slate-800 rounded-xl bg-[#fef9c3]"
+          className="overflow-y-auto overflow-x-auto max-h-[calc(100vh-280px)] border border-slate-800 rounded-xl bg-[#fef9c3] relative"
         >
-          <div className="w-full min-w-full">
-            <table className="w-full table-fixed beige-chart-table">
+          <div className="w-full min-w-full relative">
+            <table className="w-full table-fixed beige-chart-table relative z-10">
               <thead className="sticky top-0 z-20 shadow-md bg-white border-b-2 border-slate-950">
                 <tr>
                   <th className="w-10 sm:w-14 py-2 text-center font-black text-slate-950 text-xs sm:text-base border border-slate-950 bg-slate-100">
@@ -223,22 +262,35 @@ export const ChartFinder = () => {
                         const red = isRedPair(val);
                         const holiday = isHoliday(val);
 
-                        // Look up match for this cell
                         const matchItem = matchMap[`${rIdx}_${cIdx}`];
+                        const isHoveredPair = matchItem && matchItem.pairId && matchItem.pairId === hoveredPairId;
 
                         return (
                           <td
                             key={cIdx}
+                            onMouseEnter={() => matchItem && matchItem.pairId && setHoveredPairId(matchItem.pairId)}
+                            onMouseLeave={() => setHoveredPairId(null)}
                             style={{
-                              backgroundColor: matchItem ? `${matchItem.color}45` : '#fef9c3',
-                              borderColor: matchItem ? matchItem.color : '#020617',
-                              borderWidth: matchItem ? '3.5px' : '1px',
-                              boxShadow: matchItem ? `0 0 12px ${matchItem.color}90 inset` : 'none'
+                              backgroundColor: isHoveredPair ? '#6ee7b7' : (matchItem ? `${matchItem.color}50` : '#fef9c3'),
+                              borderColor: isHoveredPair ? '#059669' : (matchItem ? matchItem.color : '#020617'),
+                              borderWidth: matchItem ? (isHoveredPair ? '4px' : '3.5px') : '1px',
+                              boxShadow: isHoveredPair ? '0 0 16px #059669 inset' : (matchItem ? `0 0 12px ${matchItem.color}90 inset` : 'none')
                             }}
-                            className={`relative px-0.5 py-0.5 text-center align-middle ${
-                              matchItem ? 'z-10 bg-amber-200/70 font-black' : ''
+                            className={`relative px-0.5 py-0.5 text-center align-middle transition-all duration-200 ${
+                              matchItem ? 'z-10 font-black cursor-pointer' : ''
                             }`}
                           >
+                            {/* CONNECTED PAIR ID BADGE PILL */}
+                            {matchItem && matchItem.pairId && (
+                              <div className="absolute top-0.5 right-0.5 z-20">
+                                <span className={`text-[8px] font-black font-mono px-1 py-0.2 rounded shadow-md border ${
+                                  isHoveredPair ? 'bg-emerald-600 text-white border-emerald-300' : 'bg-slate-950 text-emerald-300 border-emerald-500/80'
+                                }`}>
+                                  {matchItem.pairId}-{matchItem.stepIndex}
+                                </span>
+                              </div>
+                            )}
+
                             {/* Center Jodi Number */}
                             <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
                               <span

@@ -1,6 +1,8 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
+ * - Strict Day Propagation across clauses (e.g. "mon ..." restricts all clauses to Monday)
  * - Independent Multi-Clause Pipeline with Relative Ordinal Week Context
  * - Support for "OR" and "AND" Compound Relations ("open to open same or 2 down")
  * - Red Pair Handler ("red pair", "red jodi", "double pair")
@@ -26,6 +28,41 @@ const DAY_NAMES = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WORD_TO_NUM = {
   zero: 0, one: 1, two: 2, three: 3, four: 4,
   five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10
+};
+
+// Telugu & Transliterated Telugu (Telgish) Preprocessor Engine
+const preprocessTeluguQuery = (str) => {
+  if (!str) return '';
+  let q = str.toLowerCase();
+
+  // Convert Telugu Digits (౦-౯) to English Digits (0-9)
+  const teluguDigits = ['౦', '౧', '౨', '౩', '౪', '౫', '౬', '౭', '౮', '౯'];
+  teluguDigits.forEach((td, idx) => {
+    q = q.replaceAll(td, idx.toString());
+  });
+
+  // Telugu Days Mapping (Script + Transliteration)
+  q = q.replace(/\b(సోమవారం|somavaramu|somavaram|sombharam|sombharamu|somvar)\b/gi, 'mon');
+  q = q.replace(/\b(మంగళవారం|mangalavaramu|mangalavaram|mangalvar|mangal)\b/gi, 'tue');
+  q = q.replace(/\b(బుధవారం|budhavaramu|budhavaram|budhvar|budha|budh)\b/gi, 'wed');
+  q = q.replace(/\b(గురువారం|guruvaramu|guruvaram|gurvar|guru)\b/gi, 'thu');
+  q = q.replace(/\b(శుక్రవారం|sukravaramu|sukravaram|shukravaram|sukra)\b/gi, 'fri');
+  q = q.replace(/\b(శనివారం|sanivaramu|sanivaram|shanivaram|sani)\b/gi, 'sat');
+  q = q.replace(/\b(ఆదివారం|adivaramu|adivaram|aadivaram|aadi)\b/gi, 'sun');
+
+  // Telugu Keywords Mapping
+  q = q.replace(/\b(దగ్గర|daggara|pakkana|చేరువ|cheruva)\b/gi, 'near');
+  q = q.replace(/\b(తరువాత|taruvatha|tarvata|tharuwatha|tarwata)\b/gi, 'after');
+  q = q.replace(/\b(ముందు|mundu|munde|ముందే)\b/gi, 'before');
+  q = q.replace(/\b(వారం|varam|vaaram|వారము|వరుస|varusa)\b/gi, 'week');
+  q = q.replace(/\b(మొత్తం|mottam|mothamy|motham|కూడిక|kudika)\b/gi, 'total');
+  q = q.replace(/\b(తిరిగి|tirigi|ultha|ulta|తిరగేసి|tiragesi|తిరగి)\b/gi, 'reverse');
+  q = q.replace(/\b(అదే|ade|సమానం|samanam|okate|ఒకే)\b/gi, 'same');
+  q = q.replace(/\b(కట్|cut|వ్యతిరేకం|vyatirekam)\b/gi, 'opposite');
+  q = q.replace(/\b(రెడ్ జంట|red janta|ఎరుపు|erupu|red pair)\b/gi, 'red pair');
+  q = q.replace(/\b(జంట|janta|జోడీ|jodi)\b/gi, 'jodi');
+
+  return q;
 };
 
 // Helper to extract row range (1-indexed input e.g. "between 1 to 5 row", "440 row")
@@ -110,10 +147,11 @@ const checkDigitRelation = (d1, d2, rel) => {
 
 export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   if (!queryStr || !grid || grid.length === 0) {
-    return { matches: [], summary: 'Type a query in simple English to search the chart.', matchMap: {} };
+    return { matches: [], summary: 'Type a query in simple English or Telugu to search the chart.', matchMap: {} };
   }
 
-  const q = queryStr.toLowerCase().trim();
+  // Preprocess Telugu script & Transliterated Telugu into standard query terms
+  const q = preprocessTeluguQuery(queryStr).trim();
   const matches = [];
   const matchMap = {};
 
@@ -144,6 +182,16 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       isRestricted = true;
     }
   }
+
+  // Detect Global Days mentioned in entire query
+  const words = q.split(/\s+/);
+  const globalDays = [];
+  words.forEach(w => {
+    const cw = w.replace(/[^a-z]/g, '');
+    if (DAY_MAP[cw] !== undefined && !globalDays.includes(DAY_MAP[cw])) {
+      globalDays.push(DAY_MAP[cw]);
+    }
+  });
 
   // Split query into independent logical clauses (separated by "and", "then")
   const rawClauses = q.split(/\s*(?:and|then)\s*/i);
@@ -179,6 +227,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     });
 
+    // Effective target columns (clause days > global days > all days)
+    const effectiveDays = clauseDays.length > 0 ? clauseDays : (globalDays.length > 0 ? globalDays : Array.from({ length: cols }, (_, i) => i));
+
     // Detect 2-digit numbers in this specific clause
     const clauseNums = cStr.match(/\b\d{2}\b/g) || [];
 
@@ -201,6 +252,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
     const isCrossDigitQuery = (cStr.includes('open to close') || cStr.includes('close to open') || cStr.includes('open to open') || cStr.includes('close to close'));
 
+    let pairCounter = 1;
+
     // CLAUSE TYPE CROSS-DIGIT: Cross-Digit Relations with "OR" / "AND" support
     if (isCrossDigitQuery) {
       const crossClauses = [];
@@ -213,7 +266,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         crossClauses.push({ type: typeStr, rel: relObj });
       }
 
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
       targetCols.forEach(c => {
         for (let r1 = cMinR; r1 < cMaxR; r1++) {
           for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
@@ -238,8 +291,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const passes = hasOrLogic ? passesCount > 0 : passesCount === crossClauses.length;
 
             if (passes && crossClauses.length > 0) {
-              const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) vs Row #${r2+1} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
-              const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) vs Row #${r2+1} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
+              const pId = `P${pairCounter++}`;
+              const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) paired with Row #${r2+1} (${val2})`, color: GREEN_MATCH_COLOR };
+              const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `${DAY_NAMES[c]} Row #${r2+1} (${val2}) paired with Row #${r1+1} (${val1})`, color: GREEN_MATCH_COLOR };
               matches.push(m1, m2);
               matchMap[`${r1}_${c}`] = m1;
               matchMap[`${r2}_${c}`] = m2;
@@ -251,7 +305,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
     // CLAUSE TYPE A: Proximity Search with Totals (e.g. "sat 6 total near 8 total")
     else if (hasNear && clauseTotals.length >= 1) {
-      const originDayCol = clauseDays.length > 0 ? clauseDays[0] : null;
+      const originDayCol = clauseDays.length > 0 ? clauseDays[0] : (globalDays.length > 0 ? globalDays[0] : null);
       const originCols = originDayCol !== null ? [originDayCol] : Array.from({ length: cols }, (_, i) => i);
       const originTotal = clauseTotals[0];
       const nearTotal = clauseTotals.length >= 2 ? clauseTotals[1] : clauseTotals[0];
@@ -313,7 +367,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
     // CLAUSE TYPE B: Red Pair Handler (e.g. "next 5th week red pair")
     else if (hasRedPair) {
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
       for (let r = cMinR; r <= cMaxR; r++) {
         targetCols.forEach(c => {
           const val = grid[r]?.[c]?.val || '';
@@ -338,7 +392,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     // CLAUSE TYPE C: Explicit Number Search (e.g. "31 jodi", "wed 06")
     else if (clauseNums.length > 0 && !hasFamily && !hasReverse) {
       const numToFind = clauseNums[0];
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
 
       for (let r = cMinR; r <= cMaxR; r++) {
         targetCols.forEach(c => {
@@ -364,7 +418,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     // CLAUSE TYPE D: Total Filter Search (e.g. "total one in 6th week", "7 total in sat")
     else if (clauseTotals.length > 0 && clauseNums.length === 0) {
       const reqTotal = clauseTotals[0];
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
 
       for (let r = cMinR; r <= cMaxR; r++) {
         targetCols.forEach(c => {
@@ -395,7 +449,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     else if (hasReverse && (clauseNums.length > 0 || hasRedPair)) {
       const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
       const num2 = num1 ? getFaltiNumber(num1) : null;
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
 
       for (let r = cMinR; r <= cMaxR; r++) {
         targetCols.forEach(c => {
@@ -425,7 +479,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     else if (hasFamily && clauseNums.length > 0) {
       const targetJodi = clauseNums[0];
       const familyMembers = getJodiFamily(targetJodi);
-      const targetCols = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+      const targetCols = effectiveDays;
 
       for (let r = cMinR; r <= cMaxR; r++) {
         targetCols.forEach(c => {
