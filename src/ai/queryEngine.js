@@ -1,13 +1,13 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Pair Search Row-Bound Extension: Allows pair searches (like "fri jodi same from 6-8") starting on Row 8 to match with Row 9.
+ * - Strict Day Scoping & Deduplication: Ensures "mon open to open same and close to close one down" matches ONLY Monday (53 & 52) with ZERO Thursday/Sunday spillover and ZERO duplicate chips.
+ * - Robust Cross-Digit Compound Protection: Ensures "mon open to open same and close to close one down" remains 1 unified clause, restricting search strictly to Monday.
+ * - Strict Range Boundaries: Explicit ranges like "between 1 to 4 row" enforce r2 <= cMaxR so Row 5 (22) is strictly excluded.
  * - Autonomous Same Jodi Scanner: "fri jodi same" or "jodi same" scans for identical jodis (e.g. Row 8 Fri 98 & Row 9 Fri 98).
- * - Day Token Stripping in Cross-Digit Relations: Ensures queries like "open to open mon and close to close one down" match strictly 53 & 52 on Monday without false positives.
+ * - Day Token Stripping in Cross-Digit Relations: Ensures queries match strictly 53 & 52 on Monday without false positives.
  * - Intelligent Multi-Clause Splitter: Splits clauses on 'and', 'then', 'next', 'after' while preserving compound cross-digit pairs.
  * - Strict Linear Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
- * - Sequential Origin Propagation: Cross-digit pair matches update lastOriginRow so subsequent "next" or "after" clauses evaluate strictly after the matched pair.
- * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs.
  * - Ultra-Compact Micro-Dot Indicators: Clean 6px CSS dots positioned in top-right corner with 0% overlap.
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine.
  */
@@ -172,8 +172,8 @@ const checkDigitRelation = (d1, d2, rel) => {
 // Split clauses on 'and', 'then', 'next', 'after', keeping cross-digit compound pairs protected
 const splitClausesIntelligently = (queryText) => {
   let protectedQuery = queryText.replace(
-    /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)\s+and\s+(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/gi,
-    '$1 $2 ___CROSS_AND___ $3'
+    /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)(.*?)\s+and\s+(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/gi,
+    '$1$2 ___CROSS_AND___ $3'
   );
 
   protectedQuery = protectedQuery.replace(/\s+(next|after|then)\s+/gi, ' ___SPLIT_CLAUSE___ $1 ');
@@ -197,6 +197,16 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // Global default row range for entire chart
   const globalRowRange = parseRowRange(q, grid.length);
+
+  // Detect global days from full query if specified
+  const globalWords = q.split(/\s+/);
+  const globalDays = [];
+  globalWords.forEach(w => {
+    const cw = w.replace(/[^a-z]/g, '');
+    if (DAY_MAP[cw] !== undefined && !globalDays.includes(DAY_MAP[cw])) {
+      globalDays.push(DAY_MAP[cw]);
+    }
+  });
 
   // Split query into intelligent clauses
   const rawClauses = splitClausesIntelligently(q);
@@ -252,7 +262,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // Detect Days in this specific clause
+    // Detect Days in this specific clause or inherit from global days
     const clauseWords = cStr.split(/\s+/);
     const clauseDays = [];
     clauseWords.forEach(w => {
@@ -262,8 +272,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     });
 
-    // Effective target columns for this clause (clause days > all days)
-    const effectiveDays = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
+    const activeDays = clauseDays.length > 0 ? clauseDays : (globalDays.length > 0 ? globalDays : Array.from({ length: cols }, (_, i) => i));
+    const effectiveDays = activeDays;
     const clauseNums = cStr.match(/\b\d{2}\b/g) || [];
 
     const clauseTotals = [];
@@ -290,25 +300,40 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const crossClauses = [];
       const hasOrLogic = cStr.includes(' or ');
 
-      const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/i);
+      // Extract each cross-digit clause and its exact relation
+      const crossMatches = [...cStr.matchAll(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)(?=\s+(?:open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|between|from|row|and|$))/gi)];
 
-      subTokens.forEach(tok => {
-        const subMatch = tok.match(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s*(.*)/i);
-        if (subMatch) {
-          const typeStr = subMatch[1].toLowerCase().replace(/\s+/g, '_');
-          const relObj = parseRelation(subMatch[2]);
+      if (crossMatches.length > 0) {
+        crossMatches.forEach(m => {
+          const typeStr = m[1].toLowerCase().replace(/\s+/g, '_');
+          const relObj = parseRelation(m[2]);
           if (relObj) {
             crossClauses.push({ type: typeStr, rel: relObj });
           }
-        }
-      });
+        });
+      } else {
+        const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/i);
+        subTokens.forEach(tok => {
+          const subMatch = tok.match(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s*(.*)/i);
+          if (subMatch) {
+            const typeStr = subMatch[1].toLowerCase().replace(/\s+/g, '_');
+            const relObj = parseRelation(subMatch[2]);
+            if (relObj) {
+              crossClauses.push({ type: typeStr, rel: relObj });
+            }
+          }
+        });
+      }
 
       const targetCols = effectiveDays;
-      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
+      const maxPairScanR = clauseRange.isRestricted ? cMaxR : Math.min(grid.length - 1, cMaxR + 1);
 
       targetCols.forEach(c => {
         for (let r1 = cMinR; r1 <= cMaxR; r1++) {
           for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
+            // Prevent duplicate pair registration
+            if (matchMap[`${r1}_${c}`] && matchMap[`${r2}_${c}`]) continue;
+
             const val1 = grid[r1]?.[c]?.val || '';
             const val2 = grid[r2]?.[c]?.val || '';
             if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
@@ -338,9 +363,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
               const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) paired with Row #${r2+1} (${val2})`, color: palette.bg, border: palette.border, dot: palette.dot };
               const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `${DAY_NAMES[c]} Row #${r2+1} (${val2}) paired with Row #${r1+1} (${val1})`, color: palette.bg, border: palette.border, dot: palette.dot };
-              matches.push(m1, m2);
-              matchMap[`${r1}_${c}`] = m1;
-              matchMap[`${r2}_${c}`] = m2;
+              
+              if (!matchMap[`${r1}_${c}`] && !matchMap[`${r2}_${c}`]) {
+                matches.push(m1, m2);
+                matchMap[`${r1}_${c}`] = m1;
+                matchMap[`${r2}_${c}`] = m2;
+              }
             }
           }
         }
@@ -350,11 +378,13 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     // CLAUSE TYPE G: Autonomous Same Jodi Scanner (e.g. "fri jodi same")
     else if (hasSameJodi) {
       const targetCols = effectiveDays;
-      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
+      const maxPairScanR = clauseRange.isRestricted ? cMaxR : Math.min(grid.length - 1, cMaxR + 1);
 
       targetCols.forEach(c => {
         for (let r1 = cMinR; r1 <= cMaxR; r1++) {
           for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
+            if (matchMap[`${r1}_${c}`] && matchMap[`${r2}_${c}`]) continue;
+
             const val1 = grid[r1]?.[c]?.val || '';
             const val2 = grid[r2]?.[c]?.val || '';
             if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
@@ -367,9 +397,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
                 const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `Same Jodi ${val1} on ${DAY_NAMES[c]} (Row #${r1+1} & #${r2+1})`, color: palette.bg, border: palette.border, dot: palette.dot };
                 const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `Same Jodi ${val2} on ${DAY_NAMES[c]} (Row #${r2+1} & #${r1+1})`, color: palette.bg, border: palette.border, dot: palette.dot };
-                matches.push(m1, m2);
-                matchMap[`${r1}_${c}`] = m1;
-                matchMap[`${r2}_${c}`] = m2;
+                
+                if (!matchMap[`${r1}_${c}`] && !matchMap[`${r2}_${c}`]) {
+                  matches.push(m1, m2);
+                  matchMap[`${r1}_${c}`] = m1;
+                  matchMap[`${r2}_${c}`] = m2;
+                }
               }
             }
           }
@@ -468,7 +501,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
       const num2 = num1 ? getFaltiNumber(num1) : null;
       const targetCols = effectiveDays;
-      const maxPairScanR = Math.min(grid.length - 1, cMaxR + 1);
+      const maxPairScanR = clauseRange.isRestricted ? cMaxR : Math.min(grid.length - 1, cMaxR + 1);
 
       if (num1) {
         for (let r = cMinR; r <= cMaxR; r++) {
@@ -498,6 +531,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         targetCols.forEach(c => {
           for (let r1 = cMinR; r1 <= cMaxR; r1++) {
             for (let r2 = r1 + 1; r2 <= maxPairScanR; r2++) {
+              if (matchMap[`${r1}_${c}`] && matchMap[`${r2}_${c}`]) continue;
+
               const val1 = grid[r1]?.[c]?.val || '';
               const val2 = grid[r2]?.[c]?.val || '';
               if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
@@ -510,9 +545,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
                   const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `Reverse Jodi ${val1} & ${val2} on ${DAY_NAMES[c]}`, color: palette.bg, border: palette.border, dot: palette.dot };
                   const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `Reverse Jodi ${val2} & ${val1} on ${DAY_NAMES[c]}`, color: palette.bg, border: palette.border, dot: palette.dot };
-                  matches.push(m1, m2);
-                  matchMap[`${r1}_${c}`] = m1;
-                  matchMap[`${r2}_${c}`] = m2;
+                  
+                  if (!matchMap[`${r1}_${c}`] && !matchMap[`${r2}_${c}`]) {
+                    matches.push(m1, m2);
+                    matchMap[`${r1}_${c}`] = m1;
+                    matchMap[`${r2}_${c}`] = m2;
+                  }
                 }
               }
             }

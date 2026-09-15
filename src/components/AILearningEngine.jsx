@@ -17,7 +17,7 @@ export const AILearningEngine = () => {
 
   // CONTROLS & TABLE UI OPTIONS (MATCHING CHART EDITOR)
   const [showControls, setShowControls] = useState(false);
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
 
