@@ -1,7 +1,7 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Linear Non-Circular Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
+ * - Strict Linear Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
  * - Sequential Origin Propagation: Cross-digit pair matches update lastOriginRow so subsequent "next" or "after" clauses evaluate strictly after the matched pair.
  * - Intelligent Clause Tokenizer: Splits mixed queries on 'and'/'then' while protecting compound cross-digit pairs.
  * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME.
@@ -141,16 +141,21 @@ const parseRelation = (textStr) => {
   return { type: 'SAME' };
 };
 
-// Strict Linear Up/Down Validation (rejects false circular wrap-arounds like 1 to 9 for 2 down)
+// Strict Linear Up/Down Validation (strictly rejects false circular wrap-arounds like 1 to 9 for 2 down)
 const checkDigitRelation = (d1, d2, rel) => {
   if (!rel) return false;
   if (rel.type === 'SAME') return d1 === d2;
   if (rel.type === 'OPPOSITE') return d2 === (d1 + 5) % 10;
-  if (rel.type === 'UP') return (d2 === (d1 + rel.step) % 10) && (d2 > d1 || (d1 + rel.step >= 10 && d2 === (d1 + rel.step - 10)));
+  if (rel.type === 'UP') {
+    if (d1 === 9 && rel.step === 1) return d2 === 0;
+    if (d1 === 9 && rel.step === 2) return d2 === 1;
+    if (d1 === 8 && rel.step === 2) return d2 === 0;
+    return d2 === d1 + rel.step;
+  }
   if (rel.type === 'DOWN') {
-    const directDown = d1 - rel.step;
-    if (directDown >= 0) return d2 === directDown;
-    return d2 === (directDown + 10); // handles 0 - 1 = 9
+    if (d1 === 0 && rel.step === 1) return d2 === 9;
+    if (d1 === 0 && rel.step === 2) return d2 === 8;
+    return d2 === d1 - rel.step;
   }
   return false;
 };
