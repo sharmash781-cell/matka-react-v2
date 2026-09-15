@@ -1,10 +1,12 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Clause Scoping Isolation (row ranges & day filters in one clause do not restrict independent compound clauses)
- * - Non-greedy Cross-Digit Tokenizer (properly parses multiple clauses e.g. open to open same AND close to close one down)
+ * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME (e.g. "open to open and close to close 3 up" strictly enforces open_to_open SAME AND close_to_close 3 UP)
+ * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs (e.g. 75 & 57 on Thursday)
+ * - Unified Cross-Digit Clause Matching: joins multiple cross-digit conditions into a single strict pair search
+ * - Clause Scoping Isolation: row ranges & day filters in one clause do not restrict independent compound clauses
  * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡)
- * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 84-88, 86-89)
+ * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 84-88, 86-89, 86-59)
  * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
  */
@@ -70,7 +72,7 @@ const preprocessTeluguQuery = (str) => {
 
 // Helper to extract row range
 const parseRowRange = (qStr, totalRows) => {
-  const rangeMatch = qStr.match(/(?:between|row[s]?)\s*(\d+)\s*(?:to|-|and)\s*(\d+)/i) ||
+  const rangeMatch = qStr.match(/(?:between|row[s]?|from)\s*(\d+)\s*(?:to|-|and)\s*(\d+)/i) ||
                      qStr.match(/(\d+)\s*(?:to|-)\s*(\d+)\s*row[s]?/i);
   if (rangeMatch) {
     const minR = Math.max(0, parseInt(rangeMatch[1]) - 1);
@@ -112,7 +114,7 @@ const getJodiFamily = (jodiStr) => {
 };
 
 const parseRelation = (textStr) => {
-  if (!textStr) return null;
+  if (!textStr) return { type: 'SAME' };
   const lower = textStr.toLowerCase();
   if (lower.includes('opposite') || lower.includes('cut')) return { type: 'OPPOSITE' };
   if (lower.includes('same')) return { type: 'SAME' };
@@ -136,7 +138,8 @@ const parseRelation = (textStr) => {
   if (lower.includes('down')) return { type: 'DOWN', step: step || 1 };
   if (lower.includes('up')) return { type: 'UP', step: step || 1 };
 
-  return null;
+  // If no direction or step specified (e.g. "open to open and ..."), default to SAME!
+  return { type: 'SAME' };
 };
 
 const checkDigitRelation = (d1, d2, rel) => {
@@ -180,7 +183,16 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   }
 
-  const rawClauses = q.split(/\s*(?:and|then)\s*/i);
+  // Check if query is a cross-digit pattern query (e.g. open to close opposite ... AND close to open 4 down)
+  const isCrossDigitTerm = (str) => /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close/i.test(str);
+
+  let rawClauses = [];
+  if (isCrossDigitTerm(q)) {
+    // Treat entire cross-digit query as a UNIFIED single clause to prevent splitting compound conditions into separate searches!
+    rawClauses = [q];
+  } else {
+    rawClauses = q.split(/\s*(?:and|then)\s*/i);
+  }
 
   let lastOriginRow = 0;
   let pairCounter = 1;
@@ -194,7 +206,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     let cMinR = clauseRange.isRestricted ? clauseRange.minR : globalRowRange.minR;
     let cMaxR = clauseRange.isRestricted ? clauseRange.maxR : globalRowRange.maxR;
 
-    if (globalAnchorRow !== -1) {
+    if (globalAnchorRow !== -1 && !clauseRange.isRestricted) {
       cMinR = Math.max(cMinR, globalAnchorRow + 1);
     }
 
@@ -240,9 +252,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasReverse = cStr.includes('reverse') || cStr.includes('falti') || cStr.includes('palat');
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
-    const isCrossDigitQuery = (cStr.includes('open to close') || cStr.includes('close to open') || cStr.includes('open to open') || cStr.includes('close to close'));
+    const isCrossDigitQuery = isCrossDigitTerm(cStr);
 
-    // CLAUSE TYPE CROSS-DIGIT: Non-Greedy Tokenized Multi-Clause Matcher
+    // CLAUSE TYPE CROSS-DIGIT: Unified Non-Greedy Tokenized Multi-Clause Matcher
     if (isCrossDigitQuery) {
       const crossClauses = [];
       const hasOrLogic = cStr.includes(' or ');
@@ -385,8 +397,64 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
+    // CLAUSE TYPE E: Reverse / Falti Search (Supports both explicit number e.g. "75 reverse" AND autonomous pair search e.g. "thu jodi reverse")
+    else if (hasReverse) {
+      const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
+      const num2 = num1 ? getFaltiNumber(num1) : null;
+      const targetCols = effectiveDays;
+
+      if (num1) {
+        // Specific number reverse search
+        for (let r = cMinR; r <= cMaxR; r++) {
+          targetCols.forEach(c => {
+            const val = grid[r]?.[c]?.val || '';
+            if (val && /^\d{2}$/.test(val)) {
+              if (val === num1 || val === num2) {
+                const isFalti = val === num2 && num1 !== num2;
+                const m = {
+                  r, c,
+                  day: DAY_NAMES[c],
+                  rowNum: r + 1,
+                  val,
+                  reason: isFalti ? `Reverse of ${num1} (${num2}) on ${DAY_NAMES[c]} (Row #${r+1})` : `Direct ${num1} on ${DAY_NAMES[c]} (Row #${r+1})`,
+                  color: isFalti ? PURPLE_MATCH_COLOR : HIGHLIGHT_COLOR
+                };
+                if (!matchMap[`${r}_${c}`]) {
+                  matches.push(m);
+                  matchMap[`${r}_${c}`] = m;
+                }
+              }
+            }
+          });
+        }
+      } else {
+        // General Reverse / Falti pair scanner across column pairs
+        targetCols.forEach(c => {
+          for (let r1 = cMinR; r1 < cMaxR; r1++) {
+            for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
+              const val1 = grid[r1]?.[c]?.val || '';
+              const val2 = grid[r2]?.[c]?.val || '';
+              if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
+                if (val2 === getFaltiNumber(val1) && val1 !== val2) {
+                  const pIdx = pairCounter++;
+                  const pId = `P${pIdx}`;
+                  const palette = PAIR_COLORS[(pIdx - 1) % PAIR_COLORS.length];
+
+                  const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `Reverse Jodi ${val1} & ${val2} on ${DAY_NAMES[c]}`, color: palette.bg, border: palette.border, dot: palette.dot };
+                  const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `Reverse Jodi ${val2} & ${val1} on ${DAY_NAMES[c]}`, color: palette.bg, border: palette.border, dot: palette.dot };
+                  matches.push(m1, m2);
+                  matchMap[`${r1}_${c}`] = m1;
+                  matchMap[`${r2}_${c}`] = m2;
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
     // CLAUSE TYPE C: Explicit Number Search
-    else if (clauseNums.length > 0 && !hasFamily && !hasReverse) {
+    else if (clauseNums.length > 0 && !hasFamily) {
       const numToFind = clauseNums[0];
       const targetCols = effectiveDays;
 
@@ -430,36 +498,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 val,
                 reason: `${DAY_NAMES[c]} Total ${reqTotal} (${val}) on Row #${r+1}`,
                 color: '#10b981'
-              };
-              if (!matchMap[`${r}_${c}`]) {
-                matches.push(m);
-                matchMap[`${r}_${c}`] = m;
-              }
-            }
-          }
-        });
-      }
-    }
-
-    // CLAUSE TYPE E: Reverse / Falti Search
-    else if (hasReverse && (clauseNums.length > 0 || hasRedPair)) {
-      const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
-      const num2 = num1 ? getFaltiNumber(num1) : null;
-      const targetCols = effectiveDays;
-
-      for (let r = cMinR; r <= cMaxR; r++) {
-        targetCols.forEach(c => {
-          const val = grid[r]?.[c]?.val || '';
-          if (val && /^\d{2}$/.test(val)) {
-            if (num1 && (val === num1 || val === num2)) {
-              const isFalti = val === num2 && num1 !== num2;
-              const m = {
-                r, c,
-                day: DAY_NAMES[c],
-                rowNum: r + 1,
-                val,
-                reason: isFalti ? `Reverse of ${num1} (${num2}) on ${DAY_NAMES[c]} (Row #${r+1})` : `Direct ${num1} on ${DAY_NAMES[c]} (Row #${r+1})`,
-                color: isFalti ? PURPLE_MATCH_COLOR : HIGHLIGHT_COLOR
               };
               if (!matchMap[`${r}_${c}`]) {
                 matches.push(m);
