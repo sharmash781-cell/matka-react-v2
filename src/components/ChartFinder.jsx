@@ -43,12 +43,13 @@ export const ChartFinder = () => {
 
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
-    'open to open opposite and close to close opposite wed',
-    'wed dead',
+    '03 family',
+    '56 falti',
+    '10th 88 near 1 total',
     'fri 16 4rd week saturday',
-    'what mostly came after 88 in thursday',
-    'thu open to open 2 down and close to close is 4 down',
-    'sat 1 total'
+    '88 dead same col',
+    '00 next 3rd week any 1 total',
+    'what mostly came after 88 in thursday'
   ];
 
   // Virtualization slicing

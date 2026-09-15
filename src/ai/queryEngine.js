@@ -1,14 +1,15 @@
 /**
  * Ultra-Advanced Natural Language Query Engine for Matka Chart
  * Features:
- * - Ordinal Week Multi-Number Search ("tue 81 2 week 01" -> Row 26 Tue 81 to Row 27 Wed 01)
- * - Strict Number Dead Pair Search ("88 dead same col" -> strictly 88 ➔ 33)
+ * - Jodi Family Engine ("03 family" -> finds 03, 08, 53, 58, 30, 35, 80, 85)
+ * - Falti / Reverse / Palat Engine ("56 falti", "56 reverse", "56 palat" -> finds 65)
+ * - N-th Occurrence & Proximity Search ("10th 88 near 1 total", "5th 88")
+ * - Extended Multi-Step Sentence Chain ("88 wed next 3rd thursday and 10 week friday")
+ * - Ordinal Week Search ("tue 81 2 week 01", "00 next 3rd week any 1 total")
+ * - Strict Number Dead Pair Search ("88 dead same col")
  * - Same Week Follow-Up Search ("after red 22 any one total same week")
  * - Dead Pair / Cut Pair Engine ("dead", "full dead", "open dead", "close dead")
  * - Multi-Row Gap Column Scanning
- * - Ordinal Column/Row offsets
- * - Multi-Step Sentence Chain Parser
- * - Statistical Outcome Predictor
  * - Holiday Filtering
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
@@ -25,6 +26,33 @@ const DAY_MAP = {
 
 const DAY_NAMES = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// Helper to generate full 8-member Matka Jodi Family
+const getJodiFamily = (jodiStr) => {
+  if (!jodiStr || !/^\d{2}$/.test(jodiStr)) return [];
+  const o = parseInt(jodiStr[0]);
+  const c = parseInt(jodiStr[1]);
+  const cutO = (o + 5) % 10;
+  const cutC = (c + 5) % 10;
+
+  const set = new Set([
+    `${o}${c}`,         // Direct
+    `${o}${cutC}`,      // Cut Close
+    `${cutO}${c}`,      // Cut Open
+    `${cutO}${cutC}`,   // Both Cut
+    `${c}${o}`,         // Palat Direct
+    `${c}${cutO}`,      // Palat Cut Open
+    `${cutC}${o}`,      // Palat Cut Close
+    `${cutC}${cutO}`    // Palat Both Cut
+  ]);
+  return Array.from(set);
+};
+
+// Helper for Falti / Reverse / Palat
+const getFaltiNumber = (numStr) => {
+  if (!numStr || numStr.length !== 2) return null;
+  return `${numStr[1]}${numStr[0]}`;
+};
+
 const parseRelation = (textStr) => {
   if (!textStr) return null;
   const lower = textStr.toLowerCase();
@@ -38,7 +66,7 @@ const parseRelation = (textStr) => {
   if (lower.includes('close dead')) {
     return { type: 'CLOSE_DEAD' };
   }
-  if (lower.includes('opposite') || lower.includes('cut') || lower.includes('family')) {
+  if (lower.includes('opposite') || lower.includes('cut')) {
     return { type: 'OPPOSITE' };
   }
   if (lower.includes('same')) {
@@ -105,7 +133,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   let rowOffset = 1;
   const ordMatch = q.match(/(\d+)(?:st|nd|rd|th|\s*week)/);
   if (ordMatch) {
-    rowOffset = parseInt(ordMatch[1]) - 1; // 2 week -> +1 row
+    rowOffset = parseInt(ordMatch[1]) - 1;
   } else {
     const offsetMatch = q.match(/(?:next|after|following)?\s*(\d+)(?:st|nd|rd|th)?\s*row/) || q.match(/(\d+)\s*row[s]?\s*down/);
     if (offsetMatch) {
@@ -116,7 +144,151 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   }
 
   // -------------------------------------------------------------
-  // FEATURE 0.1: ORDINAL WEEK MULTI-NUMBER SEARCH
+  // FEATURE 0.0: JODI FAMILY SEARCH
+  // E.g. "03 family" or "family of 03" -> finds [03, 08, 53, 58, 30, 35, 80, 85]
+  // -------------------------------------------------------------
+  if (q.includes('family') && explicitNumberMatches.length > 0) {
+    const targetJodi = explicitNumberMatches[0];
+    const familyMembers = getJodiFamily(targetJodi);
+    const targetCols = foundDays.length > 0 ? foundDays.map(d => d.col) : Array.from({ length: cols }, (_, i) => i);
+
+    for (let r = 0; r < grid.length; r++) {
+      targetCols.forEach(c => {
+        const val = grid[r]?.[c]?.val || '';
+        if (val && familyMembers.includes(val)) {
+          const m = {
+            r, c,
+            day: DAY_NAMES[c],
+            rowNum: r + 1,
+            val,
+            reason: `${targetJodi} Family member (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`,
+            color: GREEN_MATCH_COLOR
+          };
+          matches.push(m);
+          matchMap[`${r}_${c}`] = m;
+        }
+      });
+    }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} cell(s) for ${targetJodi} Family [${familyMembers.join(', ')}]`
+      : `No cells found for ${targetJodi} Family [${familyMembers.join(', ')}].`;
+    return { matches, summary, matchMap };
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.01: FALTI / REVERSE / PALAT SEARCH
+  // E.g. "56 falti" or "56 reverse" or "56 palat" -> finds 56 & 65
+  // -------------------------------------------------------------
+  if ((q.includes('falti') || q.includes('reverse') || q.includes('palat')) && explicitNumberMatches.length > 0) {
+    const num1 = explicitNumberMatches[0];
+    const num2 = getFaltiNumber(num1);
+    const targetCols = foundDays.length > 0 ? foundDays.map(d => d.col) : Array.from({ length: cols }, (_, i) => i);
+
+    for (let r = 0; r < grid.length; r++) {
+      targetCols.forEach(c => {
+        const val = grid[r]?.[c]?.val || '';
+        if (val === num1 || val === num2) {
+          const isFalti = val === num2 && num1 !== num2;
+          const m = {
+            r, c,
+            day: DAY_NAMES[c],
+            rowNum: r + 1,
+            val,
+            reason: isFalti ? `Reverse/Falti of ${num1} (${num2}) on ${DAY_NAMES[c]} (Row #${r+1})` : `Direct ${num1} on ${DAY_NAMES[c]} (Row #${r+1})`,
+            color: isFalti ? PURPLE_MATCH_COLOR : HIGHLIGHT_COLOR
+          };
+          matches.push(m);
+          matchMap[`${r}_${c}`] = m;
+        }
+      });
+    }
+
+    const summary = matches.length > 0
+      ? `Found ${matches.length} cell(s) for ${num1} and its Reverse/Falti ${num2}`
+      : `No cells found for ${num1} or ${num2}.`;
+    return { matches, summary, matchMap };
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.02: N-TH OCCURRENCE & NEARBY TOTAL SEARCH
+  // E.g. "10th 88 near 1 total" or "10th 88"
+  // -------------------------------------------------------------
+  const nthOccurMatch = q.match(/(\d+)(?:st|nd|rd|th)?\s*(\d{2})/);
+  if (nthOccurMatch && (q.includes('near') || q.includes('total') || q.includes('occurrence'))) {
+    const targetN = parseInt(nthOccurMatch[1]);
+    const targetNum = nthOccurMatch[2];
+
+    const totalFilterMatch = q.match(/(\d+)\s*total/) || q.match(/total\s*(\d+)/);
+    const targetTotal = totalFilterMatch ? parseInt(totalFilterMatch[1]) : null;
+
+    let occurrencesFound = 0;
+    let nthCell = null;
+
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r]?.[c]?.val === targetNum) {
+          occurrencesFound++;
+          if (occurrencesFound === targetN) {
+            nthCell = { r, c, val: targetNum };
+            break;
+          }
+        }
+      }
+      if (nthCell) break;
+    }
+
+    if (nthCell) {
+      const mOrigin = {
+        r: nthCell.r, c: nthCell.c,
+        day: DAY_NAMES[nthCell.c],
+        rowNum: nthCell.r + 1,
+        val: nthCell.val,
+        reason: `${targetN}th occurrence of ${targetNum} on ${DAY_NAMES[nthCell.c]} (Row #${nthCell.r+1})`,
+        color: HIGHLIGHT_COLOR
+      };
+      matches.push(mOrigin);
+      matchMap[`${nthCell.r}_${nthCell.c}`] = mOrigin;
+
+      if (targetTotal !== null) {
+        // Scan surrounding cells (8-neighbors + same row)
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -2; dc <= 2; dc++) {
+            const nr = nthCell.r + dr;
+            const nc = nthCell.c + dc;
+            if (nr >= 0 && nr < grid.length && nc >= 0 && nc < cols) {
+              if (nr === nthCell.r && nc === nthCell.c) continue;
+              const nVal = grid[nr]?.[nc]?.val || '';
+              if (nVal && /^\d{2}$/.test(nVal)) {
+                const tot = (parseInt(nVal[0]) + parseInt(nVal[1])) % 10;
+                const rawTot = parseInt(nVal[0]) + parseInt(nVal[1]);
+                if (tot === targetTotal || rawTot === targetTotal) {
+                  const mNear = {
+                    r: nr, c: nc,
+                    day: DAY_NAMES[nc],
+                    rowNum: nr + 1,
+                    val: nVal,
+                    reason: `Near ${targetN}th ${targetNum}: Total ${targetTotal} (${nVal}) on ${DAY_NAMES[nc]} (Row #${nr+1})`,
+                    color: GREEN_MATCH_COLOR
+                  };
+                  matches.push(mNear);
+                  matchMap[`${nr}_${nc}`] = mNear;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const summary = matches.length > 1
+        ? `Found ${targetN}th ${targetNum} (Row #${nthCell.r+1}) and ${matches.length - 1} nearby cell(s) with Total = ${targetTotal}`
+        : `Found ${targetN}th occurrence of ${targetNum} on ${DAY_NAMES[nthCell.c]} (Row #${nthCell.r+1})`;
+      return { matches, summary, matchMap };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 0.1: ORDINAL WEEK MULTI-NUMBER / TOTAL SEARCH
   // E.g. "tue 81 2 week 01"       -> Row 26 Tue 81 to Row 27 Wed 01
   // E.g. "fri 16 4rd week saturday" -> Row 2 Fri 16 to Row 5 Sat 59
   // E.g. "00 next 3rd week any 1 total" -> Row 3 Wed 00 to any cell on Row 5 with total=1
@@ -126,11 +298,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const num1 = explicitNumberMatches[0];
     const num2 = explicitNumberMatches.length >= 2 ? explicitNumberMatches[1] : null;
 
-    // Check if a "total" / "sum" filter is requested for the target row
     const totalFilterMatch = q.match(/(\d+)\s*total/) || q.match(/total\s*(\d+)/);
     const targetTotal = totalFilterMatch ? parseInt(totalFilterMatch[1]) : null;
 
-    // "any" keyword means scan all columns on target row
     const scanAllTargetCols = q.includes('any') || foundDays.length < 2;
 
     let weekOffset = rowOffset;
@@ -145,7 +315,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       if (grid[r]?.[startDayCol]?.val === num1) {
         const targetR = r + weekOffset;
         if (targetR < grid.length) {
-          // Decide which columns to check on target row
           const targetColsToScan = !scanAllTargetCols && foundDays.length >= 2
             ? [foundDays[1].col]
             : (num2 && !scanAllTargetCols
@@ -156,15 +325,13 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const targetVal = grid[targetR]?.[targetDayCol]?.val || '';
             if (!targetVal || !/^\d{2}$/.test(targetVal)) return;
 
-            // Check explicit number match if provided
             const numOk = !num2 || targetVal === num2;
 
-            // Check total filter if provided
             let totalOk = true;
             if (targetTotal !== null) {
-              const t1 = parseInt(targetVal[0]) + parseInt(targetVal[1]);          // raw sum e.g. 0+1=1
-              const t2 = t1 % 10;                                                   // single digit sum
-              const t3 = calculateTotal ? calculateTotal(targetVal) : t1;          // context helper
+              const t1 = parseInt(targetVal[0]) + parseInt(targetVal[1]);
+              const t2 = t1 % 10;
+              const t3 = calculateTotal ? calculateTotal(targetVal) : t1;
               totalOk = t1 === targetTotal || t2 === targetTotal || t3 === targetTotal;
             }
 
@@ -220,7 +387,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           matches.push(mOrigin);
           matchMap[`${r}_${c}`] = mOrigin;
 
-          // Highlight rest of week
           for (let nextC = c + 1; nextC < cols; nextC++) {
             const nextVal = grid[r]?.[nextC]?.val || '';
             if (nextVal && /^\d{2}$/.test(nextVal)) {
@@ -250,8 +416,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   // -------------------------------------------------------------
   // FEATURE 0.5: STRICT NUMBER DEAD PAIR ENGINE
   // E.g. "88 dead same col" or "81 dead fri"
-  // Calculates dead pair: open+5, close+5 (mod 10)
-  // ALWAYS early-returns so general scanner is never triggered
   // -------------------------------------------------------------
   const isDeadQuery = q.includes('dead');
   if (isDeadQuery && explicitNumberMatches.length > 0) {
@@ -263,7 +427,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const targetCols = foundDays.map(d => d.col);
     const colsToScan = targetCols.length > 0 ? targetCols : Array.from({ length: cols }, (_, i) => i);
 
-    // Highlight every occurrence of source number
     colsToScan.forEach(c => {
       for (let r = 0; r < grid.length; r++) {
         if (grid[r]?.[c]?.val === targetNum) {
@@ -271,7 +434,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           matches.push(m);
           matchMap[`${r}_${c}`] = m;
         }
-        // Highlight every occurrence of the dead pair value
         if (grid[r]?.[c]?.val === deadVal) {
           const m2 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: deadVal, reason: `Dead of ${targetNum} → ${deadVal} on ${DAY_NAMES[c]} (Row #${r+1})`, color: GREEN_MATCH_COLOR };
           matches.push(m2);
@@ -280,7 +442,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     });
 
-    // ALWAYS return from strict engine — never fall through to general scanner
     const deadSummary = matches.length > 0
       ? `Found ${matches.length} cell(s): ${targetNum} and its dead pair ${deadVal} on ${colsToScan.map(c => DAY_NAMES[c]).join('/')}`
       : `Dead pair of ${targetNum} is ${deadVal}. Neither found on ${colsToScan.map(c => DAY_NAMES[c]).join('/')}.`;
