@@ -10,7 +10,7 @@ export const ChartFinder = () => {
   const { charts = {}, activeChartName, setActiveChartName, saveChart } = useChart();
 
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
-  const [searchQuery, setSearchQuery] = useState('mon open to open same and close to close one down between 1 to 4 row');
+  const [searchQuery, setSearchQuery] = useState('open to open same and close to close one down between 1 to 4 row');
   const [hoveredPairId, setHoveredPairId] = useState(null);
 
   // Virtualization Scroll State
@@ -63,10 +63,10 @@ export const ChartFinder = () => {
   const presetQueries = [
     '03 family',
     '56 falti',
+    'open to open same and close to close one down between 1 to 4 row',
     'mon open to open same and close to close one down',
     'wed 9 total near 6 total',
-    'somavaram 03 family and 5th varam red pair',
-    'sat 6 total near 8 total'
+    'somavaram 03 family and 5th varam red pair'
   ];
 
   // Virtualization slicing
@@ -169,40 +169,43 @@ export const ChartFinder = () => {
           </span>
         </div>
 
-        {/* MATCHES LOCATION CHIPS (WITH CONNECTED PAIR VISUALIZER) */}
+        {/* MATCHES LOCATION CHIPS */}
         {matches.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-t border-slate-900">
             <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <Link className="w-3 h-3 text-emerald-400" /> Matches ({Object.keys(pairedGroupMap).length > 0 ? `${Object.keys(pairedGroupMap).length} Connected Pairs` : matches.length}):
+              <Link className="w-3 h-3 text-emerald-400" /> Matches ({Object.keys(pairedGroupMap).length > 0 ? `${Object.keys(pairedGroupMap).length} Pairs` : matches.length}):
             </span>
 
-            {/* Display Grouped Pairs */}
+            {/* Display Grouped Pairs with Clean Colored Dots */}
             {Object.keys(pairedGroupMap).length > 0 ? (
-              Object.entries(pairedGroupMap).map(([pId, pairItems]) => (
-                <div
-                  key={pId}
-                  onMouseEnter={() => setHoveredPairId(pId)}
-                  onMouseLeave={() => setHoveredPairId(null)}
-                  className={`flex items-center gap-1 bg-slate-900 border px-2 py-1 rounded-lg transition shrink-0 cursor-pointer ${
-                    hoveredPairId === pId ? 'border-emerald-400 bg-emerald-950/60 shadow-lg' : 'border-slate-800'
-                  }`}
-                >
-                  <span className="text-[8px] font-black font-mono bg-emerald-500 text-slate-950 px-1 py-0.5 rounded">
-                    {pId}
-                  </span>
-                  {pairItems.map((m, idx) => (
-                    <React.Fragment key={idx}>
-                      {idx > 0 && <span className="text-[10px] text-emerald-400 font-black">↔</span>}
-                      <button
-                        onClick={() => scrollToRowIndex(m.r)}
-                        className="text-[9px] font-mono text-white font-bold hover:text-emerald-300 underline"
-                      >
-                        #{m.rowNum} {m.day}: <strong>{m.val}</strong>
-                      </button>
-                    </React.Fragment>
-                  ))}
-                </div>
-              ))
+              Object.entries(pairedGroupMap).map(([pId, pairItems]) => {
+                const dot = pairItems[0]?.dot || '🟢';
+                const pColor = pairItems[0]?.color || '#10b981';
+                return (
+                  <div
+                    key={pId}
+                    onMouseEnter={() => setHoveredPairId(pId)}
+                    onMouseLeave={() => setHoveredPairId(null)}
+                    style={{ borderColor: hoveredPairId === pId ? pColor : '#334155' }}
+                    className={`flex items-center gap-1.5 bg-slate-900 border px-2.5 py-1 rounded-lg transition shrink-0 cursor-pointer shadow-md ${
+                      hoveredPairId === pId ? 'scale-105 shadow-xl' : ''
+                    }`}
+                  >
+                    <span className="text-[12px]">{dot}</span>
+                    {pairItems.map((m, idx) => (
+                      <React.Fragment key={idx}>
+                        {idx > 0 && <span className="text-[10px] font-black" style={{ color: pColor }}>↔</span>}
+                        <button
+                          onClick={() => scrollToRowIndex(m.r)}
+                          className="text-[10px] font-mono text-white font-bold hover:underline"
+                        >
+                          #{m.rowNum} {m.day}: <strong>{m.val}</strong>
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                );
+              })
             ) : (
               matches.map((m, idx) => (
                 <button
@@ -220,7 +223,7 @@ export const ChartFinder = () => {
         )}
       </div>
 
-      {/* MATKA GRID WITH VISUAL PAIR CONNECTION INDICATORS */}
+      {/* MATKA GRID WITH CLEAN COLORED DOT INDICATORS */}
       <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
         <div
           ref={containerRef}
@@ -264,6 +267,8 @@ export const ChartFinder = () => {
 
                         const matchItem = matchMap[`${rIdx}_${cIdx}`];
                         const isHoveredPair = matchItem && matchItem.pairId && matchItem.pairId === hoveredPairId;
+                        const pColor = matchItem?.color || '#f59e0b';
+                        const dot = matchItem?.dot || '🟢';
 
                         return (
                           <td
@@ -271,23 +276,19 @@ export const ChartFinder = () => {
                             onMouseEnter={() => matchItem && matchItem.pairId && setHoveredPairId(matchItem.pairId)}
                             onMouseLeave={() => setHoveredPairId(null)}
                             style={{
-                              backgroundColor: isHoveredPair ? '#6ee7b7' : (matchItem ? `${matchItem.color}50` : '#fef9c3'),
-                              borderColor: isHoveredPair ? '#059669' : (matchItem ? matchItem.color : '#020617'),
+                              backgroundColor: isHoveredPair ? `${pColor}90` : (matchItem ? `${pColor}45` : '#fef9c3'),
+                              borderColor: isHoveredPair ? '#020617' : (matchItem ? pColor : '#020617'),
                               borderWidth: matchItem ? (isHoveredPair ? '4px' : '3.5px') : '1px',
-                              boxShadow: isHoveredPair ? '0 0 16px #059669 inset' : (matchItem ? `0 0 12px ${matchItem.color}90 inset` : 'none')
+                              boxShadow: isHoveredPair ? `0 0 18px ${pColor} inset` : (matchItem ? `0 0 12px ${pColor}90 inset` : 'none')
                             }}
                             className={`relative px-0.5 py-0.5 text-center align-middle transition-all duration-200 ${
                               matchItem ? 'z-10 font-black cursor-pointer' : ''
                             }`}
                           >
-                            {/* CONNECTED PAIR ID BADGE PILL */}
+                            {/* CLEAN PAIR DOT INDICATOR (WITHOUT P1-1 TEXT) */}
                             {matchItem && matchItem.pairId && (
-                              <div className="absolute top-0.5 right-0.5 z-20">
-                                <span className={`text-[8px] font-black font-mono px-1 py-0.2 rounded shadow-md border ${
-                                  isHoveredPair ? 'bg-emerald-600 text-white border-emerald-300' : 'bg-slate-950 text-emerald-300 border-emerald-500/80'
-                                }`}>
-                                  {matchItem.pairId}-{matchItem.stepIndex}
-                                </span>
+                              <div className="absolute top-1 right-1 z-20">
+                                <span className="text-[11px] drop-shadow-md select-none">{dot}</span>
                               </div>
                             )}
 

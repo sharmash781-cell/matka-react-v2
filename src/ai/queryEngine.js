@@ -1,17 +1,13 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 86-89)
+ * - Non-greedy Cross-Digit Tokenizer (properly parses multiple clauses e.g. open to open same AND close to close one down)
+ * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡)
+ * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 84-88, 86-89)
  * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
  * - Strict Day Propagation across clauses (e.g. "mon ..." restricts all clauses to Monday)
  * - Independent Multi-Clause Pipeline with Relative Ordinal Week Context
- * - Support for "OR" and "AND" Compound Relations ("open to open same or 2 down")
- * - Red Pair Handler ("red pair", "red jodi", "double pair")
- * - Word-to-Number Step & Total Parser ("one down", "total one")
- * - Proximity Neighbor Scanner (scans all 8 surrounding cells across all days)
- * - Directional Row Scanning ("after 43", "below 43", "following 43")
- * - Full Ordinal Chain, Cross-Digit & Jodi Family support
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -32,7 +28,16 @@ const WORD_TO_NUM = {
   five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10
 };
 
-// Telugu & Transliterated Telugu (Telgish) Preprocessor Engine
+const PAIR_COLORS = [
+  { bg: '#10b981', border: '#059669', dot: '🟢' },
+  { bg: '#06b6d4', border: '#0891b2', dot: '🔵' },
+  { bg: '#a855f7', border: '#7e22ce', dot: '🟣' },
+  { bg: '#ec4899', border: '#be185d', dot: '🩷' },
+  { bg: '#f59e0b', border: '#d97706', dot: '🟡' },
+  { bg: '#3b82f6', border: '#1d4ed8', dot: '🔹' }
+];
+
+// Telugu & Transliterated Telugu Preprocessor Engine
 const preprocessTeluguQuery = (str) => {
   if (!str) return '';
   let q = str.toLowerCase();
@@ -64,7 +69,7 @@ const preprocessTeluguQuery = (str) => {
   return q;
 };
 
-// Helper to extract row range (1-indexed input e.g. "between 1 to 5 row", "440 row")
+// Helper to extract row range
 const parseRowRange = (qStr, totalRows) => {
   const rangeMatch = qStr.match(/(?:between|row[s]?)\s*(\d+)\s*(?:to|-|and)\s*(\d+)/i) ||
                      qStr.match(/(\d+)\s*(?:to|-)\s*(\d+)\s*row[s]?/i);
@@ -89,13 +94,11 @@ const parseRowRange = (qStr, totalRows) => {
   return { minR: 0, maxR: totalRows - 1, isRestricted: false };
 };
 
-// Helper for Falti / Reverse / Palat
 const getFaltiNumber = (numStr) => {
   if (!numStr || numStr.length !== 2) return null;
   return `${numStr[1]}${numStr[0]}`;
 };
 
-// Helper to generate full 8-member Matka Jodi Family
 const getJodiFamily = (jodiStr) => {
   if (!jodiStr || !/^\d{2}$/.test(jodiStr)) return [];
   const o = parseInt(jodiStr[0]);
@@ -116,21 +119,17 @@ const parseRelation = (textStr) => {
   if (lower.includes('same')) return { type: 'SAME' };
 
   let step = null;
-
-  // Check word step first ("one down", "two up")
   Object.keys(WORD_TO_NUM).forEach(wKey => {
     if (lower.includes(`${wKey} down`) || lower.includes(`${wKey} up`)) {
       step = WORD_TO_NUM[wKey];
     }
   });
 
-  // Check digit step ("1 down", "2 up")
   const digitMatch = lower.match(/(\d+)\s*(?:down|up)/);
   if (digitMatch) {
     step = parseInt(digitMatch[1]);
   }
 
-  // Default to 1 step if "down" or "up" is specified without a number
   if (step === null) {
     if (lower.includes('down') || lower.includes('up')) step = 1;
   }
@@ -142,7 +141,7 @@ const parseRelation = (textStr) => {
 };
 
 const checkDigitRelation = (d1, d2, rel) => {
-  if (!rel) return false; // Strict failure if relation is not specified or unparseable
+  if (!rel) return false;
   if (rel.type === 'SAME') return d1 === d2;
   if (rel.type === 'OPPOSITE') return d2 === (d1 + 5) % 10;
   if (rel.type === 'UP') return d2 === (d1 + rel.step + 10) % 10;
@@ -155,20 +154,16 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     return { matches: [], summary: 'Type a query in simple English or Telugu to search the chart.', matchMap: {} };
   }
 
-  // Preprocess Telugu script & Transliterated Telugu into standard query terms
   const q = preprocessTeluguQuery(queryStr).trim();
   const matches = [];
   const matchMap = {};
 
-  const HIGHLIGHT_COLOR = '#f59e0b'; // Amber
-  const RED_MATCH_COLOR = '#ef4444'; // Red
-  const BLUE_MATCH_COLOR = '#06b6d4'; // Cyan/Blue
-  const PURPLE_MATCH_COLOR = '#a855f7'; // Purple
-  const GREEN_MATCH_COLOR = '#10b981'; // Emerald Green
+  const HIGHLIGHT_COLOR = '#f59e0b';
+  const RED_MATCH_COLOR = '#ef4444';
+  const PURPLE_MATCH_COLOR = '#a855f7';
 
   let { minR, maxR, isRestricted } = parseRowRange(q, grid.length);
 
-  // Directional Row Filtering (e.g. "after 43", "from 43", "below 43")
   const directionalMatch = q.match(/(?:after|from|below|following)\s*(\d{2})/i);
   if (directionalMatch) {
     const anchorNum = directionalMatch[1];
@@ -188,7 +183,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   }
 
-  // Detect Global Days mentioned in entire query
   const words = q.split(/\s+/);
   const globalDays = [];
   words.forEach(w => {
@@ -198,7 +192,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   });
 
-  // Split query into independent logical clauses (separated by "and", "then")
   const rawClauses = q.split(/\s*(?:and|then)\s*/i);
 
   let lastOriginRow = 0;
@@ -223,7 +216,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // Detect Days in this specific clause
     const clauseWords = cStr.split(/\s+/);
     const clauseDays = [];
     clauseWords.forEach(w => {
@@ -233,13 +225,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     });
 
-    // Effective target columns (clause days > global days > all days)
     const effectiveDays = clauseDays.length > 0 ? clauseDays : (globalDays.length > 0 ? globalDays : Array.from({ length: cols }, (_, i) => i));
-
-    // Detect 2-digit numbers in this specific clause
     const clauseNums = cStr.match(/\b\d{2}\b/g) || [];
 
-    // Detect totals in this specific clause (digit or word e.g. "9 total", "total one")
     const clauseTotals = [];
     const tDigitMatches = cStr.matchAll(/(\d+)\s*total|total\s*(\d+)/gi);
     for (const tm of tDigitMatches) {
@@ -258,17 +246,24 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
     const isCrossDigitQuery = (cStr.includes('open to close') || cStr.includes('close to open') || cStr.includes('open to open') || cStr.includes('close to close'));
 
-    // CLAUSE TYPE CROSS-DIGIT: Cross-Digit Relations with "OR" / "AND" support
+    // CLAUSE TYPE CROSS-DIGIT: Non-Greedy Tokenized Multi-Clause Matcher
     if (isCrossDigitQuery) {
       const crossClauses = [];
       const hasOrLogic = cStr.includes(' or ');
-      const clauseRegex = /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+)/gi;
-      let match;
-      while ((match = clauseRegex.exec(cStr)) !== null) {
-        const typeStr = match[1].toLowerCase().replace(/\s+/g, '_');
-        const relObj = parseRelation(match[2]);
-        crossClauses.push({ type: typeStr, rel: relObj });
-      }
+
+      // Split cleanly by cross-digit relation keywords without greedy swallowing
+      const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/i);
+
+      subTokens.forEach(tok => {
+        const subMatch = tok.match(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s*(.*)/i);
+        if (subMatch) {
+          const typeStr = subMatch[1].toLowerCase().replace(/\s+/g, '_');
+          const relObj = parseRelation(subMatch[2]);
+          if (relObj) {
+            crossClauses.push({ type: typeStr, rel: relObj });
+          }
+        }
+      });
 
       const targetCols = effectiveDays;
       targetCols.forEach(c => {
@@ -295,9 +290,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const passes = hasOrLogic ? passesCount > 0 : passesCount === crossClauses.length;
 
             if (passes && crossClauses.length > 0) {
-              const pId = `P${pairCounter++}`;
-              const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) paired with Row #${r2+1} (${val2})`, color: GREEN_MATCH_COLOR };
-              const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `${DAY_NAMES[c]} Row #${r2+1} (${val2}) paired with Row #${r1+1} (${val1})`, color: GREEN_MATCH_COLOR };
+              const pIdx = pairCounter++;
+              const pId = `P${pIdx}`;
+              const palette = PAIR_COLORS[(pIdx - 1) % PAIR_COLORS.length];
+
+              const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) paired with Row #${r2+1} (${val2})`, color: palette.bg, border: palette.border, dot: palette.dot };
+              const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `${DAY_NAMES[c]} Row #${r2+1} (${val2}) paired with Row #${r1+1} (${val1})`, color: palette.bg, border: palette.border, dot: palette.dot };
               matches.push(m1, m2);
               matchMap[`${r1}_${c}`] = m1;
               matchMap[`${r2}_${c}`] = m2;
@@ -307,7 +305,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       });
     }
 
-    // CLAUSE TYPE A: Proximity Search with Totals (e.g. "sat 6 total near 8 total")
+    // CLAUSE TYPE A: Proximity Search with Totals
     else if (hasNear && clauseTotals.length >= 1) {
       const originDayCol = clauseDays.length > 0 ? clauseDays[0] : (globalDays.length > 0 ? globalDays[0] : null);
       const originCols = originDayCol !== null ? [originDayCol] : Array.from({ length: cols }, (_, i) => i);
@@ -328,7 +326,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 rowNum: r + 1,
                 val,
                 reason: `${DAY_NAMES[c]} Total ${originTotal} (${val}) on Row #${r+1}`,
-                color: GREEN_MATCH_COLOR
+                color: '#10b981'
               };
               if (!matchMap[`${r}_${c}`]) {
                 matches.push(mOrigin);
@@ -352,7 +350,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                           rowNum: nr + 1,
                           val: nVal,
                           reason: `Near ${DAY_NAMES[c]} Total ${originTotal}: Total ${nearTotal} (${nVal}) on ${DAY_NAMES[nc]} (Row #${nr+1})`,
-                          color: GREEN_MATCH_COLOR
+                          color: '#10b981'
                         };
                         if (!matchMap[`${nr}_${nc}`]) {
                           matches.push(mNear);
@@ -369,7 +367,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE B: Red Pair Handler (e.g. "next 5th week red pair")
+    // CLAUSE TYPE B: Red Pair Handler
     else if (hasRedPair) {
       const targetCols = effectiveDays;
       for (let r = cMinR; r <= cMaxR; r++) {
@@ -393,7 +391,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE C: Explicit Number Search (e.g. "31 jodi", "wed 06")
+    // CLAUSE TYPE C: Explicit Number Search
     else if (clauseNums.length > 0 && !hasFamily && !hasReverse) {
       const numToFind = clauseNums[0];
       const targetCols = effectiveDays;
@@ -419,7 +417,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE D: Total Filter Search (e.g. "total one in 6th week", "7 total in sat")
+    // CLAUSE TYPE D: Total Filter Search
     else if (clauseTotals.length > 0 && clauseNums.length === 0) {
       const reqTotal = clauseTotals[0];
       const targetCols = effectiveDays;
@@ -437,7 +435,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 rowNum: r + 1,
                 val,
                 reason: `${DAY_NAMES[c]} Total ${reqTotal} (${val}) on Row #${r+1}`,
-                color: GREEN_MATCH_COLOR
+                color: '#10b981'
               };
               if (!matchMap[`${r}_${c}`]) {
                 matches.push(m);
@@ -449,7 +447,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE E: Reverse / Falti Search (e.g. "43 reverse")
+    // CLAUSE TYPE E: Reverse / Falti Search
     else if (hasReverse && (clauseNums.length > 0 || hasRedPair)) {
       const num1 = clauseNums.length > 0 ? clauseNums[0] : null;
       const num2 = num1 ? getFaltiNumber(num1) : null;
@@ -479,7 +477,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE F: Jodi Family Search (e.g. "03 family")
+    // CLAUSE TYPE F: Jodi Family Search
     else if (hasFamily && clauseNums.length > 0) {
       const targetJodi = clauseNums[0];
       const familyMembers = getJodiFamily(targetJodi);
@@ -495,7 +493,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               rowNum: r + 1,
               val,
               reason: `${targetJodi} Family member (${val}) on ${DAY_NAMES[c]} (Row #${r+1})`,
-              color: GREEN_MATCH_COLOR
+              color: '#10b981'
             };
             if (!matchMap[`${r}_${c}`]) {
               matches.push(m);
