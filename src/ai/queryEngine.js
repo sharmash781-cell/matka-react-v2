@@ -1,14 +1,14 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
- * - Intelligent Clause Tokenizer (splits mixed queries on 'and'/'then' while protecting compound cross-digit pairs e.g. open-to-open same AND close-to-close 2 down stays unified, while near 8 total & 20 family run in parallel)
- * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME
- * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs
- * - Clause Scoping Isolation: row ranges & day filters in one clause do not restrict independent compound clauses
- * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡)
- * - Strict Cross-Digit Validation
- * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
- * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
+ * - Linear Non-Circular Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
+ * - Sequential Origin Propagation: Cross-digit pair matches update lastOriginRow so subsequent "next" or "after" clauses evaluate strictly after the matched pair.
+ * - Intelligent Clause Tokenizer: Splits mixed queries on 'and'/'then' while protecting compound cross-digit pairs.
+ * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME.
+ * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs.
+ * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡).
+ * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC).
+ * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine.
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -141,12 +141,17 @@ const parseRelation = (textStr) => {
   return { type: 'SAME' };
 };
 
+// Strict Linear Up/Down Validation (rejects false circular wrap-arounds like 1 to 9 for 2 down)
 const checkDigitRelation = (d1, d2, rel) => {
   if (!rel) return false;
   if (rel.type === 'SAME') return d1 === d2;
   if (rel.type === 'OPPOSITE') return d2 === (d1 + 5) % 10;
-  if (rel.type === 'UP') return d2 === (d1 + rel.step + 10) % 10;
-  if (rel.type === 'DOWN') return d2 === (d1 - rel.step + 10) % 10;
+  if (rel.type === 'UP') return (d2 === (d1 + rel.step) % 10) && (d2 > d1 || (d1 + rel.step >= 10 && d2 === (d1 + rel.step - 10)));
+  if (rel.type === 'DOWN') {
+    const directDown = d1 - rel.step;
+    if (directDown >= 0) return d2 === directDown;
+    return d2 === (directDown + 10); // handles 0 - 1 = 9
+  }
   return false;
 };
 
@@ -180,10 +185,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   // Split query into intelligent clauses
   const rawClauses = splitClausesIntelligently(q);
 
-  let lastOriginRow = 0;
+  let lastOriginRow = -1;
   let pairCounter = 1;
 
-  rawClauses.forEach(clauseStr => {
+  rawClauses.forEach((clauseStr, clauseIndex) => {
     const cStr = clauseStr.trim();
     if (!cStr) return;
 
@@ -208,6 +213,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     let cMinR = clauseRange.isRestricted ? clauseRange.minR : globalRowRange.minR;
     let cMaxR = clauseRange.isRestricted ? clauseRange.maxR : globalRowRange.maxR;
 
+    // Sequential clause chaining (e.g. "then next near 8 total")
+    const hasNextOrThen = cStr.includes('next') || cStr.includes('then') || cStr.includes('after');
+    if (hasNextOrThen && lastOriginRow !== -1 && !clauseRange.isRestricted) {
+      cMinR = Math.min(grid.length - 1, lastOriginRow + 1);
+    }
+
     if (cAnchorRow !== -1 && !clauseRange.isRestricted) {
       cMinR = Math.max(cMinR, cAnchorRow + 1);
     }
@@ -216,7 +227,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     if (wMatch) {
       const wIdx = parseInt(wMatch[1]) - 1;
       if (cStr.includes('next')) {
-        cMinR = Math.min(grid.length - 1, lastOriginRow + parseInt(wMatch[1]) - 1);
+        const startR = lastOriginRow !== -1 ? lastOriginRow : 0;
+        cMinR = Math.min(grid.length - 1, startR + parseInt(wMatch[1]));
         cMaxR = cMinR;
       } else {
         cMinR = Math.max(0, Math.min(grid.length - 1, wIdx));
@@ -299,6 +311,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const passes = hasOrLogic ? passesCount > 0 : passesCount === crossClauses.length;
 
             if (passes && crossClauses.length > 0) {
+              lastOriginRow = Math.max(lastOriginRow, r2);
+
               const pIdx = pairCounter++;
               const pId = `P${pIdx}`;
               const palette = PAIR_COLORS[(pIdx - 1) % PAIR_COLORS.length];
@@ -327,7 +341,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const t1 = (parseInt(val[0]) + parseInt(val[1])) % 10;
             const t2 = parseInt(val[0]) + parseInt(val[1]);
             if (t1 === originTotal || t2 === originTotal) {
-              lastOriginRow = r;
+              lastOriginRow = Math.max(lastOriginRow, r);
               const mOrigin = {
                 r, c,
                 day: DAY_NAMES[c],
@@ -382,6 +396,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         targetCols.forEach(c => {
           const val = grid[r]?.[c]?.val || '';
           if (val && isRedPair(val)) {
+            lastOriginRow = Math.max(lastOriginRow, r);
             const m = {
               r, c,
               day: DAY_NAMES[c],
@@ -411,6 +426,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const val = grid[r]?.[c]?.val || '';
             if (val && /^\d{2}$/.test(val)) {
               if (val === num1 || val === num2) {
+                lastOriginRow = Math.max(lastOriginRow, r);
                 const isFalti = val === num2 && num1 !== num2;
                 const m = {
                   r, c,
@@ -436,6 +452,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               const val2 = grid[r2]?.[c]?.val || '';
               if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
                 if (val2 === getFaltiNumber(val1) && val1 !== val2) {
+                  lastOriginRow = Math.max(lastOriginRow, r2);
+
                   const pIdx = pairCounter++;
                   const pId = `P${pIdx}`;
                   const palette = PAIR_COLORS[(pIdx - 1) % PAIR_COLORS.length];
@@ -462,6 +480,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         targetCols.forEach(c => {
           const val = grid[r]?.[c]?.val || '';
           if (val === numToFind) {
+            lastOriginRow = Math.max(lastOriginRow, r);
             const m = {
               r, c,
               day: DAY_NAMES[c],
@@ -491,6 +510,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const t1 = (parseInt(val[0]) + parseInt(val[1])) % 10;
             const t2 = parseInt(val[0]) + parseInt(val[1]);
             if (t1 === reqTotal || t2 === reqTotal) {
+              lastOriginRow = Math.max(lastOriginRow, r);
               const m = {
                 r, c,
                 day: DAY_NAMES[c],
@@ -519,6 +539,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         targetCols.forEach(c => {
           const val = grid[r]?.[c]?.val || '';
           if (val && familyMembers.includes(val)) {
+            lastOriginRow = Math.max(lastOriginRow, r);
             const m = {
               r, c,
               day: DAY_NAMES[c],
