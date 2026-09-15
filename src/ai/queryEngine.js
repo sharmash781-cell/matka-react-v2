@@ -2,8 +2,9 @@
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
  * - Independent Multi-Clause Pipeline with Relative Ordinal Week Context
+ * - Support for "OR" and "AND" Compound Relations ("open to open same or 2 down")
  * - Red Pair Handler ("red pair", "red jodi", "double pair")
- * - Word-to-Number Total Parser ("total one", "total two", etc.)
+ * - Word-to-Number Step & Total Parser ("one down", "total one")
  * - Proximity Neighbor Scanner (scans all 8 surrounding cells across all days)
  * - Directional Row Scanning ("after 43", "below 43", "following 43")
  * - Full Ordinal Chain, Cross-Digit & Jodi Family support
@@ -72,6 +73,41 @@ const getJodiFamily = (jodiStr) => {
   ]));
 };
 
+const parseRelation = (textStr) => {
+  if (!textStr) return null;
+  const lower = textStr.toLowerCase();
+  if (lower.includes('opposite') || lower.includes('cut')) return { type: 'OPPOSITE' };
+  if (lower.includes('same')) return { type: 'SAME' };
+
+  let step = 1;
+  Object.keys(WORD_TO_NUM).forEach(wKey => {
+    if (lower.includes(`${wKey} down`) || lower.includes(`${wKey} up`)) {
+      step = WORD_TO_NUM[wKey];
+    }
+  });
+
+  const upMatch = lower.match(/(\d+)?\s*up/);
+  if (upMatch || lower.includes('up')) {
+    if (upMatch && upMatch[1]) step = parseInt(upMatch[1]);
+    return { type: 'UP', step };
+  }
+  const downMatch = lower.match(/(\d+)?\s*down/);
+  if (downMatch || lower.includes('down')) {
+    if (downMatch && downMatch[1]) step = parseInt(downMatch[1]);
+    return { type: 'DOWN', step };
+  }
+  return null;
+};
+
+const checkDigitRelation = (d1, d2, rel) => {
+  if (!rel) return true;
+  if (rel.type === 'SAME') return d1 === d2;
+  if (rel.type === 'OPPOSITE') return d2 === (d1 + 5) % 10;
+  if (rel.type === 'UP') return d2 === (d1 + rel.step + 10) % 10;
+  if (rel.type === 'DOWN') return d2 === (d1 - rel.step + 10) % 10;
+  return true;
+};
+
 export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   if (!queryStr || !grid || grid.length === 0) {
     return { matches: [], summary: 'Type a query in simple English to search the chart.', matchMap: {} };
@@ -115,36 +151,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   let lastOriginRow = 0;
 
   rawClauses.forEach(clauseStr => {
-    const parseRelation = (textStr) => {
-      if (!textStr) return null;
-      const lower = textStr.toLowerCase();
-      if (lower.includes('opposite') || lower.includes('cut')) return { type: 'OPPOSITE' };
-      if (lower.includes('same')) return { type: 'SAME' };
-
-      let step = 1;
-      Object.keys(WORD_TO_NUM).forEach(wKey => {
-        if (lower.includes(`${wKey} down`) || lower.includes(`${wKey} up`)) {
-          step = WORD_TO_NUM[wKey];
-        }
-      });
-
-      const upMatch = lower.match(/(\d+)?\s*up/);
-      if (upMatch || lower.includes('up')) {
-        if (upMatch && upMatch[1]) step = parseInt(upMatch[1]);
-        return { type: 'UP', step };
-      }
-      const downMatch = lower.match(/(\d+)?\s*down/);
-      if (downMatch || lower.includes('down')) {
-        if (downMatch && downMatch[1]) step = parseInt(downMatch[1]);
-        return { type: 'DOWN', step };
-      }
-      return null;
-    };
-
     const cStr = clauseStr.trim();
     if (!cStr) return;
 
-    // Clause-level Row Restrictor (e.g. "5th week", "6th week", "next 5th week")
     let cMinR = minR;
     let cMaxR = maxR;
 
@@ -190,14 +199,15 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasReverse = cStr.includes('reverse') || cStr.includes('falti') || cStr.includes('palat');
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
+    const isCrossDigitQuery = (cStr.includes('open to close') || cStr.includes('close to open') || cStr.includes('open to open') || cStr.includes('close to close'));
 
-    // CLAUSE TYPE CROSS-DIGIT: Cross-Digit Relations (e.g. "mon open to open same and close to close one down")
-    const isCrossDigitQuery = (q.includes('open to close') || q.includes('close to open') || q.includes('open to open') || q.includes('close to close'));
+    // CLAUSE TYPE CROSS-DIGIT: Cross-Digit Relations with "OR" / "AND" support
     if (isCrossDigitQuery) {
       const crossClauses = [];
+      const hasOrLogic = cStr.includes(' or ');
       const clauseRegex = /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+)/gi;
       let match;
-      while ((match = clauseRegex.exec(q)) !== null) {
+      while ((match = clauseRegex.exec(cStr)) !== null) {
         const typeStr = match[1].toLowerCase().replace(/\s+/g, '_');
         const relObj = parseRelation(match[2]);
         crossClauses.push({ type: typeStr, rel: relObj });
@@ -214,7 +224,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
             const o1 = parseInt(val1[0]), c1Digit = parseInt(val1[1]);
             const o2 = parseInt(val2[0]), c2Digit = parseInt(val2[1]);
 
-            let allClausesPass = true;
+            let passesCount = 0;
             crossClauses.forEach(cl => {
               let d1, d2;
               if (cl.type === 'open_to_close') { d1 = o1; d2 = c2Digit; }
@@ -222,10 +232,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               else if (cl.type === 'open_to_open') { d1 = o1; d2 = o2; }
               else if (cl.type === 'close_to_close') { d1 = c1Digit; d2 = c2Digit; }
 
-              if (!checkDigitRelation(d1, d2, cl.rel)) allClausesPass = false;
+              if (checkDigitRelation(d1, d2, cl.rel)) passesCount++;
             });
 
-            if (allClausesPass) {
+            const passes = hasOrLogic ? passesCount > 0 : passesCount === crossClauses.length;
+
+            if (passes && crossClauses.length > 0) {
               const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) vs Row #${r2+1} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
               const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, reason: `${DAY_NAMES[c]} Row #${r1+1} (${val1}) vs Row #${r2+1} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
               matches.push(m1, m2);
@@ -265,7 +277,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 matchMap[`${r}_${c}`] = mOrigin;
               }
 
-              // Scan ALL 8 surrounding neighbor cells ACROSS ALL DAYS for nearTotal
               for (let dr = -2; dr <= 2; dr++) {
                 for (let dc = -3; dc <= 3; dc++) {
                   const nr = r + dr;
