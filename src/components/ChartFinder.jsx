@@ -41,6 +41,13 @@ export const ChartFinder = () => {
     }
   };
 
+  // Auto-scroll to first matched row instantly on search
+  React.useEffect(() => {
+    if (matches && matches.length > 0 && matches[0].r !== undefined) {
+      scrollToRowIndex(matches[0].r);
+    }
+  }, [searchQuery, matches.length]);
+
   // Preset example search queries for quick 1-click testing
   const presetQueries = [
     '03 family',
