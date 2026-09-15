@@ -301,7 +301,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const hasOrLogic = cStr.includes(' or ');
 
       // Extract each cross-digit clause and its exact relation
-      const crossMatches = [...cStr.matchAll(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)(?=\s+(?:open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|between|from|row|and|$))/gi)];
+      // CRITICAL FIX: Lookahead uses |$ OUTSIDE \s+ so last clause at end-of-string is always captured
+      const crossMatches = [...cStr.matchAll(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)(?=\s+(?:open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|between|from|row|and)|$)/gi)];
 
       if (crossMatches.length > 0) {
         crossMatches.forEach(m => {
