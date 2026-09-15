@@ -179,7 +179,6 @@ export const ChartFinder = () => {
             {/* Display Grouped Pairs with Clean Colored Dots */}
             {Object.keys(pairedGroupMap).length > 0 ? (
               Object.entries(pairedGroupMap).map(([pId, pairItems]) => {
-                const dot = pairItems[0]?.dot || '🟢';
                 const pColor = pairItems[0]?.color || '#10b981';
                 return (
                   <div
@@ -191,7 +190,10 @@ export const ChartFinder = () => {
                       hoveredPairId === pId ? 'scale-105 shadow-xl' : ''
                     }`}
                   >
-                    <span className="text-[12px]">{dot}</span>
+                    <span
+                      style={{ backgroundColor: pColor }}
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-black/40 shadow-sm"
+                    />
                     {pairItems.map((m, idx) => (
                       <React.Fragment key={idx}>
                         {idx > 0 && <span className="text-[10px] font-black" style={{ color: pColor }}>↔</span>}
@@ -223,7 +225,7 @@ export const ChartFinder = () => {
         )}
       </div>
 
-      {/* MATKA GRID WITH CLEAN COLORED DOT INDICATORS */}
+      {/* MATKA GRID WITH ULTRA-COMPACT NON-OVERLAPPING CSS MICRO-DOTS */}
       <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
         <div
           ref={containerRef}
@@ -268,7 +270,6 @@ export const ChartFinder = () => {
                         const matchItem = matchMap[`${rIdx}_${cIdx}`];
                         const isHoveredPair = matchItem && matchItem.pairId && matchItem.pairId === hoveredPairId;
                         const pColor = matchItem?.color || '#f59e0b';
-                        const dot = matchItem?.dot || '🟢';
 
                         return (
                           <td
@@ -285,14 +286,20 @@ export const ChartFinder = () => {
                               matchItem ? 'z-10 font-black cursor-pointer' : ''
                             }`}
                           >
-                            {/* CLEAN PAIR DOT INDICATOR (WITHOUT P1-1 TEXT) */}
-                            {matchItem && matchItem.pairId && (
-                              <div className="absolute top-1 right-1 z-20">
-                                <span className="text-[11px] drop-shadow-md select-none">{dot}</span>
+                            {/* ULTRA-COMPACT MICRO DOT INDICATOR (CORNER POSITIONED, 0% OVERLAP WITH NUMBER) */}
+                            {matchItem && (
+                              <div className="absolute top-1 right-1 z-20 pointer-events-none flex items-center justify-center">
+                                <span
+                                  style={{
+                                    backgroundColor: pColor,
+                                    boxShadow: `0 0 5px ${pColor}, 0 0 1.5px #000`
+                                  }}
+                                  className="w-2 h-2 rounded-full border border-slate-950/90 inline-block"
+                                />
                               </div>
                             )}
 
-                            {/* Center Jodi Number */}
+                            {/* Center Jodi Number - 100% Unobscured & Fully Legible */}
                             <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
                               <span
                                 className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-wider leading-none ${
