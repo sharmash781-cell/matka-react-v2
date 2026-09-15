@@ -223,8 +223,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           }
 
           // Check reverse figure of targetNum (e.g. 06 -> 60) within [minR..maxR] or local window
+          let revFoundCount = 0;
+          let revVal = null;
           if (isReverseQuery) {
-            const revVal = getFaltiNumber(targetNum);
+            revVal = getFaltiNumber(targetNum);
             if (revVal && revVal !== targetNum) {
               const revMinR = isRestricted ? minR : Math.max(0, r - 15);
               const revMaxR = isRestricted ? maxR : Math.min(grid.length - 1, r + 15);
@@ -232,6 +234,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               for (let gr = revMinR; gr <= revMaxR; gr++) {
                 for (let gc = 0; gc < cols; gc++) {
                   if (grid[gr]?.[gc]?.val === revVal) {
+                    revFoundCount++;
                     const mRev = {
                       r: gr, c: gc,
                       day: DAY_NAMES[gc],
@@ -249,51 +252,79 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               }
             }
           }
+
+          // Scan secondary numbers requested in query (e.g. 64) within [minR..maxR]
+          if (explicitNumberMatches.length > 1) {
+            for (let sIdx = 1; sIdx < explicitNumberMatches.length; sIdx++) {
+              const secNum = explicitNumberMatches[sIdx];
+              for (let sr = minR; sr <= maxR; sr++) {
+                for (let sc = 0; sc < cols; sc++) {
+                  if (grid[sr]?.[sc]?.val === secNum) {
+                    const mSec = {
+                      r: sr, c: sc,
+                      day: DAY_NAMES[sc],
+                      rowNum: sr + 1,
+                      val: secNum,
+                      reason: `Requested number ${secNum} on ${DAY_NAMES[sc]} (Row #${sr+1})`,
+                      color: BLUE_MATCH_COLOR
+                    };
+                    if (!matchMap[`${sr}_${sc}`]) {
+                      matches.push(mSec);
+                      matchMap[`${sr}_${sc}`] = mSec;
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       });
     }
 
     if (matches.length > 0) {
       const rowLabel = isRestricted ? (minR === maxR ? `Row #${minR+1}` : `Rows #${minR+1} to #${maxR+1}`) : `chart`;
-      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}" on ${rowLabel}`;
+      const revNote = isReverseQuery && revVal ? (revFoundCount === 0 ? ` [Note: Reverse of ${targetNum} (${revVal}) not found in ${rowLabel}]` : ` [Reverse ${revVal} found ${revFoundCount} time(s)]`) : '';
+      const summary = `Found ${matches.length} matching cell(s) for "${queryStr}" on ${rowLabel}${revNote}`;
       return { matches, summary, matchMap };
     }
   }
 
   // -------------------------------------------------------------
   // PIPELINE FEATURE 2: N-STEP ORDINAL SENTENCE CHAIN ENGINE
-  // E.g. "mon 08 next 2 week wed 66 and next day 85 and next 4 week 51"
+  // E.g. "sun 30 and 05 and 59", "sun 30 and 05 and tues 88 and monday any one total near"
   // -------------------------------------------------------------
   const isChainQuery = q.includes('and') || (q.match(/next/g) || []).length >= 2;
-  if (isChainQuery && explicitNumberMatches.length >= 2) {
+  if (isChainQuery && (explicitNumberMatches.length >= 2 || (explicitNumberMatches.length >= 1 && q.includes('total')))) {
     const rawSegments = q.split(/\s*(?:and|then|,)\s*/);
     const segments = [];
 
     rawSegments.forEach(segStr => {
       const segNumMatch = segStr.match(/\b\d{2}\b/);
-      if (segNumMatch) {
-        const segNum = segNumMatch[0];
+      const segNum = segNumMatch ? segNumMatch[0] : null;
 
-        let segCol = null;
-        let isNextDay = segStr.includes('next day') || segStr.includes('following day');
-        words.forEach(w => {
-          const cw = w.replace(/[^a-z]/g, '');
-          if (DAY_MAP[cw] !== undefined && segStr.includes(cw)) {
-            segCol = DAY_MAP[cw];
-          }
-        });
-
-        let segOffset = 1;
-        const wMatch = segStr.match(/(\d+)(?:st|nd|rd|th)?\s*week/);
-        if (wMatch) {
-          segOffset = parseInt(wMatch[1]) - 1;
-        } else if (segStr.includes('next week')) {
-          segOffset = 1;
-        } else if (isNextDay) {
-          segOffset = 0;
+      let segCol = null;
+      let isNextDay = segStr.includes('next day') || segStr.includes('following day');
+      words.forEach(w => {
+        const cw = w.replace(/[^a-z]/g, '');
+        if (DAY_MAP[cw] !== undefined && segStr.includes(cw)) {
+          segCol = DAY_MAP[cw];
         }
+      });
 
-        segments.push({ num: segNum, col: segCol, isNextDay, offset: segOffset, raw: segStr });
+      let segOffset = 1;
+      const wMatch = segStr.match(/(\d+)(?:st|nd|rd|th)?\s*week/);
+      if (wMatch) {
+        segOffset = parseInt(wMatch[1]) - 1;
+      } else if (segStr.includes('next week')) {
+        segOffset = 1;
+      } else if (isNextDay || (segCol !== null && segNumMatch === null)) {
+        segOffset = 0;
+      }
+
+      const isTotalCond = segStr.includes('total');
+
+      if (segNum || isTotalCond || segCol !== null) {
+        segments.push({ num: segNum, col: segCol, isNextDay, offset: segOffset, isTotalCond, raw: segStr });
       }
     });
 
@@ -304,7 +335,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       for (let r = minR; r <= maxR; r++) {
         const startColsToScan = startCol !== null ? [startCol] : Array.from({ length: cols }, (_, i) => i);
         startColsToScan.forEach(c0 => {
-          if (grid[r]?.[c0]?.val === step1.num) {
+          if (step1.num && grid[r]?.[c0]?.val === step1.num) {
             const path = [{ r, c: c0, val: step1.num }];
             let currR = r;
             let currC = c0;
@@ -318,13 +349,17 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 targetR = currC < cols - 1 ? currR : currR + 1;
                 targetC = currC < cols - 1 ? currC + 1 : 0;
               } else {
-                targetR = r + seg.offset;
+                targetR = currR + seg.offset; // Cumulative offset relative to previous step row currR!
                 targetC = seg.col !== null ? seg.col : currC;
               }
 
               if (targetR <= maxR && targetR < grid.length && targetC >= 0 && targetC < cols) {
                 const cellVal = grid[targetR]?.[targetC]?.val || '';
-                if (cellVal === seg.num) {
+                if (seg.num && cellVal === seg.num) {
+                  path.push({ r: targetR, c: targetC, val: cellVal });
+                  currR = targetR;
+                  currC = targetC;
+                } else if (!seg.num && seg.isTotalCond && cellVal && /^\d{2}$/.test(cellVal)) {
                   path.push({ r: targetR, c: targetC, val: cellVal });
                   currR = targetR;
                   currC = targetC;
@@ -421,39 +456,52 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     if (clauses.length > 0) {
       const targetCols = foundDays.length > 0 ? foundDays.map(d => d.col) : Array.from({ length: cols }, (_, i) => i);
       const isExplicitSameRow = q.includes('same row') || q.includes('in same row') || q.includes('horizontal');
-      const isSameRowMode = isExplicitSameRow || (q.includes('row 1') && foundDays.length === 0);
+      const isSameRowMode = isExplicitSameRow || foundDays.length >= 2 || (q.includes('row 1') && foundDays.length === 0);
 
       for (let r = minR; r <= maxR; r++) {
         if (isSameRowMode) {
-          for (let c1 = 0; c1 < cols - 1; c1++) {
-            for (let c2 = c1 + 1; c2 < cols; c2++) {
-              const val1 = grid[r]?.[c1]?.val || '';
-              const val2 = grid[r]?.[c2]?.val || '';
-              if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
-
-              const o1 = parseInt(val1[0]), c1Digit = parseInt(val1[1]);
-              const o2 = parseInt(val2[0]), c2Digit = parseInt(val2[1]);
-
-              let allClausesPass = true;
-              clauses.forEach(cl => {
-                let d1, d2;
-                if (cl.type === 'open_to_close') { d1 = o1; d2 = c2Digit; }
-                else if (cl.type === 'close_to_open') { d1 = c1Digit; d2 = o2; }
-                else if (cl.type === 'open_to_open') { d1 = o1; d2 = o2; }
-                else if (cl.type === 'close_to_close') { d1 = c1Digit; d2 = c2Digit; }
-
-                if (!checkDigitRelation(d1, d2, cl.rel)) allClausesPass = false;
-              });
-
-              if (allClausesPass) {
-                const m1 = { r, c: c1, day: DAY_NAMES[c1], rowNum: r + 1, val: val1, reason: `Row #${r+1} ${DAY_NAMES[c1]} (${val1}) vs ${DAY_NAMES[c2]} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
-                const m2 = { r, c: c2, day: DAY_NAMES[c2], rowNum: r + 1, val: val2, reason: `Row #${r+1} ${DAY_NAMES[c1]} (${val1}) vs ${DAY_NAMES[c2]} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
-                matches.push(m1, m2);
-                matchMap[`${r}_${c1}`] = m1;
-                matchMap[`${r}_${c2}`] = m2;
+          const colPairs = [];
+          if (foundDays.length >= 2) {
+            for (let i = 0; i < foundDays.length - 1; i++) {
+              for (let j = i + 1; j < foundDays.length; j++) {
+                colPairs.push({ c1: Math.min(foundDays[i].col, foundDays[j].col), c2: Math.max(foundDays[i].col, foundDays[j].col) });
+              }
+            }
+          } else {
+            for (let c1 = 0; c1 < cols - 1; c1++) {
+              for (let c2 = c1 + 1; c2 < cols; c2++) {
+                colPairs.push({ c1, c2 });
               }
             }
           }
+
+          colPairs.forEach(({ c1, c2 }) => {
+            const val1 = grid[r]?.[c1]?.val || '';
+            const val2 = grid[r]?.[c2]?.val || '';
+            if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) return;
+
+            const o1 = parseInt(val1[0]), c1Digit = parseInt(val1[1]);
+            const o2 = parseInt(val2[0]), c2Digit = parseInt(val2[1]);
+
+            let allClausesPass = true;
+            clauses.forEach(cl => {
+              let d1, d2;
+              if (cl.type === 'open_to_close') { d1 = o1; d2 = c2Digit; }
+              else if (cl.type === 'close_to_open') { d1 = c1Digit; d2 = o2; }
+              else if (cl.type === 'open_to_open') { d1 = o1; d2 = o2; }
+              else if (cl.type === 'close_to_close') { d1 = c1Digit; d2 = c2Digit; }
+
+              if (!checkDigitRelation(d1, d2, cl.rel)) allClausesPass = false;
+            });
+
+            if (allClausesPass) {
+              const m1 = { r, c: c1, day: DAY_NAMES[c1], rowNum: r + 1, val: val1, reason: `Row #${r+1} ${DAY_NAMES[c1]} (${val1}) vs ${DAY_NAMES[c2]} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
+              const m2 = { r, c: c2, day: DAY_NAMES[c2], rowNum: r + 1, val: val2, reason: `Row #${r+1} ${DAY_NAMES[c1]} (${val1}) vs ${DAY_NAMES[c2]} (${val2}) Cross-Digit Match`, color: GREEN_MATCH_COLOR };
+              matches.push(m1, m2);
+              matchMap[`${r}_${c1}`] = m1;
+              matchMap[`${r}_${c2}`] = m2;
+            }
+          });
         }
 
         if (!isExplicitSameRow) {
