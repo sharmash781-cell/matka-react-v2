@@ -1,13 +1,12 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Intelligent Multi-Clause Splitter: Splits clauses on 'and', 'then', 'next', 'after' while preserving compound cross-digit pairs.
+ * - Total Filter Chaining: "next 9 total" or "after 59 9 total" correctly evaluates after preceding reverse/pair matches.
  * - Strict Linear Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
  * - Sequential Origin Propagation: Cross-digit pair matches update lastOriginRow so subsequent "next" or "after" clauses evaluate strictly after the matched pair.
- * - Intelligent Clause Tokenizer: Splits mixed queries on 'and'/'then' while protecting compound cross-digit pairs.
- * - Implicit Relation Defaulting: "open to open" without direction defaults to SAME.
  * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs.
- * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡).
- * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC).
+ * - Ultra-Compact Micro-Dot Indicators: Clean 6px CSS dots positioned in top-right corner with 0% overlap.
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine.
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
@@ -160,15 +159,17 @@ const checkDigitRelation = (d1, d2, rel) => {
   return false;
 };
 
-// Split clauses on 'and'/'then', keeping cross-digit compound pairs protected
+// Split clauses on 'and', 'then', 'next', 'after', keeping cross-digit compound pairs protected
 const splitClausesIntelligently = (queryText) => {
-  const protectedQuery = queryText.replace(
+  let protectedQuery = queryText.replace(
     /(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)\s+and\s+(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/gi,
     '$1 $2 ___CROSS_AND___ $3'
   );
 
-  const clauses = protectedQuery.split(/\s*(?:and|then)\s*/i);
-  return clauses.map(c => c.replace(/___CROSS_AND___/g, 'and'));
+  protectedQuery = protectedQuery.replace(/\s+(next|after|then)\s+/gi, ' ___SPLIT_CLAUSE___ $1 ');
+
+  const clauses = protectedQuery.split(/\s*(?:and|___SPLIT_CLAUSE___)\s*/i);
+  return clauses.map(c => c.replace(/___CROSS_AND___/g, 'and').trim());
 };
 
 export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
@@ -193,7 +194,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   let lastOriginRow = -1;
   let pairCounter = 1;
 
-  rawClauses.forEach((clauseStr, clauseIndex) => {
+  rawClauses.forEach((clauseStr) => {
     const cStr = clauseStr.trim();
     if (!cStr) return;
 
@@ -218,7 +219,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     let cMinR = clauseRange.isRestricted ? clauseRange.minR : globalRowRange.minR;
     let cMaxR = clauseRange.isRestricted ? clauseRange.maxR : globalRowRange.maxR;
 
-    // Sequential clause chaining (e.g. "then next near 8 total")
+    // Sequential clause chaining (e.g. "next 9 total")
     const hasNextOrThen = cStr.includes('next') || cStr.includes('then') || cStr.includes('after');
     if (hasNextOrThen && lastOriginRow !== -1 && !clauseRange.isRestricted) {
       cMinR = Math.min(grid.length - 1, lastOriginRow + 1);
@@ -503,7 +504,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // CLAUSE TYPE D: Total Filter Search
+    // CLAUSE TYPE D: Total Filter Search (e.g. "next 9 total")
     else if (clauseTotals.length > 0 && clauseNums.length === 0) {
       const reqTotal = clauseTotals[0];
       const targetCols = effectiveDays;
