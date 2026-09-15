@@ -1,13 +1,12 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Clause Scoping Isolation (row ranges & day filters in one clause do not restrict independent compound clauses)
  * - Non-greedy Cross-Digit Tokenizer (properly parses multiple clauses e.g. open to open same AND close to close one down)
  * - Multi-Color Pair Palette (Emerald 🟢, Cyan 🔵, Purple 🟣, Pink 🩷, Amber 🟡)
  * - Strict Cross-Digit Validation (guarantees exact step matches e.g. 1-down 55-54, rejecting false matches like 84-88, 86-89)
  * - Pair Connection Tracking (pairId, stepIndex, targetR, targetC)
  * - Telugu Language & Transliterated Telugu (Telgish/Manglish) Preprocessor Engine
- * - Strict Day Propagation across clauses (e.g. "mon ..." restricts all clauses to Monday)
- * - Independent Multi-Clause Pipeline with Relative Ordinal Week Context
  */
 import { isRedPair, isHoliday, calculateTotal, calculateDiffTotal, calculateCN, calculateCloseCond } from '../context/ChartContext';
 
@@ -162,35 +161,24 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
   const RED_MATCH_COLOR = '#ef4444';
   const PURPLE_MATCH_COLOR = '#a855f7';
 
-  let { minR, maxR, isRestricted } = parseRowRange(q, grid.length);
+  // Global default row range for entire chart
+  const globalRowRange = parseRowRange(q, grid.length);
 
+  // Directional Row Filtering (e.g. "after 43", "from 43", "below 43")
   const directionalMatch = q.match(/(?:after|from|below|following)\s*(\d{2})/i);
+  let globalAnchorRow = -1;
   if (directionalMatch) {
     const anchorNum = directionalMatch[1];
-    let anchorRow = -1;
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < cols; c++) {
         if (grid[r]?.[c]?.val === anchorNum) {
-          anchorRow = r;
+          globalAnchorRow = r;
           break;
         }
       }
-      if (anchorRow !== -1) break;
-    }
-    if (anchorRow !== -1) {
-      minR = Math.max(minR, anchorRow + 1);
-      isRestricted = true;
+      if (globalAnchorRow !== -1) break;
     }
   }
-
-  const words = q.split(/\s+/);
-  const globalDays = [];
-  words.forEach(w => {
-    const cw = w.replace(/[^a-z]/g, '');
-    if (DAY_MAP[cw] !== undefined && !globalDays.includes(DAY_MAP[cw])) {
-      globalDays.push(DAY_MAP[cw]);
-    }
-  });
 
   const rawClauses = q.split(/\s*(?:and|then)\s*/i);
 
@@ -201,8 +189,14 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const cStr = clauseStr.trim();
     if (!cStr) return;
 
-    let cMinR = minR;
-    let cMaxR = maxR;
+    // Determine row range specific to this clause
+    const clauseRange = parseRowRange(cStr, grid.length);
+    let cMinR = clauseRange.isRestricted ? clauseRange.minR : globalRowRange.minR;
+    let cMaxR = clauseRange.isRestricted ? clauseRange.maxR : globalRowRange.maxR;
+
+    if (globalAnchorRow !== -1) {
+      cMinR = Math.max(cMinR, globalAnchorRow + 1);
+    }
 
     const wMatch = cStr.match(/(\d+)(?:st|nd|rd|th)?\s*week/i);
     if (wMatch) {
@@ -216,6 +210,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
+    // Detect Days in this specific clause
     const clauseWords = cStr.split(/\s+/);
     const clauseDays = [];
     clauseWords.forEach(w => {
@@ -225,7 +220,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     });
 
-    const effectiveDays = clauseDays.length > 0 ? clauseDays : (globalDays.length > 0 ? globalDays : Array.from({ length: cols }, (_, i) => i));
+    // Effective target columns for this clause (clause days > all days)
+    const effectiveDays = clauseDays.length > 0 ? clauseDays : Array.from({ length: cols }, (_, i) => i);
     const clauseNums = cStr.match(/\b\d{2}\b/g) || [];
 
     const clauseTotals = [];
@@ -251,7 +247,6 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const crossClauses = [];
       const hasOrLogic = cStr.includes(' or ');
 
-      // Split cleanly by cross-digit relation keywords without greedy swallowing
       const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/i);
 
       subTokens.forEach(tok => {
@@ -307,8 +302,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
     // CLAUSE TYPE A: Proximity Search with Totals
     else if (hasNear && clauseTotals.length >= 1) {
-      const originDayCol = clauseDays.length > 0 ? clauseDays[0] : (globalDays.length > 0 ? globalDays[0] : null);
-      const originCols = originDayCol !== null ? [originDayCol] : Array.from({ length: cols }, (_, i) => i);
+      const originCols = effectiveDays;
       const originTotal = clauseTotals[0];
       const nearTotal = clauseTotals.length >= 2 ? clauseTotals[1] : clauseTotals[0];
 
@@ -337,7 +331,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 for (let dc = -3; dc <= 3; dc++) {
                   const nr = r + dr;
                   const nc = c + dc;
-                  if (nr >= minR && nr <= maxR && nc >= 0 && nc < cols) {
+                  if (nr >= 0 && nr < grid.length && nc >= 0 && nc < cols) {
                     if (nr === r && nc === c) continue;
                     const nVal = grid[nr]?.[nc]?.val || '';
                     if (nVal && /^\d{2}$/.test(nVal)) {
@@ -505,9 +499,8 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
   });
 
-  const rowLabel = isRestricted ? (minR === maxR ? `Row #${minR+1}` : `Rows #${minR+1} to #${maxR+1}`) : `chart`;
   const summary = matches.length > 0
-    ? `Found ${matches.length} matching cell(s) for query on ${rowLabel}`
+    ? `Found ${matches.length} matching cell(s) for query.`
     : `No matches found for "${queryStr}".`;
 
   return { matches, summary, matchMap };
