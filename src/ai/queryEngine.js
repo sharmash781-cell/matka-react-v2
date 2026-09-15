@@ -1,8 +1,9 @@
 /**
  * Universal Multi-Clause Natural Language Query Engine for Matka Chart
  * Features:
+ * - Autonomous Same Jodi Scanner: "fri jodi same" or "jodi same" scans for identical jodis (e.g. Row 8 Fri 98 & Row 9 Fri 98).
+ * - Day Token Stripping in Cross-Digit Relations: Ensures queries like "open to open mon and close to close one down" match strictly 53 & 52 on Monday without false positives.
  * - Intelligent Multi-Clause Splitter: Splits clauses on 'and', 'then', 'next', 'after' while preserving compound cross-digit pairs.
- * - Total Filter Chaining: "next 9 total" or "after 59 9 total" correctly evaluates after preceding reverse/pair matches.
  * - Strict Linear Up/Down Validation: Ensures "2 down" from 9 is strictly 7 (59 to 57), rejecting false circular wrap-arounds like 51 to 59.
  * - Sequential Origin Propagation: Cross-digit pair matches update lastOriginRow so subsequent "next" or "after" clauses evaluate strictly after the matched pair.
  * - Autonomous Reverse Jodi Finder: "thu jodi reverse" or "jodi reverse" scans for all reverse/falti pairs.
@@ -112,9 +113,17 @@ const getJodiFamily = (jodiStr) => {
   ]));
 };
 
+// Clean relation text by removing day names before parsing
 const parseRelation = (textStr) => {
   if (!textStr) return { type: 'SAME' };
-  const lower = textStr.toLowerCase();
+  let lower = textStr.toLowerCase();
+  
+  // Strip day tokens so day keywords don't distort relation type
+  Object.keys(DAY_MAP).forEach(dKey => {
+    lower = lower.replace(new RegExp(`\\b${dKey}\\b`, 'g'), '');
+  });
+  lower = lower.trim();
+
   if (lower.includes('opposite') || lower.includes('cut')) return { type: 'OPPOSITE' };
   if (lower.includes('same')) return { type: 'SAME' };
 
@@ -272,6 +281,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasReverse = cStr.includes('reverse') || cStr.includes('falti') || cStr.includes('palat');
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
+    const hasSameJodi = cStr.includes('jodi same') || cStr.includes('same jodi') || (cStr.includes('jodi') && cStr.includes('same') && !cStr.includes('open') && !cStr.includes('close'));
     const isCrossDigitQuery = /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close/i.test(cStr);
 
     // CLAUSE TYPE CROSS-DIGIT: Multi-Relation Cross-Digit Matcher
@@ -328,6 +338,34 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               matches.push(m1, m2);
               matchMap[`${r1}_${c}`] = m1;
               matchMap[`${r2}_${c}`] = m2;
+            }
+          }
+        }
+      });
+    }
+
+    // CLAUSE TYPE G: Autonomous Same Jodi Scanner (e.g. "fri jodi same")
+    else if (hasSameJodi) {
+      const targetCols = effectiveDays;
+      targetCols.forEach(c => {
+        for (let r1 = cMinR; r1 < cMaxR; r1++) {
+          for (let r2 = r1 + 1; r2 <= cMaxR; r2++) {
+            const val1 = grid[r1]?.[c]?.val || '';
+            const val2 = grid[r2]?.[c]?.val || '';
+            if (val1 && val2 && /^\d{2}$/.test(val1) && /^\d{2}$/.test(val2)) {
+              if (val1 === val2) {
+                lastOriginRow = Math.max(lastOriginRow, r2);
+
+                const pIdx = pairCounter++;
+                const pId = `P${pIdx}`;
+                const palette = PAIR_COLORS[(pIdx - 1) % PAIR_COLORS.length];
+
+                const m1 = { r: r1, c, day: DAY_NAMES[c], rowNum: r1 + 1, val: val1, pairId: pId, stepIndex: 1, targetR: r2, targetC: c, reason: `Same Jodi ${val1} on ${DAY_NAMES[c]} (Row #${r1+1} & #${r2+1})`, color: palette.bg, border: palette.border, dot: palette.dot };
+                const m2 = { r: r2, c, day: DAY_NAMES[c], rowNum: r2 + 1, val: val2, pairId: pId, stepIndex: 2, targetR: r1, targetC: c, reason: `Same Jodi ${val2} on ${DAY_NAMES[c]} (Row #${r2+1} & #${r1+1})`, color: palette.bg, border: palette.border, dot: palette.dot };
+                matches.push(m1, m2);
+                matchMap[`${r1}_${c}`] = m1;
+                matchMap[`${r2}_${c}`] = m2;
+              }
             }
           }
         }
