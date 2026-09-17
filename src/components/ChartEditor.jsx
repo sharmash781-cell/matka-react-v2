@@ -529,19 +529,13 @@ export const ChartEditor = () => {
             {activeChartName} JODI CHART RECORD
           </div>
 
-          <table className="w-full table-fixed white-chart-table border-collapse min-w-[320px]">
-            <colgroup>
-              <col style={{ width: '36px' }} />
-              {Array.from({ length: targetCols }).map((_, c) => (
-                <col key={c} style={{ width: `calc((100% - 36px) / ${targetCols})` }} />
-              ))}
-            </colgroup>
+          <table className="w-full table-fixed white-chart-table border-collapse">
             {/* STICKY GOLDEN DAY HEADERS */}
             <thead className="sticky top-0 z-30 shadow-md">
               <tr className="bg-[#fbbf24] text-slate-950 border-b-2 border-slate-900">
-                <th className="w-7 sm:w-10 text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[10px] sm:text-xs font-black py-1">#</th>
+                <th style={{ width: '36px', minWidth: '36px' }} className="text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[10px] sm:text-xs font-black py-1">#</th>
                 {Array.from({ length: targetCols }).map((_, c) => (
-                  <th key={c} className="text-center border border-slate-900 text-slate-950 font-black text-xs sm:text-base py-1">
+                  <th key={c} style={{ width: `${(100 / targetCols).toFixed(2)}%` }} className="text-center border border-slate-900 text-slate-950 font-black text-xs sm:text-base py-1">
                     {COL_HEADERS[c] || `C${c + 1}`}
                   </th>
                 ))}
