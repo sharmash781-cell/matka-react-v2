@@ -496,6 +496,68 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 12: MASTER 4-WEEK DECREMENT OPEN-SUM & CLOSE-BALANCE TRIAD SCANNER ---
+    // Evaluates 4-week step-down cycles where Open1 + Open2 + OpenTarget = Target Sum (S -> S-2 -> S-4 -> S-6)
+    // and Close1 + Close2 + CloseTarget = Adjacent Total + Open2
+    for (let stepWeeks of [4, 5]) {
+      const r1 = targetRowIdx - (stepWeeks * 2);
+      const r2 = targetRowIdx - stepWeeks;
+
+      if (r1 >= 0 && r2 >= 0 && grid[r1] && grid[r2]) {
+        // Center/Diagonal Column pairs
+        for (let c1 = 0; c1 < activeChart.cols; c1++) {
+          const val1 = grid[r1][c1]?.val;
+          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+
+          for (let c2 = 0; c2 < activeChart.cols; c2++) {
+            const val2 = grid[r2][c2]?.val;
+            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+
+            const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
+            const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
+
+            // Test target sum S from 0 to 9, especially even decrements
+            for (let targetSum = 0; targetSum <= 9; targetSum++) {
+              const requiredOpen = (targetSum - o1 - o2 + 20) % 10;
+
+              // Check if an adjacent cell total exists to calculate required Close digit
+              let requiredClose = null;
+              if (c2 > 0 && grid[r2][c2 - 1]?.val && /^\d{2}$/.test(grid[r2][c2 - 1].val)) {
+                const adjVal = grid[r2][c2 - 1].val;
+                const adjTotal = (parseInt(adjVal[0]) + parseInt(adjVal[1])) % 10;
+                const targetCloseSum = (adjTotal + o2) % 10;
+                requiredClose = (targetCloseSum - cVal1 - cVal2 + 20) % 10;
+              }
+
+              for (let closeD = 0; closeD <= 9; closeD++) {
+                const candJodi = `${requiredOpen}${closeD}`;
+
+                // Boost Open-Sum Triad match
+                addPoints(
+                  candJodi,
+                  45,
+                  activeModel.conditionWeight,
+                  1.0,
+                  `🔥 [MASTER 4-WEEK OPEN TRIAD] 3-Open Sum (${o1} + ${o2} + ${requiredOpen}) = Target ${targetSum} (${stepWeeks}-Week Cycle from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                );
+
+                // Additional massive boost if Close Balance line also matches
+                if (requiredClose !== null && closeD === requiredClose) {
+                  addPoints(
+                    candJodi,
+                    65,
+                    activeModel.conditionWeight * 1.3,
+                    1.0,
+                    `👑 [MASTER FULL MATRIX BALANCE] Both Open Sum (${o1}+${o2}+${requiredOpen}=${targetSum}) AND Close Sum (${cVal1}+${cVal2}+${closeD} = AdjTotal+Open2) fully aligned for Jodi ${candJodi}!`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
