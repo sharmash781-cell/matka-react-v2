@@ -7,7 +7,7 @@ import { AILearningEngine } from './components/AILearningEngine';
 import { PredictorEngine } from './components/PredictorEngine';
 import { ChartFinder } from './components/ChartFinder';
 import { AdminModal } from './components/AdminModal';
-import { Table, Archive, Brain, Zap, Search, AlertTriangle, RefreshCw, Lock, ShieldCheck } from 'lucide-react';
+import { Table, Archive, Brain, Zap, Search, AlertTriangle, RefreshCw } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
 }
 
 const BottomNav = () => {
-  const { activeTab, setActiveTab, isAdminLoggedIn, setShowAdminModal } = useChart();
+  const { activeTab, setActiveTab } = useChart();
   const navItems = [
     { id: 'editor', label: 'Chart', icon: Table },
     { id: 'store', label: 'Store', icon: Archive },
@@ -85,21 +85,6 @@ const BottomNav = () => {
           </button>
         );
       })}
-
-      <button
-        onClick={() => setShowAdminModal(true)}
-        className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${
-          isAdminLoggedIn ? 'text-amber-400 font-extrabold' : 'text-slate-500 hover:text-amber-300'
-        }`}
-        title="Admin Login / Passcode mas9090"
-      >
-        {isAdminLoggedIn ? (
-          <ShieldCheck className="w-5 h-5 text-amber-400" />
-        ) : (
-          <Lock className="w-5 h-5 text-amber-400/80" />
-        )}
-        <span className="text-[10px] font-bold text-amber-400">Admin</span>
-      </button>
     </div>
   );
 };
