@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import publishedChartsData from '../data/published_charts.json';
 import srideviPreset from '../data/sridevi_preset.json';
 
 const ChartContext = createContext();
@@ -41,9 +42,9 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-export const DEFAULT_PUBLISHED_CHARTS = {};
+export const DEFAULT_PUBLISHED_CHARTS = publishedChartsData || {};
 
-export const DEFAULT_PRESETS = {};
+export const DEFAULT_PRESETS = DEFAULT_PUBLISHED_CHARTS;
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
 
@@ -52,12 +53,12 @@ const getInitialCharts = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         return parsed;
       }
     }
   } catch (e) {}
-  return {}; // Clean empty store on first run (0 charts until Admin creates one!)
+  return DEFAULT_PUBLISHED_CHARTS;
 };
 
 export const ChartProvider = ({ children }) => {
