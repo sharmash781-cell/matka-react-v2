@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2, ExternalLink, ShieldCheck, Lock } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 30;
@@ -27,7 +27,7 @@ export const parseJodiTokens = (input) => {
 };
 
 export const ChartEditor = () => {
-  const { charts = {}, activeChartName, setActiveChartName, activeChart, saveChart, setActiveTab } = useChart();
+  const { charts = {}, activeChartName, setActiveChartName, activeChart, saveChart, setActiveTab, isAdminLoggedIn, setShowAdminModal } = useChart();
 
   const [nameInput, setNameInput] = useState(activeChartName || 'NEW CHART');
   const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 20);
@@ -308,6 +308,18 @@ export const ChartEditor = () => {
                 <span className="bg-purple-950 text-purple-200 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
                   {chartKeys.length}
                 </span>
+              </button>
+
+              <button
+                onClick={() => setShowAdminModal(true)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 border ${
+                  isAdminLoggedIn
+                    ? 'bg-amber-500 border-amber-400 text-slate-950 font-extrabold'
+                    : 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
+                }`}
+              >
+                {isAdminLoggedIn ? <ShieldCheck className="w-3.5 h-3.5 text-slate-950" /> : <Lock className="w-3.5 h-3.5 text-amber-400" />}
+                <span>{isAdminLoggedIn ? '👑 Admin' : 'Admin Login'}</span>
               </button>
             </div>
           </div>

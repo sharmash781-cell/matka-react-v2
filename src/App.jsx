@@ -1,11 +1,13 @@
 import React from 'react';
-import { ChartProvider, useChart, DEFAULT_PRESETS } from './context/ChartContext';
+import { ChartProvider, useChart } from './context/ChartContext';
+import { Navbar } from './components/Navbar';
 import { ChartEditor } from './components/ChartEditor';
 import { ChartStore } from './components/ChartStore';
 import { AILearningEngine } from './components/AILearningEngine';
 import { PredictorEngine } from './components/PredictorEngine';
 import { ChartFinder } from './components/ChartFinder';
-import { Table, Archive, Brain, Zap, Search, AlertTriangle, RefreshCw } from 'lucide-react';
+import { AdminModal } from './components/AdminModal';
+import { Table, Archive, Brain, Zap, Search, AlertTriangle, RefreshCw, Lock, ShieldCheck } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -24,6 +26,7 @@ class ErrorBoundary extends React.Component {
   handleResetState = () => {
     try {
       localStorage.removeItem('chartHistory');
+      localStorage.removeItem('userStoreCharts_v3');
     } catch (e) {}
     this.setState({ hasError: false, error: null });
     window.location.reload();
@@ -54,7 +57,7 @@ class ErrorBoundary extends React.Component {
 }
 
 const BottomNav = () => {
-  const { activeTab, setActiveTab } = useChart();
+  const { activeTab, setActiveTab, isAdminLoggedIn, setShowAdminModal } = useChart();
   const navItems = [
     { id: 'editor', label: 'Chart', icon: Table },
     { id: 'store', label: 'Store', icon: Archive },
@@ -63,7 +66,7 @@ const BottomNav = () => {
     { id: 'finder', label: 'Find', icon: Search },
   ];
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-slate-950/95 border-t border-slate-800 backdrop-blur-md py-2 px-2 shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-around items-center bg-slate-950/95 border-t border-slate-800 backdrop-blur-md py-2 px-2 shadow-2xl">
       {navItems.map(({ id, label, icon: Icon }) => {
         const active = activeTab === id || (id === 'ai' && activeTab === 'ai-trainer') || (id === 'predict' && activeTab === 'predictor') || (id === 'finder' && activeTab === 'chart-finder');
         return (
@@ -82,6 +85,21 @@ const BottomNav = () => {
           </button>
         );
       })}
+
+      <button
+        onClick={() => setShowAdminModal(true)}
+        className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${
+          isAdminLoggedIn ? 'text-amber-400 font-extrabold' : 'text-slate-500 hover:text-amber-300'
+        }`}
+        title="Admin Login / Passcode mas9090"
+      >
+        {isAdminLoggedIn ? (
+          <ShieldCheck className="w-5 h-5 text-amber-400" />
+        ) : (
+          <Lock className="w-5 h-5 text-amber-400/80" />
+        )}
+        <span className="text-[10px] font-bold text-amber-400">Admin</span>
+      </button>
     </div>
   );
 };
@@ -113,8 +131,10 @@ export function App() {
     <ErrorBoundary>
       <ChartProvider>
         <div className="min-h-screen bg-slate-950 text-slate-100 font-poppins selection:bg-pink-500 selection:text-white">
+          <Navbar />
           <MainContent />
           <BottomNav />
+          <AdminModal />
         </div>
       </ChartProvider>
     </ErrorBoundary>

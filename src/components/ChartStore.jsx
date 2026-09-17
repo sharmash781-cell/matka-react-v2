@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
-import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw } from 'lucide-react';
+import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw, Lock, ShieldCheck, Key } from 'lucide-react';
 
 export const ChartStore = () => {
-  const { charts = {}, setActiveChartName, deleteChart, resetToDefaultCharts, clearAllCharts, setActiveTab, saveChart } = useChart();
+  const {
+    charts = {},
+    setActiveChartName,
+    deleteChart,
+    resetToDefaultCharts,
+    clearAllCharts,
+    setActiveTab,
+    saveChart,
+    isAdminLoggedIn,
+    setShowAdminModal
+  } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRows, setNewRows] = useState(20);
@@ -53,24 +63,39 @@ export const ChartStore = () => {
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
           {chartKeys.length > 0 && (
-            <>
-              <button
-                onClick={clearAllCharts}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800"
-                title="Wipe all charts permanently"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Clear All Store
-              </button>
-
-              <button
-                onClick={resetToDefaultCharts}
-                className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
-                title="Load optional preset market charts"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Load Presets
-              </button>
-            </>
+            <button
+              onClick={clearAllCharts}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800"
+              title="Wipe all charts permanently"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear All Store
+            </button>
           )}
+
+          {/* ADMIN LOGIN BUTTON (In place of Load Presets) */}
+          <button
+            onClick={() => setShowAdminModal(true)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 shrink-0 border ${
+              isAdminLoggedIn
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 text-slate-950'
+                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/50 hover:border-amber-400'
+            }`}
+            title="Admin Login & Chart Control Center (Code: mas9090)"
+          >
+            {isAdminLoggedIn ? (
+              <>
+                <ShieldCheck className="w-4 h-4 text-slate-950" />
+                <span>👑 Admin Active</span>
+                <span className="text-[10px] bg-slate-950 text-amber-300 px-1.5 py-0.5 rounded font-mono">mas9090</span>
+              </>
+            ) : (
+              <>
+                <Key className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span>Admin Login</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={() => setShowNewForm(v => !v)}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
