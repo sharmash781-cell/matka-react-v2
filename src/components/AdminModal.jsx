@@ -140,7 +140,7 @@ export const AdminModal = () => {
                 {isAdminLoggedIn ? 'Admin Control Center' : 'Admin Login Required'}
               </h2>
               <p className="text-[10px] text-slate-400 font-mono">
-                {isAdminLoggedIn ? 'Logged in as Admin (Code: mas9090)' : 'Enter Passcode mas9090 to unlock Admin features'}
+                {isAdminLoggedIn ? 'Logged in as Admin' : 'Enter Secret Admin Passcode'}
               </p>
             </div>
           </div>
@@ -165,14 +165,14 @@ export const AdminModal = () => {
                 </div>
                 <h3 className="text-lg font-black text-white">Access Admin Options</h3>
                 <p className="text-xs text-slate-400">
-                  Users do not need to log in to use the app. Enter passcode <span className="text-amber-400 font-mono font-bold">mas9090</span> to create & manage charts.
+                  Users do not need to log in to use the app. Enter secret passcode to create &amp; manage charts.
                 </p>
               </div>
 
               {loginError && (
                 <div className="bg-red-950/80 border border-red-600 text-red-300 text-xs p-3 rounded-xl flex items-center gap-2 font-bold animate-shake">
                   <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>{loginError}</span>
+                  <span>Invalid Admin Passcode!</span>
                 </div>
               )}
 
@@ -185,17 +185,10 @@ export const AdminModal = () => {
                     type="password"
                     value={passcode}
                     onChange={(e) => setPasscode(e.target.value)}
-                    placeholder="Enter Code (e.g. mas9090)"
+                    placeholder="Enter Secret Passcode"
                     autoFocus
                     className="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 text-amber-300 font-mono font-black rounded-xl px-4 py-3 text-sm outline-none shadow-inner"
                   />
-                  <button
-                    type="button"
-                    onClick={handleQuickFillCode}
-                    className="absolute right-2 top-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-black px-2.5 py-1.5 rounded-lg transition"
-                  >
-                    Quick Code: mas9090
-                  </button>
                 </div>
               </div>
 
@@ -203,7 +196,7 @@ export const AdminModal = () => {
                 type="submit"
                 className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3 rounded-xl text-sm shadow-xl active:scale-95 transition flex items-center justify-center gap-2"
               >
-                <ShieldCheck className="w-4 h-4" /> Verify Code & Login Admin
+                <ShieldCheck className="w-4 h-4" /> Verify Code &amp; Login Admin
               </button>
             </form>
           ) : (
@@ -216,9 +209,6 @@ export const AdminModal = () => {
                 <div className="flex items-center gap-2">
                   <span className="bg-emerald-500 text-slate-950 text-[11px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1">
                     👑 ADMIN ACTIVE
-                  </span>
-                  <span className="text-slate-400 font-mono text-xs">
-                    Code: <strong className="text-emerald-400">mas9090</strong>
                   </span>
                 </div>
                 <button
@@ -279,7 +269,7 @@ export const AdminModal = () => {
                 <form onSubmit={handleCreateChart} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <PlusCircle className="w-4 h-4" /> Admin: Create & Publish New Market Chart
+                      <PlusCircle className="w-4 h-4" /> Admin: Create &amp; Publish New Market Chart
                     </h4>
                     <button
                       type="button"
@@ -309,11 +299,11 @@ export const AdminModal = () => {
                       <label className="text-[11px] font-bold text-slate-400">Rows:</label>
                       <input
                         type="number"
-                        min={5}
-                        max={200}
+                        min={1}
+                        max={5000}
                         value={rows}
                         onChange={(e) => setRows(e.target.value)}
-                        className="w-16 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs"
+                        className="w-20 bg-slate-900 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">

@@ -80,13 +80,12 @@ export const ChartStore = () => {
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 text-slate-950'
                 : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/50 hover:border-amber-400'
             }`}
-            title="Admin Login & Chart Control Center (Code: mas9090)"
+            title="Admin Login & Chart Control Center"
           >
             {isAdminLoggedIn ? (
               <>
                 <ShieldCheck className="w-4 h-4 text-slate-950" />
                 <span>👑 Admin Active</span>
-                <span className="text-[10px] bg-slate-950 text-amber-300 px-1.5 py-0.5 rounded font-mono">mas9090</span>
               </>
             ) : (
               <>

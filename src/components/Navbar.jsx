@@ -43,8 +43,7 @@ export const Navbar = () => {
             {isAdminLoggedIn ? (
               <>
                 <ShieldCheck className="w-4 h-4 text-slate-950" />
-                <span>👑 Admin</span>
-                <span className="hidden sm:inline text-[10px] bg-slate-950 text-amber-300 px-1.5 py-0.2 rounded font-mono">mas9090</span>
+                <span>👑 Admin Active</span>
               </>
             ) : (
               <>
