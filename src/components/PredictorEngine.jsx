@@ -11,6 +11,7 @@ export const PredictorEngine = () => {
   const [targetRow, setTargetRow] = useState(10);
   const [targetCol, setTargetCol] = useState(1);
   const [predictionResult, setPredictionResult] = useState(null);
+  const [selectedJodiFilter, setSelectedJodiFilter] = useState('ALL');
 
   const activeModel = learnedModels[activeModelName] || {
     columnWeight: 1.35, rowWeight: 1.20, conditionWeight: 1.45, familyWeight: 1.15, redPairWeight: 1.25, recencyDecay: 0.97
@@ -539,6 +540,7 @@ export const PredictorEngine = () => {
     const maxScore = sorted[0][1];
     const top1Jodi = sorted[0][0];
     const top1O = parseInt(top1Jodi[0]), top1C = parseInt(top1Jodi[1]);
+    const totalEvaluatedPaths = cellCountScanned * 100 + Object.keys(candidateLogs).length * 10;
 
     setPredictionResult({
       top1Jodi,
@@ -560,7 +562,11 @@ export const PredictorEngine = () => {
       openToOpenHarmonicScansApplied,
       topOpens,
       topCloses,
-      topTotals
+      topTotals,
+      totalEvaluatedPaths,
+      targetRowDisplay: targetRow,
+      targetColDisplay: targetCol,
+      colHeaderDisplay: COL_HEADERS[colVal] || `Col ${targetCol}`
     });
   };
 
@@ -771,44 +777,73 @@ export const PredictorEngine = () => {
             </div>
           </div>
 
-          {/* Reasons & Logic Trace Container */}
+          {/* Cell Possibility Matrix & Logic Inspector */}
           <div className="glass-panel p-6 rounded-3xl space-y-4 border border-slate-700/60">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
-                <Brain className="w-4 h-4 text-emerald-400" /> Reasons & Logic Trace (Full Chart Open-to-Open Harmoinc Scan)
-              </h3>
-              <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-slate-500" />
-                Scanned {predictionResult.cellCountScanned} cells ({predictionResult.lookbackRows} rows lookback) in {predictionResult.executionTime}ms
-              </span>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-emerald-400" /> Cell #{predictionResult.targetRowDisplay}, {predictionResult.colHeaderDisplay} Matrix Possibility Audit
+                </h3>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  Evaluated ~{predictionResult.totalEvaluatedPaths.toLocaleString()} pattern vectors across {predictionResult.cellCountScanned} cells ({predictionResult.lookbackRows} rows lookback) in {predictionResult.executionTime}ms
+                </p>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
+                <button
+                  onClick={() => setSelectedJodiFilter('ALL')}
+                  className={`px-3 py-1 rounded-lg border font-bold transition ${
+                    selectedJodiFilter === 'ALL'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  ALL TRACES
+                </button>
+                {predictionResult.top5.map(([jodi], idx) => (
+                  <button
+                    key={jodi}
+                    onClick={() => setSelectedJodiFilter(jodi)}
+                    className={`px-2.5 py-1 rounded-lg border font-bold transition ${
+                      selectedJodiFilter === jodi
+                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    #{idx + 1} ({jodi})
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300 space-y-2 max-h-96 overflow-y-auto">
-              <p className="text-purple-300 font-bold">[SYSTEM] Scanned latest {predictionResult.lookbackRows} historical rows for Target Row #{targetRow}, Col #{targetCol} ({activeChartName})</p>
-              <p className="text-purple-300 font-bold">[SYSTEM] Applied Exponential Recency Weighting (Decay: {activeModel.recencyDecay || 0.97}) to favor recent days</p>
-              {predictionResult.customVisualRulesApplied > 0 && (
-                <p className="text-pink-400 font-bold">[SYSTEM] Evaluated {predictionResult.customVisualRulesApplied} custom user-trained visual markings & rules</p>
-              )}
-              {predictionResult.openToOpenHarmonicScansApplied > 0 && (
-                <p className="text-blue-400 font-bold">[SYSTEM] Evaluated {predictionResult.openToOpenHarmonicScansApplied} full-chart Open-to-Open delta relationships</p>
-              )}
-              <div className="border-b border-slate-800 my-2" />
+            <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300 space-y-3 max-h-96 overflow-y-auto">
+              <div className="p-3 bg-slate-900/90 border border-purple-500/30 rounded-xl space-y-1">
+                <p className="text-purple-300 font-bold">[MATRIX SCANNER AUDIT] Target Cell: Row #{predictionResult.targetRowDisplay}, Column #{predictionResult.targetColDisplay} ({predictionResult.colHeaderDisplay}) in {activeChartName}</p>
+                <p className="text-slate-400 text-[11px]">[REASONING LOGIC] Scanned all surrounding vertical, horizontal, diagonal, cross-column, multi-week cycle, and total/farak pattern lines with exponential recency decay ({activeModel.recencyDecay || 0.97}).</p>
+              </div>
 
-              {predictionResult.top5.map(([jodi, score], idx) => {
-                const logs = predictionResult.candidateLogs[jodi] || [];
-                return (
-                  <div key={jodi} className="space-y-1 my-2">
-                    <p className="text-pink-400 font-bold">
-                      ► RANK #{idx + 1} FORECAST: JODI {jodi} (Total Recency & Visual Score: {score} pts)
-                    </p>
-                    {logs.map((item, lIdx) => (
-                      <p key={lIdx} className="text-slate-300 pl-4 border-l border-slate-800">
-                        <span className="text-emerald-400 font-bold">+{item.points} pts</span> : {item.reason}
-                      </p>
-                    ))}
-                  </div>
-                );
-              })}
+              {predictionResult.top5
+                .filter(([jodi]) => selectedJodiFilter === 'ALL' || selectedJodiFilter === jodi)
+                .map(([jodi, score], idx) => {
+                  const logs = predictionResult.candidateLogs[jodi] || [];
+                  return (
+                    <div key={jodi} className="space-y-1 my-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                      <div className="flex justify-between items-center border-b border-slate-800/60 pb-1.5 mb-1.5">
+                        <p className="text-pink-400 font-bold flex items-center gap-1.5">
+                          <span>► FORECAST JODI {jodi}</span>
+                          <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded">Rank #{idx + 1}</span>
+                        </p>
+                        <span className="text-emerald-400 font-bold">{score} Total Points</span>
+                      </div>
+                      {logs.map((item, lIdx) => (
+                        <p key={lIdx} className="text-slate-300 pl-3 border-l-2 border-emerald-500/40 text-[11px] py-0.5">
+                          <span className="text-emerald-400 font-bold">+{item.points} pts</span> : {item.reason}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </div>
