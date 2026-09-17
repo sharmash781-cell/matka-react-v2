@@ -381,24 +381,6 @@ export const AILearningEngine = () => {
               outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${val0[1]}` });
             }
 
-            // Cut Total Pair (e.g. Total 4 -> Total 9)
-            if (tot0 !== null && totW !== null && totW === (tot0 + 5) % 10) {
-              const kCutTot = `rel_cut_total_${w}_${c}`;
-              if (!outcomeCounts[kCutTot]) {
-                outcomeCounts[kCutTot] = {
-                  type: 'rel_cut_total',
-                  week: w,
-                  col: c,
-                  val: 'Cut Total',
-                  count: 0,
-                  cells: []
-                };
-              }
-              outcomeCounts[kCutTot].count++;
-              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `${tot0}⚡${totW}` });
-              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `${tot0}⚡${totW}` });
-            }
-
             // Repeat Jodi Pair
             if (val0 === valW) {
               const kRepJodi = `rel_repeat_jodi_${w}_${c}`;
