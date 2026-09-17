@@ -185,6 +185,48 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 6: CROSS-COLUMN OFFSET SHIFT MATRIX (Python Deep Matrix Explorer) ---
+    // Scans across DIFFERENT columns in recent weeks (e.g. Friday 2 weeks ago -> Tuesday today)
+    for (let rOffset = 1; rOffset <= 8; rOffset++) {
+      const pastR = targetRowIdx - rOffset;
+      if (pastR >= 0 && grid[pastR]) {
+        for (let cOffset = 0; cOffset < activeChart.cols; cOffset++) {
+          if (cOffset !== colVal && grid[pastR][cOffset]?.val && /^\d{2}$/.test(grid[pastR][cOffset].val)) {
+            const shiftVal = grid[pastR][cOffset].val;
+            const sO = parseInt(shiftVal[0]), sC = parseInt(shiftVal[1]);
+            const shiftRecency = Math.pow(0.96, rOffset);
+
+            // Cross-Column Family Match
+            addPoints(`${sO}${sC}`, 22, activeModel.columnWeight, shiftRecency, `⚡ [CROSS-COLUMN SHIFT] Row -${rOffset}, Col ${cOffset + 1} (${shiftVal}) -> Target Col ${colVal + 1}`);
+            addPoints(`${getCut(sO)}${getCut(sC)}`, 16, activeModel.familyWeight, shiftRecency, `⚡ [CROSS-COLUMN CUT-PAIR] Double Cut derived from Row -${rOffset}, Col ${cOffset + 1}`);
+          }
+        }
+      }
+    }
+
+    // --- PASS 7: TOTAL SUM & FARAK (DIFFERENCE) CHAINING ---
+    // Checks if the Total Sum of preceding day (Col - 1) triggers specific recurring totals today
+    if (targetRowIdx >= 0 && colVal >= 1 && grid[targetRowIdx] && grid[targetRowIdx][colVal - 1]?.val) {
+      const prevVal = grid[targetRowIdx][colVal - 1].val;
+      if (/^\d{2}$/.test(prevVal)) {
+        const pO = parseInt(prevVal[0]), pC = parseInt(prevVal[1]);
+        const prevTotal = (pO + pC) % 10;
+        const prevDiff = (Math.abs(pO - pC)) % 10;
+
+        // Boost Jodis sharing the same Total Sum or Farak Difference
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            if ((o + c) % 10 === prevTotal) {
+              addPoints(`${o}${c}`, 14, activeModel.conditionWeight, 1.0, `🧮 [TOTAL CHAINING] Total ${prevTotal} carried from yesterday's Jodi ${prevVal}`);
+            }
+            if ((Math.abs(o - c)) % 10 === prevDiff) {
+              addPoints(`${o}${c}`, 12, activeModel.conditionWeight, 0.95, `🧮 [FARAK DIFFERENCE CHAINING] Farak ${prevDiff} carried from yesterday's Jodi ${prevVal}`);
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 6: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
     for (let r = startRowIdx; r < targetRowIdx; r++) {
       const rowDistance = targetRowIdx - r;
