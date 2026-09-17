@@ -42,9 +42,9 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-export const DEFAULT_PUBLISHED_CHARTS = publishedChartsData || {};
+export const DEFAULT_PUBLISHED_CHARTS = {};
 
-export const DEFAULT_PRESETS = DEFAULT_PUBLISHED_CHARTS;
+export const DEFAULT_PRESETS = {};
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
 
@@ -53,12 +53,12 @@ const getInitialCharts = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+      if (parsed && typeof parsed === 'object') {
         return parsed;
       }
     }
   } catch (e) {}
-  return DEFAULT_PUBLISHED_CHARTS;
+  return {}; // Completely clean empty store on initial load (0 hardcoded charts)
 };
 
 export const ChartProvider = ({ children }) => {
