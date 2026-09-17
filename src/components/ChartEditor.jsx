@@ -35,14 +35,14 @@ export const ChartEditor = () => {
   const [grid, setGrid] = useState([]);
   const [quickInput, setQuickInput] = useState('');
   const [showControls, setShowControls] = useState(false);
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
 
   // Optimized row height allowing 12-14 rows on mobile screen
-  const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
+  const rowHeight = isCompact ? (showStats ? 54 : 34) : (showStats ? 68 : 45);
 
   useEffect(() => {
     if (activeChart) {
@@ -243,6 +243,15 @@ export const ChartEditor = () => {
 
             {/* Top Action Buttons (STORE BUTTON BESIDE EDIT CONTROLS) */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setShowStats(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
+                  showStats ? 'bg-indigo-950 border-indigo-500 text-indigo-200' : 'bg-slate-900 border-slate-700 text-slate-400'
+                }`}
+              >
+                🔢 <span>Stats: {showStats ? 'ON' : 'OFF'}</span>
+              </button>
+
               <button
                 onClick={scrollToLastRow}
                 className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
@@ -484,56 +493,56 @@ export const ChartEditor = () => {
                       return (
                         <td
                           key={cIdx}
-                          className="border border-slate-800 relative text-center align-middle transition-colors hover:bg-amber-200"
+                          className="border border-slate-800 relative text-center align-middle transition-colors hover:bg-amber-200 p-0"
                           style={{ backgroundColor: '#fef3c7' }}
                         >
+                          <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
+                            {/* TOP: Total (emerald left) + Diff Total (red right) */}
+                            {showStats && (
+                              <div className="flex justify-between items-center w-full px-1 leading-none pt-0.5">
+                                <span className="text-emerald-800 font-black font-mono text-[10px] sm:text-xs">
+                                  {total ?? ''}
+                                </span>
+                                <span className="text-red-700 font-black font-mono text-[10px] sm:text-xs">
+                                  {diffTotal ?? ''}
+                                </span>
+                              </div>
+                            )}
 
-                          {/* TOP: Total (green left) + Diff Total (red right) */}
-                          {showStats && (
-                            <div className="flex justify-between px-0.5 pt-0.5 leading-none">
-                              <span
-                                className="text-emerald-900 font-black font-mono tracking-tighter"
-                                style={{ fontSize: isCompact ? '11px' : '14px', fontWeight: '900' }}
-                              >
-                                {total ?? ''}
-                              </span>
-                              <span
-                                className="text-red-700 font-black font-mono tracking-tighter"
-                                style={{ fontSize: isCompact ? '11px' : '14px', fontWeight: '900' }}
-                              >
-                                {diffTotal ?? ''}
-                              </span>
+                            {/* MIDDLE: Jodi Number */}
+                            <div className="flex items-center justify-center w-full my-auto">
+                              <input
+                                id={`cell-${rIdx}-${cIdx}`}
+                                type="text"
+                                maxLength={2}
+                                value={val}
+                                onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
+                                onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
+                                className={`w-full bg-transparent text-center font-black font-mono outline-none p-0 leading-none ${
+                                  red ? 'text-red-600 font-black' : 'text-slate-950 font-black'
+                                }`}
+                                style={{
+                                  fontSize: isCompact
+                                    ? (showStats ? 'clamp(15px, 4vw, 22px)' : 'clamp(18px, 5.2vw, 28px)')
+                                    : (showStats ? 'clamp(20px, 5vw, 30px)' : 'clamp(24px, 6.5vw, 40px)'),
+                                  fontWeight: '900'
+                                }}
+                              />
                             </div>
-                          )}
 
-                          {/* MIDDLE: Jodi Number */}
-                          <div className={`flex items-center justify-center ${showStats ? '' : 'h-full'}`}>
-                            <input
-                              id={`cell-${rIdx}-${cIdx}`}
-                              type="text"
-                              maxLength={2}
-                              value={val}
-                              onChange={(e) => handleCellChange(rIdx, cIdx, e.target.value)}
-                              onPaste={(e) => handleCellPaste(e, rIdx, cIdx)}
-                              className={`w-full bg-transparent text-center font-black font-mono outline-none p-0 leading-none ${
-                                red ? 'text-red-600 font-black' : 'text-slate-950 font-black'
-                              }`}
-                              style={{
-                                fontSize: isCompact ? 'clamp(18px, 5.2vw, 28px)' : 'clamp(24px, 6.5vw, 40px)',
-                                fontWeight: '900'
-                              }}
-                            />
+                            {/* BOTTOM: Open-Close Condition Pair */}
+                            {showStats && (
+                              <div className="w-full text-center leading-none pb-0.5">
+                                {cn !== null && closeCond !== null ? (
+                                  <span className="inline-block text-[10px] sm:text-xs font-black font-mono text-slate-900 bg-amber-200/90 border border-amber-300/80 rounded px-1 shadow-xs">
+                                    {`${cn}-${closeCond}`}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] opacity-0">-</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-
-                          {/* BOTTOM: Open-Close Condition Pair */}
-                          {showStats && (
-                            <div
-                              className="absolute bottom-0.5 left-0 right-0 text-center font-black font-mono text-slate-950 leading-none tracking-tight"
-                              style={{ fontSize: isCompact ? '10px' : '14px', fontWeight: '900' }}
-                            >
-                              {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
-                            </div>
-                          )}
                         </td>
                       );
                     })}

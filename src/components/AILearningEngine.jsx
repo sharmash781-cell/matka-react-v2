@@ -34,6 +34,7 @@ export const AILearningEngine = () => {
   // CONTROLS & TABLE UI OPTIONS
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showOpenFinder, setShowOpenFinder] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
 
@@ -66,7 +67,7 @@ export const AILearningEngine = () => {
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
 
-  const rowHeight = showStats ? 44 : 38;
+  const rowHeight = showStats ? 54 : 38;
 
   const handleAICellChange = (rIdx, cIdx, value) => {
     if (!activeChartObj) return;
@@ -113,8 +114,9 @@ export const AILearningEngine = () => {
 
   // RUN UNIVERSAL SEQUENCE SCANNING ENGINE
   const sequenceResults = useMemo(() => {
+    if (!showOpenFinder) return { targetSeq: [], totalMatches: 0, matches: [], partialSetups: [], predictions: {} };
     return findSequenceMatches(grid, sequenceInput);
-  }, [grid, sequenceInput]);
+  }, [grid, sequenceInput, showOpenFinder]);
 
   const visibleMatches = useMemo(() => {
     if (!sequenceResults || !sequenceResults.matches) return [];
@@ -416,6 +418,16 @@ export const AILearningEngine = () => {
 
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
+                onClick={() => setShowOpenFinder(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
+                  showOpenFinder ? 'bg-cyan-950 border-cyan-500 text-cyan-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Open Finder: {showOpenFinder ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <button
                 onClick={() => setShowStats(v => !v)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
                   showStats ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-400'
@@ -452,8 +464,18 @@ export const AILearningEngine = () => {
               </div>
               <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
                 <button
+                  onClick={() => setShowOpenFinder(v => !v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    showOpenFinder ? 'bg-cyan-950 border-cyan-500 text-cyan-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  🔍 Open Finder (5,8,0): {showOpenFinder ? 'ENABLED' : 'DISABLED'}
+                </button>
+                <button
                   onClick={() => setShowStats(v => !v)}
-                  className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-amber-300 font-bold"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    showStats ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
                 >
                   Stats (Sum / CN / Cond): {showStats ? 'ENABLED' : 'DISABLED'}
                 </button>
@@ -461,6 +483,85 @@ export const AILearningEngine = () => {
             </div>
           )}
         </div>
+
+        {/* OPEN FINDER CONTROL PANEL */}
+        {showOpenFinder && (
+          <div className="bg-slate-950 border-2 border-cyan-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5 animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-tr from-cyan-600 to-blue-600 p-1.5 rounded-xl text-white">
+                  <Search className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-cyan-300">
+                    Open / Close Sequence Finder (3-Step Scanner)
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Enter 3 digits e.g. <strong className="text-cyan-400">5, 8, 0</strong> to highlight sequence runs on the chart
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOpenFinder(false)}
+                className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
+              >
+                Close ✕
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-[9px] text-cyan-400 font-bold block mb-1 uppercase tracking-wider">
+                  Digits Input (Past Sequence):
+                </label>
+                <input
+                  type="text"
+                  value={sequenceInput}
+                  onChange={(e) => setSequenceInput(e.target.value)}
+                  placeholder="e.g. 5, 8, 0"
+                  className="w-full bg-slate-900 border-2 border-cyan-500/80 focus:border-cyan-400 text-white text-xs sm:text-sm font-mono font-black px-3 py-1.5 rounded-xl outline-none shadow-inner"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 pt-3 flex-wrap">
+                <span className="text-[9px] text-slate-400 font-bold">Quick:</span>
+                {['5, 8, 0', '1, 2, 3', '0, 5, 0', '7, 8, 9'].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setSequenceInput(preset)}
+                    className={`text-[9px] font-mono font-bold px-2 py-1 rounded-lg border transition ${
+                      sequenceInput === preset
+                        ? 'bg-cyan-600 text-white border-cyan-400 shadow-md'
+                        : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {sequenceResults && sequenceResults.totalMatches > 0 && (
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono bg-slate-900/90 border border-slate-800 p-2 rounded-xl">
+                <span className="font-bold text-cyan-300">
+                  Found <strong className="text-cyan-400 text-sm">{sequenceResults.totalMatches}</strong> sequence match(es) for &quot;{sequenceResults.targetSeqStr}&quot;
+                </span>
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {sequenceResults.matches.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => scrollToRowIndex(m.startRow)}
+                      style={{ backgroundColor: m.color, color: '#020617' }}
+                      className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 shrink-0 hover:opacity-90"
+                    >
+                      #{m.matchNumber}: R{m.startRow + 1} ({m.direction})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 2. AUTONOMOUS CROSS-DAY PATTERN & FOLLOW-UP OUTCOME SCANNER */}
         <div className="bg-slate-950 border-2 border-purple-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5">
@@ -778,81 +879,92 @@ export const AILearningEngine = () => {
                                 borderWidth: borderWidthStyle,
                                 boxShadow: shadowStyle
                               }}
-                              className={`relative px-0.5 py-0.5 text-center align-middle ${
+                              className={`relative p-0 text-center align-middle ${
                                 primaryMatch || scanHighlightRule ? 'z-10' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
-                              {scanHighlightRule && !primaryMatch && (
-                                <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
-                                  <span
-                                    style={{
-                                      backgroundColor: scanHighlightRule.color,
-                                      boxShadow: `0 0 6px ${scanHighlightRule.color}, 0 0 1.5px #000`
-                                    }}
-                                    className="w-2.5 h-2.5 rounded-full border border-slate-950/90 inline-block"
+                              <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
+                                {scanHighlightRule && !primaryMatch && (
+                                  <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
+                                    <span
+                                      style={{
+                                        backgroundColor: scanHighlightRule.color,
+                                        boxShadow: `0 0 6px ${scanHighlightRule.color}, 0 0 1.5px #000`
+                                      }}
+                                      className="w-2.5 h-2.5 rounded-full border border-slate-950/90 inline-block"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* TOP: Total (emerald left) + Diff Total (red right) */}
+                                {showStats && (
+                                  <div className="flex justify-between items-center w-full px-1 leading-none pt-0.5 pointer-events-none">
+                                    <span className="text-emerald-700 font-extrabold text-[9px] sm:text-xs font-mono">
+                                      {total !== null ? total : ''}
+                                    </span>
+                                    <span className="text-red-700 font-extrabold text-[9px] sm:text-xs font-mono">
+                                      {diffTotal !== null ? diffTotal : ''}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* MIDDLE: Jodi Input */}
+                                <div className="flex items-center justify-center w-full my-auto relative z-10">
+                                  <input
+                                    id={`ai-cell-${rIdx}-${cIdx}`}
+                                    type="text"
+                                    value={val}
+                                    onChange={(e) => handleAICellChange(rIdx, cIdx, e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    maxLength={2}
+                                    placeholder=""
+                                    className={`w-full text-center text-base xs:text-lg sm:text-xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 rounded ${
+                                      primaryMatch || scanHighlightRule
+                                        ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
+                                        : (red ? 'red-pair-text' : 'text-slate-950 font-black')
+                                    }`}
                                   />
                                 </div>
-                              )}
 
-                              {showStats && (
-                                <div className="flex justify-between items-center w-full px-0.5 leading-none pt-0.5 pointer-events-none">
-                                  <span className="text-emerald-600 font-extrabold text-[9px] sm:text-xs font-mono">
-                                    {total !== null ? total : ''}
-                                  </span>
-                                  <span className="text-red-600 font-extrabold text-[9px] sm:text-xs font-mono">
-                                    {diffTotal !== null ? diffTotal : ''}
-                                  </span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
-                                <input
-                                  id={`ai-cell-${rIdx}-${cIdx}`}
-                                  type="text"
-                                  value={val}
-                                  onChange={(e) => handleAICellChange(rIdx, cIdx, e.target.value)}
-                                  onFocus={(e) => e.target.select()}
-                                  maxLength={2}
-                                  placeholder=""
-                                  className={`w-full text-center text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 rounded ${
-                                    primaryMatch || scanHighlightRule
-                                      ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
-                                      : (red ? 'red-pair-text' : 'text-slate-950 font-black')
-                                  }`}
-                                />
-                              </div>
-
-                              {primaryEmptyPred && !val && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-pink-100/90 rounded border-2 border-pink-500 shadow-md p-0.5">
-                                  <span className="text-[7px] sm:text-[9px] font-mono font-black text-pink-700 tracking-tighter uppercase leading-none">
-                                    🔮 {primaryEmptyPred.predictedDigitType.toUpperCase()} NEEDED
-                                  </span>
-                                  <span className="text-sm sm:text-2xl font-black font-mono text-pink-950 leading-none mt-0.5">
-                                    {primaryEmptyPred.predictedDigit} <span className="text-[9px] text-pink-700 font-bold">({primaryEmptyPred.cutDigit})</span>
-                                  </span>
-                                </div>
-                              )}
-
-                              {cellMatches.length > 0 && (
-                                <div className="absolute top-0.5 left-0.5 flex flex-col items-start gap-0.5 z-20 pointer-events-none">
-                                  {cellMatches.map((m, idx) => (
-                                    <span
-                                      key={idx}
-                                      style={{ backgroundColor: m.color, color: '#020617' }}
-                                      className="text-[7px] font-black font-mono px-1 py-0.2 rounded-full shadow-sm leading-none border border-black/90 uppercase tracking-tighter"
-                                      title={`Match #${m.matchNumber}: Step ${m.stepIdx} of ${m.totalSteps}`}
-                                    >
-                                      #{m.matchNumber}:S{m.stepIdx}
+                                {primaryEmptyPred && !val && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-pink-100/90 rounded border-2 border-pink-500 shadow-md p-0.5">
+                                    <span className="text-[7px] sm:text-[9px] font-mono font-black text-pink-700 tracking-tighter uppercase leading-none">
+                                      🔮 {primaryEmptyPred.predictedDigitType.toUpperCase()} NEEDED
                                     </span>
-                                  ))}
-                                </div>
-                              )}
+                                    <span className="text-sm sm:text-2xl font-black font-mono text-pink-950 leading-none mt-0.5">
+                                      {primaryEmptyPred.predictedDigit} <span className="text-[9px] text-pink-700 font-bold">({primaryEmptyPred.cutDigit})</span>
+                                    </span>
+                                  </div>
+                                )}
 
-                              {showStats && (
-                                <div className="absolute bottom-0.5 left-0 right-0 text-center text-slate-950 font-black text-[9px] sm:text-xs font-mono tracking-tighter leading-none pointer-events-none">
-                                  {cn !== null && closeCond !== null ? `${cn}-${closeCond}` : ''}
-                                </div>
-                              )}
+                                {cellMatches.length > 0 && (
+                                  <div className="absolute top-0.5 left-0.5 flex flex-col items-start gap-0.5 z-20 pointer-events-none">
+                                    {cellMatches.map((m, idx) => (
+                                      <span
+                                        key={idx}
+                                        style={{ backgroundColor: m.color, color: '#020617' }}
+                                        className="text-[7px] font-black font-mono px-1 py-0.2 rounded-full shadow-sm leading-none border border-black/90 uppercase tracking-tighter"
+                                        title={`Match #${m.matchNumber}: Step ${m.stepIdx} of ${m.totalSteps}`}
+                                      >
+                                        #{m.matchNumber}:S{m.stepIdx}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* BOTTOM: Open-Close Condition Pair */}
+                                {showStats && (
+                                  <div className="w-full text-center leading-none pb-0.5 pointer-events-none">
+                                    {cn !== null && closeCond !== null ? (
+                                      <span className="inline-block text-[9px] sm:text-xs font-black font-mono text-slate-950 bg-slate-200/90 border border-slate-300 rounded px-1 shadow-xs">
+                                        {`${cn}-${closeCond}`}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] opacity-0">-</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           );
                         })}
