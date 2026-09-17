@@ -408,16 +408,13 @@ export const PredictorEngine = () => {
           const crO = parseInt(crossVal[0]), crC = parseInt(crossVal[1]);
           const crossTotal = (crO + crC) % 10;
           const crossCutO = getCut(crO);
-          const crossCutC = getCut(crC);
           const rec = Math.pow(0.97, targetRowIdx - r);
 
           for (let o = 0; o <= 9; o++) {
             for (let closeD = 0; closeD <= 9; closeD++) {
-              // Cross Total matches candidate Open digit
               if (crossTotal === o) {
                 addPoints(`${o}${closeD}`, 28, activeModel.conditionWeight, rec, `✨ [CROSS TOTAL = OPEN] Cell (Row #${r + 1}, Col #${c + 1} "${crossVal}") Total ${crossTotal} matches candidate Open ${o}`);
               }
-              // Cross Cut-Open matches candidate Close digit
               if (crossCutO === closeD) {
                 addPoints(`${o}${closeD}`, 22, activeModel.conditionWeight, rec, `✨ [CROSS CUT = CLOSE] Cell (Row #${r + 1}, Col #${c + 1} "${crossVal}") Cut Open ${crossCutO} matches candidate Close ${closeD}`);
               }
@@ -426,6 +423,109 @@ export const PredictorEngine = () => {
         }
       }
     }
+
+    // --- PASS 10: DIRECT TOTAL-TO-OPEN & TOTAL-TO-CLOSE TRANSITION SCANNER ---
+    // Total of yesterday or same day last week directly becoming today's Open or Close digit
+    const immediateNeighbors = [];
+    if (colVal > 0 && grid[targetRowIdx] && grid[targetRowIdx][colVal - 1]?.val) {
+      immediateNeighbors.push({ label: 'Yesterday', val: grid[targetRowIdx][colVal - 1].val });
+    }
+    if (targetRowIdx > 0 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal]?.val) {
+      immediateNeighbors.push({ label: 'Last Week Same Day', val: grid[targetRowIdx - 1][colVal].val });
+    }
+
+    immediateNeighbors.forEach(nbr => {
+      if (/^\d{2}$/.test(nbr.val)) {
+        const nO = parseInt(nbr.val[0]), nC = parseInt(nbr.val[1]);
+        const nTotal = (nO + nC) % 10;
+        const nCutTotal = getCut(nTotal);
+
+        for (let d = 0; d <= 9; d++) {
+          // Total becomes Open
+          addPoints(`${nTotal}${d}`, 36, activeModel.conditionWeight, 1.0, `🎯 [TOTAL-TO-OPEN TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Open ${nTotal}`);
+          addPoints(`${nCutTotal}${d}`, 22, activeModel.conditionWeight, 0.95, `🎯 [TOTAL-TO-OPEN CUT] ${nbr.label} Jodi "${nbr.val}" Cut-Total ${nCutTotal} becomes today's Open ${nCutTotal}`);
+
+          // Total becomes Close
+          addPoints(`${d}${nTotal}`, 30, activeModel.conditionWeight, 1.0, `🎯 [TOTAL-TO-CLOSE TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Close ${nTotal}`);
+        }
+      }
+    });
+
+    // --- PASS 11: DAY-OF-WEEK (COLUMN) HISTORICAL FREQUENCY HEATMAP ---
+    // Scans all historical weeks specifically for this column (day of week)
+    const colOpenFreq = Array(10).fill(0);
+    const colCloseFreq = Array(10).fill(0);
+    const colTotalFreq = Array(10).fill(0);
+    let colSampleCount = 0;
+
+    for (let r = 0; r < targetRowIdx; r++) {
+      if (grid[r] && grid[r][colVal]?.val && /^\d{2}$/.test(grid[r][colVal].val)) {
+        const hVal = grid[r][colVal].val;
+        const hO = parseInt(hVal[0]), hC = parseInt(hVal[1]);
+        const hTot = (hO + hC) % 10;
+        const rec = Math.pow(0.985, targetRowIdx - r);
+
+        colOpenFreq[hO] += rec;
+        colCloseFreq[hC] += rec;
+        colTotalFreq[hTot] += rec;
+        colSampleCount += rec;
+      }
+    }
+
+    if (colSampleCount > 0) {
+      for (let o = 0; o <= 9; o++) {
+        for (let c = 0; c <= 9; c++) {
+          const candJodi = `${o}${c}`;
+          const candTot = (o + c) % 10;
+
+          const openShare = colOpenFreq[o] / colSampleCount;
+          const closeShare = colCloseFreq[c] / colSampleCount;
+          const totalShare = colTotalFreq[candTot] / colSampleCount;
+
+          if (openShare >= 0.15) {
+            addPoints(candJodi, Math.round(openShare * 80), activeModel.columnWeight, 1.0, `📊 [DAY-OF-WEEK OPEN TREND] ${COL_HEADERS[colVal] || 'This Column'} historically favors Open ${o} (${(openShare * 100).toFixed(1)}% weighted share)`);
+          }
+          if (closeShare >= 0.15) {
+            addPoints(candJodi, Math.round(closeShare * 60), activeModel.columnWeight, 1.0, `📊 [DAY-OF-WEEK CLOSE TREND] ${COL_HEADERS[colVal] || 'This Column'} historically favors Close ${c} (${(closeShare * 100).toFixed(1)}% weighted share)`);
+          }
+          if (totalShare >= 0.15) {
+            addPoints(candJodi, Math.round(totalShare * 60), activeModel.conditionWeight, 1.0, `📊 [DAY-OF-WEEK TOTAL TREND] ${COL_HEADERS[colVal] || 'This Column'} historically favors Total Sum ${candTot} (${(totalShare * 100).toFixed(1)}% weighted share)`);
+          }
+        }
+      }
+    }
+
+    // Calculate aggregated probabilities for Open, Close, and Total digits
+    const openScores = Array(10).fill(0);
+    const closeScores = Array(10).fill(0);
+    const totalScores = Array(10).fill(0);
+
+    Object.entries(candidateScores).forEach(([jodi, score]) => {
+      const o = parseInt(jodi[0]), c = parseInt(jodi[1]);
+      const tot = (o + c) % 10;
+      openScores[o] += score;
+      closeScores[c] += score;
+      totalScores[tot] += score;
+    });
+
+    const sumOpen = openScores.reduce((a, b) => a + b, 0) || 1;
+    const sumClose = closeScores.reduce((a, b) => a + b, 0) || 1;
+    const sumTotal = totalScores.reduce((a, b) => a + b, 0) || 1;
+
+    const topOpens = openScores
+      .map((score, digit) => ({ digit, prob: ((score / sumOpen) * 100).toFixed(1) }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 3);
+
+    const topCloses = closeScores
+      .map((score, digit) => ({ digit, prob: ((score / sumClose) * 100).toFixed(1) }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 3);
+
+    const topTotals = totalScores
+      .map((score, digit) => ({ digit, prob: ((score / sumTotal) * 100).toFixed(1) }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 3);
 
     const executionTime = (performance.now() - startTime).toFixed(2);
     const sorted = Object.entries(candidateScores).sort((a, b) => b[1] - a[1]);
@@ -457,7 +557,10 @@ export const PredictorEngine = () => {
       executionTime,
       lookbackRows: Math.min(targetRowIdx, LOOKBACK_WINDOW),
       customVisualRulesApplied,
-      openToOpenHarmonicScansApplied
+      openToOpenHarmonicScansApplied,
+      topOpens,
+      topCloses,
+      topTotals
     });
   };
 
@@ -620,6 +723,51 @@ export const PredictorEngine = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Key Digit Probability Heatmap Pills */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-2">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" /> Top Open Digits
+              </span>
+              <div className="flex items-center gap-2 pt-1">
+                {predictionResult.topOpens.map((item, i) => (
+                  <div key={i} className="flex-1 bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-2xl font-black text-emerald-300">{item.digit}</span>
+                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-2">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" /> Top Close Digits
+              </span>
+              <div className="flex items-center gap-2 pt-1">
+                {predictionResult.topCloses.map((item, i) => (
+                  <div key={i} className="flex-1 bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-2xl font-black text-blue-300">{item.digit}</span>
+                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-2">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" /> Top Total Sums
+              </span>
+              <div className="flex items-center gap-2 pt-1">
+                {predictionResult.topTotals.map((item, i) => (
+                  <div key={i} className="flex-1 bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-2xl font-black text-amber-300">{item.digit}</span>
+                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
