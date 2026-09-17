@@ -366,6 +366,7 @@ export const AILearningEngine = () => {
     });
     return map;
   }, [activeRules]);
+
   // ───────────────────────────────────────────────────────────────────────────
 
   const lastFilledRowIndex = useMemo(() => {
@@ -914,17 +915,6 @@ export const AILearningEngine = () => {
                               }`}
                             >
                               <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
-                                {scanHighlightRule && !primaryMatch && (
-                                  <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
-                                    <span
-                                      style={{
-                                        backgroundColor: scanHighlightRule.color,
-                                        boxShadow: `0 0 6px ${scanHighlightRule.color}, 0 0 1.5px #000`
-                                      }}
-                                      className="w-2.5 h-2.5 rounded-full border border-slate-950/90 inline-block"
-                                    />
-                                  </div>
-                                )}
 
                                 {/* TOP: Total (emerald left) + Diff Total (red right) */}
                                 {showStats && (
