@@ -36,6 +36,7 @@
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+  min-width: 100%;
   table-layout: fixed;
 }
 
@@ -49,6 +50,10 @@
   border: 1px solid #0f172a;
   height: 32px;
   line-height: 1;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .white-chart-table td {

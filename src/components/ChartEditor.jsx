@@ -67,8 +67,15 @@ export const ChartEditor = () => {
     return () => window.removeEventListener('scroll', handleWindowScroll);
   }, []);
 
+  const targetCols = useMemo(() => {
+    const parsed = parseInt(colsInput);
+    if (isNaN(parsed) || parsed < 1) return 7;
+    return Math.min(8, Math.max(1, parsed));
+  }, [colsInput]);
+
   const initEmptyGrid = (r, c) => {
-    setGrid(Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' }))));
+    const safeC = Math.min(8, Math.max(1, parseInt(c) || 7));
+    setGrid(Array.from({ length: r }, () => Array.from({ length: safeC }, () => ({ val: '' }))));
   };
 
   const handleCreateNewBlank = () => {
@@ -83,19 +90,39 @@ export const ChartEditor = () => {
 
   const handleApplyResize = () => {
     const r = Math.max(1, parseInt(rowsInput) || 20);
-    const c = Math.min(8, Math.max(5, parseInt(colsInput) || 7));
+    const c = Math.min(8, Math.max(1, parseInt(colsInput) || 7));
+    setColsInput(c);
+    setRowsInput(r);
+
     const newGrid = Array.from({ length: r }, (_, i) =>
       Array.from({ length: c }, (_, j) => (grid[i] && grid[i][j]) ? grid[i][j] : { val: '' })
     );
     setGrid(newGrid);
+
+    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+    saveChart(cleanName, r, c, newGrid);
+    setSaveSuccessMsg(`Resized chart "${cleanName}" to ${r} Rows × ${c} Cols!`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
   const displayGrid = useMemo(() => {
     if (!grid) return [];
+    const cCount = targetCols;
+
+    const normalizedGrid = grid.map(row => {
+      const r = Array.isArray(row) ? [...row] : [];
+      if (r.length > cCount) {
+        return r.slice(0, cCount);
+      }
+      while (r.length < cCount) {
+        r.push({ val: '' });
+      }
+      return r;
+    });
 
     let lastFilledIdx = -1;
-    for (let r = grid.length - 1; r >= 0; r--) {
-      if (grid[r] && grid[r].some(cell => cell && cell.val && cell.val.trim() !== '')) {
+    for (let r = normalizedGrid.length - 1; r >= 0; r--) {
+      if (normalizedGrid[r] && normalizedGrid[r].some(cell => cell && cell.val && cell.val.trim() !== '')) {
         lastFilledIdx = r;
         break;
       }
@@ -103,22 +130,29 @@ export const ChartEditor = () => {
 
     const minEmptyBelow = 15;
     const requiredRows = Math.max(
-      grid.length + minEmptyBelow,
+      normalizedGrid.length + minEmptyBelow,
       lastFilledIdx + 1 + minEmptyBelow,
       35
     );
 
-    const padded = grid.map(row => [...row]);
+    const padded = normalizedGrid.map(row => [...row]);
     while (padded.length < requiredRows) {
-      padded.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
+      padded.push(Array.from({ length: cCount }, () => ({ val: '' })));
     }
     return padded;
-  }, [grid, colsInput]);
+  }, [grid, targetCols]);
 
   const handleCellChange = (rIdx, cIdx, value) => {
-    let currentGrid = [...grid];
+    const cCount = targetCols;
+    let currentGrid = grid.map(row => {
+      const r = Array.isArray(row) ? [...row] : [];
+      if (r.length > cCount) return r.slice(0, cCount);
+      while (r.length < cCount) r.push({ val: '' });
+      return r;
+    });
+
     while (currentGrid.length <= rIdx) {
-      currentGrid.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
+      currentGrid.push(Array.from({ length: cCount }, () => ({ val: '' })));
     }
 
     let updated = currentGrid.map((row, r) =>
@@ -128,23 +162,21 @@ export const ChartEditor = () => {
     const valUpper = value.toUpperCase();
     if (value.length >= 2 || value === '*' || valUpper === 'X') {
       let nextR = rIdx, nextC = cIdx + 1;
-      if (nextC >= colsInput) {
+      if (nextC >= cCount) {
         nextC = 0;
         nextR++;
       }
 
-      // IF AT THE LAST CELL OF THE LAST ROW, AUTOMATICALLY CREATE A NEW EMPTY ROW!
       if (nextR >= updated.length) {
-        const emptyRow = Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' }));
+        const emptyRow = Array.from({ length: cCount }, () => ({ val: '' }));
         updated = [...updated, emptyRow];
         setRowsInput(updated.length);
       }
 
       setGrid(updated);
 
-      // AUTO SAVE INSTANTLY TO LOCAL STORAGE & STORE
       const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
-      saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
+      saveChart(cleanName, updated.length, cCount, updated);
 
       setTimeout(() => {
         const nextInput = document.getElementById(`cell-${nextR}-${nextC}`);
@@ -156,7 +188,7 @@ export const ChartEditor = () => {
     } else {
       setGrid(updated);
       const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
-      saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
+      saveChart(cleanName, updated.length, cCount, updated);
     }
   };
 
@@ -497,12 +529,18 @@ export const ChartEditor = () => {
             {activeChartName} JODI CHART RECORD
           </div>
 
-          <table className="w-full table-fixed white-chart-table border-collapse">
+          <table className="w-full table-fixed white-chart-table border-collapse min-w-[320px]">
+            <colgroup>
+              <col style={{ width: '36px' }} />
+              {Array.from({ length: targetCols }).map((_, c) => (
+                <col key={c} style={{ width: `calc((100% - 36px) / ${targetCols})` }} />
+              ))}
+            </colgroup>
             {/* STICKY GOLDEN DAY HEADERS */}
             <thead className="sticky top-0 z-30 shadow-md">
               <tr className="bg-[#fbbf24] text-slate-950 border-b-2 border-slate-900">
                 <th className="w-7 sm:w-10 text-center border border-slate-900 bg-[#f59e0b] text-slate-950 text-[10px] sm:text-xs font-black py-1">#</th>
-                {Array.from({ length: colsInput }).map((_, c) => (
+                {Array.from({ length: targetCols }).map((_, c) => (
                   <th key={c} className="text-center border border-slate-900 text-slate-950 font-black text-xs sm:text-base py-1">
                     {COL_HEADERS[c] || `C${c + 1}`}
                   </th>
@@ -511,18 +549,19 @@ export const ChartEditor = () => {
             </thead>
             <tbody>
               {topPadding > 0 && (
-                <tr><td colSpan={colsInput + 1} style={{ height: topPadding, padding: 0, border: 'none' }} /></tr>
+                <tr><td colSpan={targetCols + 1} style={{ height: topPadding, padding: 0, border: 'none' }} /></tr>
               )}
 
               {visibleRows.map((row, relIdx) => {
                 const rIdx = startRow + relIdx;
+                const safeRow = row.slice(0, targetCols);
                 return (
                   <tr key={rIdx} style={{ height: rowHeight }}>
                     {/* Row Number Column */}
                     <td className="text-center font-black text-slate-950 text-[10px] sm:text-xs bg-[#fcd34d] border border-slate-800 align-middle">
                       {rIdx + 1}
                     </td>
-                    {row.map((cell, cIdx) => {
+                    {safeRow.map((cell, cIdx) => {
                       const val = cell.val || '';
                       const total = calculateTotal(val);
                       const diffTotal = calculateDiffTotal(val);
