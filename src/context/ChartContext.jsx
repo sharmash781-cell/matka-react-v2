@@ -43,11 +43,14 @@ export const calculateDiffTotal = (val) => {
 
 export const DEFAULT_PRESETS = {};
 
-const STORAGE_KEY = 'userStoreCharts_v3';
+const STORAGE_KEY = 'adminPublishedCharts_v5';
 
 const getInitialCharts = () => {
   try {
-    // Clean legacy storage keys so demo presets do not resurrect
+    // Purge all legacy storage keys containing demo charts
+    localStorage.removeItem('userStoreCharts_v3');
+    localStorage.removeItem('userStoreCharts_v2');
+    localStorage.removeItem('userStoreCharts');
     localStorage.removeItem('chartHistory');
     localStorage.removeItem('matkaCharts');
     
@@ -55,11 +58,19 @@ const getInitialCharts = () => {
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        return parsed;
+        // Filter out any lingering legacy demo preset names
+        const cleanCharts = {};
+        const demoNames = ["DEMO 5-8-0 CHART", "SRIDEVI", "TIME BAZAR", "KALYAN MARKET"];
+        Object.keys(parsed).forEach(key => {
+          if (!demoNames.includes(key)) {
+            cleanCharts[key] = parsed[key];
+          }
+        });
+        return cleanCharts;
       }
     }
   } catch (e) {}
-  return {}; // NO DEMO CHARTS - ONLY ADMIN CREATED CHARTS
+  return {}; // CLEAN EMPTY STORE (ONLY ADMIN CREATED CHARTS)
 };
 
 export const ChartProvider = ({ children }) => {
@@ -189,10 +200,10 @@ export const ChartProvider = ({ children }) => {
   }, []);
 
   const resetToDefaultCharts = useCallback(() => {
-    setCharts(DEFAULT_PRESETS);
-    setActiveChartName("SRIDEVI");
+    setCharts({});
+    setActiveChartName("MY NEW CHART");
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PRESETS));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
     } catch (e) {}
   }, []);
 

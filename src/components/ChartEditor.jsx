@@ -34,7 +34,7 @@ export const ChartEditor = () => {
   const [colsInput, setColsInput] = useState(activeChart ? activeChart.cols : 7);
   const [grid, setGrid] = useState([]);
   const [quickInput, setQuickInput] = useState('');
-  const [showControls, setShowControls] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const [showStats, setShowStats] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
