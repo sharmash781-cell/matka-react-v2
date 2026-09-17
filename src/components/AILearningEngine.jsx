@@ -321,8 +321,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelTot].count++;
-              outcomeCounts[kRelTot].cells.push({ r: r0, c, badgeVal: `${tot0} Tot` });
-              outcomeCounts[kRelTot].cells.push({ r: rW, c, badgeVal: `${totW} Tot` });
+              outcomeCounts[kRelTot].cells.push({ r: r0, c, badgeVal: `${tot0}` });
+              outcomeCounts[kRelTot].cells.push({ r: rW, c, badgeVal: `${totW}` });
             }
 
             // Same Open Pair
@@ -339,8 +339,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelOpen].count++;
-              outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${val0[0]} Open` });
-              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${valW[0]} Open` });
+              outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${val0[0]}` });
+              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${valW[0]}` });
             }
 
             // Same Close Pair
@@ -357,8 +357,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelClose].count++;
-              outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${val0[1]} Close` });
-              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${valW[1]} Close` });
+              outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${val0[1]}` });
+              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${valW[1]}` });
             }
 
             // Cut Total Pair
@@ -375,8 +375,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kCutTot].count++;
-              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `Cut ${totW}` });
-              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `Cut ${tot0}` });
+              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `${tot0}` });
+              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `${totW}` });
             }
 
             // Repeat Jodi Pair
@@ -1031,10 +1031,10 @@ export const AILearningEngine = () => {
                               }`}
                             >
                               <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
-                                {/* TOP RIGHT: Small Common Total / Value Badge */}
+                                {/* TOP RIGHT EDGE: Small Common Total / Number Badge */}
                                 {scanCellBadge && (
-                                  <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
-                                    <span className="text-[8px] sm:text-[10px] font-black font-mono text-purple-950 bg-amber-300 border border-amber-500 rounded px-1 shadow-sm leading-none">
+                                  <div className="absolute top-0 right-0 z-20 pointer-events-none">
+                                    <span className="text-[9px] sm:text-[11px] font-black font-mono text-purple-950 bg-amber-300 border-b border-l border-amber-500 rounded-bl px-1 py-0.2 shadow-sm leading-none inline-block">
                                       {scanCellBadge}
                                     </span>
                                   </div>
