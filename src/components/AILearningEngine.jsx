@@ -321,8 +321,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelTot].count++;
-              outcomeCounts[kRelTot].cells.push({ r: r0, c });
-              outcomeCounts[kRelTot].cells.push({ r: rW, c });
+              outcomeCounts[kRelTot].cells.push({ r: r0, c, badgeVal: `${tot0} Tot` });
+              outcomeCounts[kRelTot].cells.push({ r: rW, c, badgeVal: `${totW} Tot` });
             }
 
             // Same Open Pair
@@ -339,8 +339,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelOpen].count++;
-              outcomeCounts[kRelOpen].cells.push({ r: r0, c });
-              outcomeCounts[kRelOpen].cells.push({ r: rW, c });
+              outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${val0[0]} Open` });
+              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${valW[0]} Open` });
             }
 
             // Same Close Pair
@@ -357,8 +357,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelClose].count++;
-              outcomeCounts[kRelClose].cells.push({ r: r0, c });
-              outcomeCounts[kRelClose].cells.push({ r: rW, c });
+              outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${val0[1]} Close` });
+              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${valW[1]} Close` });
             }
 
             // Cut Total Pair
@@ -375,8 +375,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kCutTot].count++;
-              outcomeCounts[kCutTot].cells.push({ r: r0, c });
-              outcomeCounts[kCutTot].cells.push({ r: rW, c });
+              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `Cut ${totW}` });
+              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `Cut ${tot0}` });
             }
 
             // Repeat Jodi Pair
@@ -437,11 +437,11 @@ export const AILearningEngine = () => {
       const isRed = out.type === 'red';
       const isRel = out.type.startsWith('rel_');
       const dayName = COL_HEADERS[out.col];
-      const icon = isRed ? '🔴' : isRel ? '🔷' : '🟡';
-      const color = isRed ? '#ef4444' : isRel ? '#3b82f6' : '#f59e0b';
-      const borderColor = isRed ? '#dc2626' : isRel ? '#2563eb' : '#d97706';
-      const bg = isRed ? 'bg-red-950' : isRel ? 'bg-blue-950' : 'bg-amber-950';
-      const text = isRed ? 'text-red-300' : isRel ? 'text-blue-300' : 'text-amber-300';
+      const icon = isRed ? '🔴' : isRel ? '🔮' : '🟡';
+      const color = isRed ? '#ef4444' : isRel ? '#a855f7' : '#f59e0b';
+      const borderColor = isRed ? '#dc2626' : isRel ? '#9333ea' : '#d97706';
+      const bg = isRed ? 'bg-red-950' : isRel ? 'bg-purple-950' : 'bg-amber-950';
+      const text = isRed ? 'text-red-300' : isRel ? 'text-purple-300' : 'text-amber-300';
 
       return {
         id: `outcome_${idx}_${Date.now()}`,
@@ -474,7 +474,7 @@ export const AILearningEngine = () => {
       rule.cells.forEach(cell => {
         const key = `${cell.r}_${cell.c}`;
         if (!map[key]) {
-          map[key] = rule;
+          map[key] = { rule, badgeVal: cell.badgeVal || null };
         }
       });
     });
@@ -991,7 +991,9 @@ export const AILearningEngine = () => {
                           const emptyCellPredictions = emptyCellMap[`${rIdx}_${cIdx}`] || [];
                           const primaryEmptyPred = emptyCellPredictions[0] || null;
 
-                          const scanHighlightRule = scanCellHighlightMap[`${rIdx}_${cIdx}`] || null;
+                          const scanHighlightData = scanCellHighlightMap[`${rIdx}_${cIdx}`] || null;
+                          const scanHighlightRule = scanHighlightData ? scanHighlightData.rule : null;
+                          const scanCellBadge = scanHighlightData ? scanHighlightData.badgeVal : null;
 
                           let bgStyle = 'white';
                           let borderStyle = '#020617';
@@ -1029,6 +1031,14 @@ export const AILearningEngine = () => {
                               }`}
                             >
                               <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
+                                {/* TOP RIGHT: Small Common Total / Value Badge */}
+                                {scanCellBadge && (
+                                  <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
+                                    <span className="text-[8px] sm:text-[10px] font-black font-mono text-purple-950 bg-amber-300 border border-amber-500 rounded px-1 shadow-sm leading-none">
+                                      {scanCellBadge}
+                                    </span>
+                                  </div>
+                                )}
 
                                 {/* TOP: Total (emerald left) + Diff Total (red right) */}
                                 {showStats && (
