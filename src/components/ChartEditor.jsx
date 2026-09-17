@@ -160,17 +160,6 @@ export const ChartEditor = () => {
     }
   };
 
-  const handleAdd10Weeks = () => {
-    let newGrid = [...grid];
-    for (let i = 0; i < 10; i++) {
-      newGrid.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
-    }
-    setGrid(newGrid);
-    setRowsInput(newGrid.length);
-    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
-    saveChart(cleanName, newGrid.length, parseInt(colsInput) || 7, newGrid);
-  };
-
   const handleCellPaste = (e, startR, startC) => {
     e.preventDefault();
     const tokens = parseJodiTokens(e.clipboardData.getData('text'));
@@ -291,13 +280,6 @@ export const ChartEditor = () => {
                 }`}
               >
                 🔢 <span>Stats: {showStats ? 'ON' : 'OFF'}</span>
-              </button>
-
-              <button
-                onClick={handleAdd10Weeks}
-                className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
-              >
-                ➕ Add 10 Weeks
               </button>
 
               <button
@@ -606,12 +588,12 @@ export const ChartEditor = () => {
 
           {/* TABLE FOOTER ACTIONS */}
           <div className="flex items-center justify-between flex-wrap gap-2 p-2 bg-[#fbbf24] border-t-2 border-slate-900 text-xs font-mono font-black text-slate-950">
-            <span>Showing {displayGrid.length} Weeks (Min 35 Weeks View)</span>
+            <span>Showing {displayGrid.length} Weeks</span>
             <button
-              onClick={handleAdd10Weeks}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-lg shadow active:scale-95 transition"
+              onClick={scrollToLastRow}
+              className="bg-slate-900 text-amber-400 hover:bg-slate-800 px-3 py-1 rounded-lg shadow active:scale-95 transition text-xs font-mono font-black"
             >
-              ➕ Add 10 More Weeks
+              Go to Bottom ⬇
             </button>
           </div>
         </div>
