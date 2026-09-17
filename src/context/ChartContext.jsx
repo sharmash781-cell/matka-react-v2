@@ -41,24 +41,7 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-// Optional Presets (only loaded if user manually clicks "Load Presets")
-export const DEFAULT_PRESETS = {
-  "DEMO 5-8-0 CHART": {
-    rows: 8,
-    cols: 7,
-    updatedAt: new Date().toISOString(),
-    data: [
-      [{val:"53"}, {val:"84"}, {val:"07"}, {val:"12"}, {val:"69"}, {val:"24"}, {val:"77"}],
-      [{val:"65"}, {val:"18"}, {val:"90"}, {val:"33"}, {val:"51"}, {val:"08"}, {val:"59"}],
-      [{val:"52"}, {val:"88"}, {val:"00"}, {val:"64"}, {val:"03"}, {val:"86"}, {val:"30"}],
-      [{val:"39"}, {val:"36"}, {val:"45"}, {val:"51"}, {val:"31"}, {val:"89"}, {val:"05"}],
-      [{val:"22"}, {val:"88"}, {val:"01"}, {val:"59"}, {val:"55"}, {val:"59"}, {val:"59"}],
-      [{val:"56"}, {val:"91"}, {val:"86"}, {val:"75"}, {val:"81"}, {val:"57"}, {val:"08"}],
-      [{val:"88"}, {val:"92"}, {val:"66"}, {val:"57"}, {val:"99"}, {val:"71"}, {val:"20"}],
-      [{val:"15"}, {val:"28"}, {val:"30"}, {val:"44"}, {val:"55"}, {val:"66"}, {val:"77"}]
-    ]
-  },
-  "SRIDEVI": srideviPreset,
+export const DEFAULT_PUBLISHED_CHARTS = {
   "TIME BAZAR": {
     rows: 15,
     cols: 7,
@@ -69,6 +52,7 @@ export const DEFAULT_PRESETS = {
       [{val:"80"}, {val:"35"}, {val:"52"}, {val:"17"}, {val:"95"}, {val:"11"}, {val:"33"}]
     ]
   },
+  "SRIDEVI": srideviPreset,
   "KALYAN MARKET": {
     rows: 10,
     cols: 7,
@@ -80,23 +64,21 @@ export const DEFAULT_PRESETS = {
   }
 };
 
+export const DEFAULT_PRESETS = DEFAULT_PUBLISHED_CHARTS;
+
 const STORAGE_KEY = 'userStoreCharts_v3';
 
 const getInitialCharts = () => {
   try {
-    // Clean legacy storage keys so old auto-presets don't resurrect
-    localStorage.removeItem('chartHistory');
-    localStorage.removeItem('matkaCharts');
-    
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         return parsed;
       }
     }
   } catch (e) {}
-  return {}; // ALWAYS START EMPTY (0 CHARTS)
+  return DEFAULT_PUBLISHED_CHARTS; // DEFAULT TO PUBLISHED CHARTS SO USER NEVER SEES EMPTY STORE
 };
 
 export const ChartProvider = ({ children }) => {

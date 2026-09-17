@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
-import { Lock, ShieldCheck, ShieldAlert, X, PlusCircle, Trash2, Table, Save, FileText, Download, Upload, LogOut, CheckCircle, RefreshCw, Key } from 'lucide-react';
+import { Lock, ShieldCheck, ShieldAlert, X, PlusCircle, Trash2, Table, Save, FileText, Download, Upload, LogOut, CheckCircle, RefreshCw, Key, Copy, Edit3, Plus } from 'lucide-react';
 
 export const AdminModal = () => {
   const {
@@ -31,6 +31,10 @@ export const AdminModal = () => {
   const [isImportMode, setIsImportMode] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
 
+  // Editing / Renaming Modal State
+  const [editingChartName, setEditingChartName] = useState(null);
+  const [newChartNameInput, setNewChartNameInput] = useState('');
+
   if (!showAdminModal) return null;
 
   const handleLoginSubmit = (e) => {
@@ -40,13 +44,8 @@ export const AdminModal = () => {
       setLoginError('');
       setPasscode('');
     } else {
-      setLoginError(res.message);
+      setLoginError('Invalid Admin Passcode!');
     }
-  };
-
-  const handleQuickFillCode = () => {
-    setPasscode('mas9090');
-    setLoginError('');
   };
 
   const handleCreateChart = (e) => {
@@ -60,13 +59,14 @@ export const AdminModal = () => {
     if (isImportMode && rawText.trim()) {
       const success = importRawData(cleanName, rawText, cols, rows);
       if (success) {
-        setAdminMsg(`✅ Created and published chart "${cleanName}" with imported data for all users!`);
+        setActiveChartName(cleanName);
+        setAdminMsg(`✅ Created and published chart "${cleanName}"! Opening Grid...`);
         setChartName('');
         setRawText('');
         setTimeout(() => {
           setShowAdminModal(false);
           setActiveTab('editor');
-        }, 1200);
+        }, 800);
       } else {
         setAdminMsg('❌ Failed to extract Jodi pairs from raw text.');
       }
@@ -75,13 +75,50 @@ export const AdminModal = () => {
       const c = Math.min(8, Math.max(5, parseInt(cols) || 7));
       const emptyGrid = Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' })));
       saveChart(cleanName, r, c, emptyGrid);
-      setAdminMsg(`✅ Created and published blank chart "${cleanName}" (${r}x${c}) for all users!`);
+      setActiveChartName(cleanName);
+      setAdminMsg(`✅ Created and published chart "${cleanName}" (${r}x${c})! Opening Grid...`);
       setChartName('');
       setTimeout(() => {
         setShowAdminModal(false);
         setActiveTab('editor');
-      }, 1200);
+      }, 800);
     }
+  };
+
+  const handleAppendRows = (name, count) => {
+    const chart = charts[name];
+    if (!chart || !chart.data) return;
+    const c = chart.cols || (chart.data[0] ? chart.data[0].length : 7);
+    const extraGrid = Array.from({ length: count }, () => Array.from({ length: c }, () => ({ val: '' })));
+    const newGrid = [...chart.data, ...extraGrid];
+    saveChart(name, newGrid.length, c, newGrid);
+    setAdminMsg(`✅ Appended +${count} empty rows to "${name}" (Total: ${newGrid.length} Rows)`);
+  };
+
+  const handleCloneChart = (name) => {
+    const chart = charts[name];
+    if (!chart || !chart.data) return;
+    const cloneName = `${name}_COPY`;
+    const c = chart.cols || (chart.data[0] ? chart.data[0].length : 7);
+    saveChart(cloneName, chart.data.length, c, chart.data);
+    setActiveChartName(cloneName);
+    setAdminMsg(`✅ Cloned "${name}" to "${cloneName}"!`);
+  };
+
+  const handleRenameSubmit = (oldName) => {
+    const cleanNew = newChartNameInput.trim().toUpperCase();
+    if (!cleanNew || cleanNew === oldName) {
+      setEditingChartName(null);
+      return;
+    }
+    const chart = charts[oldName];
+    if (!chart) return;
+    saveChart(cleanNew, chart.rows || chart.data.length, chart.cols || 7, chart.data);
+    deleteChart(oldName);
+    setActiveChartName(cleanNew);
+    setEditingChartName(null);
+    setNewChartNameInput('');
+    setAdminMsg(`✅ Renamed chart from "${oldName}" to "${cleanNew}"`);
   };
 
   const handleExportBackup = () => {
@@ -102,13 +139,15 @@ export const AdminModal = () => {
         try {
           const parsed = JSON.parse(event.target.result);
           if (parsed && typeof parsed === 'object') {
-            Object.keys(parsed).forEach(key => {
+            const keys = Object.keys(parsed);
+            keys.forEach(key => {
               const item = parsed[key];
               if (item && item.data) {
                 saveChart(key, item.rows || item.data.length, item.cols || (item.data[0] ? item.data[0].length : 7), item.data);
               }
             });
-            setAdminMsg(`✅ Successfully imported ${Object.keys(parsed).length} charts from JSON!`);
+            if (keys.length > 0) setActiveChartName(keys[0]);
+            setAdminMsg(`✅ Successfully imported ${keys.length} charts from JSON!`);
           }
         } catch (err) {
           setAdminMsg('❌ Invalid JSON file format.');
@@ -172,7 +211,7 @@ export const AdminModal = () => {
               {loginError && (
                 <div className="bg-red-950/80 border border-red-600 text-red-300 text-xs p-3 rounded-xl flex items-center gap-2 font-bold animate-shake">
                   <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>Invalid Admin Passcode!</span>
+                  <span>{loginError}</span>
                 </div>
               )}
 
@@ -343,57 +382,125 @@ export const AdminModal = () => {
                 </form>
               )}
 
-              {/* TAB 2: MANAGE STORE CHARTS */}
+              {/* TAB 2: MANAGE STORE CHARTS & ADMIN TOOLS */}
               {activeAdminTab === 'manage' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between bg-slate-950 p-2.5 border border-slate-800 rounded-xl text-xs font-bold text-slate-300">
                     <span>Total Market Charts: {chartKeys.length}</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={resetToDefaultCharts}
-                        className="flex items-center gap-1 text-[11px] text-emerald-400 hover:underline"
-                      >
-                        <RefreshCw className="w-3 h-3" /> Load Presets
-                      </button>
-                      <button
-                        onClick={clearAllCharts}
-                        className="flex items-center gap-1 text-[11px] text-red-400 hover:underline"
-                      >
-                        <Trash2 className="w-3 h-3" /> Clear All
-                      </button>
-                    </div>
+                    <button
+                      onClick={clearAllCharts}
+                      className="flex items-center gap-1 text-[11px] text-red-400 hover:underline"
+                    >
+                      <Trash2 className="w-3 h-3" /> Clear All Store
+                    </button>
                   </div>
 
                   {chartKeys.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-xs">No charts stored yet. Create one above!</div>
+                    <div className="text-center py-8 text-slate-400 text-xs">No charts stored yet. Create one in the "Create Chart" tab above!</div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto p-1">
+                    <div className="space-y-2 max-h-72 overflow-y-auto p-1">
                       {chartKeys.map((name) => {
                         const chart = charts[name];
                         const rCount = chart?.rows || (chart?.data ? chart.data.length : 20);
                         const cCount = chart?.cols || 7;
+                        const isEditingThis = editingChartName === name;
+
                         return (
-                          <div key={name} className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2 shadow">
-                            <div>
-                              <div className="font-black text-amber-400 text-xs uppercase">{name}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{rCount} Rows × {cCount} Cols</div>
+                          <div key={name} className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 shadow">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              {isEditingThis ? (
+                                <div className="flex items-center gap-1 flex-1">
+                                  <input
+                                    type="text"
+                                    value={newChartNameInput}
+                                    onChange={(e) => setNewChartNameInput(e.target.value.toUpperCase())}
+                                    className="bg-slate-900 border border-amber-500 text-amber-300 text-xs font-bold px-2 py-1 rounded"
+                                  />
+                                  <button
+                                    onClick={() => handleRenameSubmit(name)}
+                                    className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingChartName(null)}
+                                    className="text-slate-400 text-[10px] px-1"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="font-black text-amber-400 text-xs uppercase flex items-center gap-1.5">
+                                    <span>{name}</span>
+                                    <button
+                                      onClick={() => {
+                                        setEditingChartName(name);
+                                        setNewChartNameInput(name);
+                                      }}
+                                      className="text-slate-500 hover:text-amber-300"
+                                      title="Rename Chart"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{rCount} Rows × {cCount} Cols</div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setActiveChartName(name);
+                                    setShowAdminModal(false);
+                                    setActiveTab('editor');
+                                  }}
+                                  className="bg-slate-800 hover:bg-slate-700 text-blue-300 text-[10px] font-bold px-2.5 py-1 rounded-lg"
+                                >
+                                  Open Grid
+                                </button>
+                                <button
+                                  onClick={() => handleCloneChart(name)}
+                                  className="bg-slate-800 hover:bg-slate-700 text-purple-300 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1"
+                                  title="Clone Chart"
+                                >
+                                  <Copy className="w-3 h-3" /> Clone
+                                </button>
+                                <button
+                                  onClick={() => deleteChart(name)}
+                                  className="bg-red-950 text-red-400 hover:bg-red-900 text-[10px] font-bold p-1 rounded-lg"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
+
+                            {/* Quick Admin Actions: Append Rows */}
+                            <div className="flex items-center gap-1.5 pt-1 border-t border-slate-900 text-[10px]">
+                              <span className="text-slate-400 font-bold shrink-0">Append Empty Rows:</span>
                               <button
-                                onClick={() => {
-                                  setActiveChartName(name);
-                                  setShowAdminModal(false);
-                                  setActiveTab('editor');
-                                }}
-                                className="bg-slate-800 hover:bg-slate-700 text-blue-300 text-[10px] font-bold px-2 py-1 rounded-lg"
+                                onClick={() => handleAppendRows(name, 10)}
+                                className="bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-slate-700 px-2 py-0.5 rounded font-mono font-bold"
                               >
-                                Edit Grid
+                                +10 Rows
                               </button>
                               <button
-                                onClick={() => deleteChart(name)}
-                                className="bg-red-950 text-red-400 hover:bg-red-900 text-[10px] font-bold p-1 rounded-lg"
+                                onClick={() => handleAppendRows(name, 25)}
+                                className="bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-slate-700 px-2 py-0.5 rounded font-mono font-bold"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                +25 Rows
+                              </button>
+                              <button
+                                onClick={() => handleAppendRows(name, 50)}
+                                className="bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-slate-700 px-2 py-0.5 rounded font-mono font-bold"
+                              >
+                                +50 Rows
+                              </button>
+                              <button
+                                onClick={() => handleAppendRows(name, 100)}
+                                className="bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-slate-700 px-2 py-0.5 rounded font-mono font-bold"
+                              >
+                                +100 Rows
                               </button>
                             </div>
                           </div>
