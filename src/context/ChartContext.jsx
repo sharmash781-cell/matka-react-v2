@@ -47,30 +47,15 @@ const STORAGE_KEY = 'adminPublishedCharts_v5';
 
 const getInitialCharts = () => {
   try {
-    // Purge all legacy storage keys containing demo charts
-    localStorage.removeItem('userStoreCharts_v3');
-    localStorage.removeItem('userStoreCharts_v2');
-    localStorage.removeItem('userStoreCharts');
-    localStorage.removeItem('chartHistory');
-    localStorage.removeItem('matkaCharts');
-    
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        // Filter out any lingering legacy demo preset names
-        const cleanCharts = {};
-        const demoNames = ["DEMO 5-8-0 CHART", "SRIDEVI", "TIME BAZAR", "KALYAN MARKET"];
-        Object.keys(parsed).forEach(key => {
-          if (!demoNames.includes(key)) {
-            cleanCharts[key] = parsed[key];
-          }
-        });
-        return cleanCharts;
+        return parsed;
       }
     }
   } catch (e) {}
-  return {}; // CLEAN EMPTY STORE (ONLY ADMIN CREATED CHARTS)
+  return {}; // Clean empty store on first run, saves and keeps all user created charts on refresh
 };
 
 export const ChartProvider = ({ children }) => {

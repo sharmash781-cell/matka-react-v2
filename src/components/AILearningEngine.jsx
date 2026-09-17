@@ -438,8 +438,25 @@ export const AILearningEngine = () => {
 
     const patternCells = [];
     occurrences.forEach(occ => {
+      // 1. Highlight the pattern occurrence pair cells (val1 and val2)
       patternCells.push({ r: occ.row1, c: occ.col1 });
       patternCells.push({ r: occ.row2, c: occ.col2 });
+
+      // 2. Scan forward cell-by-cell after (row2, col2) for the VERY FIRST / NEAREST exact re-appearance of val2 (e.g. 34)
+      const targetVal = occ.val2;
+      if (targetVal && /^\d{2}$/.test(targetVal)) {
+        let found = false;
+        for (let r = occ.row2; r < grid.length && !found; r++) {
+          const startC = (r === occ.row2) ? occ.col2 + 1 : 0;
+          for (let c = startC; c < colsInput; c++) {
+            if (grid[r]?.[c]?.val === targetVal) {
+              patternCells.push({ r, c });
+              found = true;
+              break;
+            }
+          }
+        }
+      }
     });
 
     const patternRule = {

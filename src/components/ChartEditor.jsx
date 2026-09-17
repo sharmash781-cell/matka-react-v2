@@ -492,8 +492,17 @@ export const ChartEditor = () => {
           </div>
         )}
 
-        {/* 3. CHART TABLE GRID */}
-        <div ref={containerRef} className="w-full max-w-3xl mx-auto overflow-x-auto shadow-2xl rounded-lg border border-slate-400 bg-[#fef3c7]">
+        {/* 3. CHART TABLE GRID (Ultra-Smooth DPBoss Scrolling Engine) */}
+        <div 
+          ref={containerRef} 
+          className="w-full max-w-3xl mx-auto overflow-x-auto shadow-2xl rounded-lg border border-slate-400 bg-[#fef3c7]"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            willChange: 'scroll-position',
+            contain: 'content',
+            transform: 'translateZ(0)'
+          }}
+        >
 
           {/* Dynamic Chart Title Banner */}
           <div className="bg-[#1e3a8a] text-white text-center font-black py-2 px-2 text-xs sm:text-sm uppercase tracking-wider border-b-2 border-blue-950 shadow-inner">
