@@ -309,6 +309,7 @@ export const AILearningEngine = () => {
 
             // Same Total Pair (e.g. Fri 51 & 88 [tot 6], 31 & 59 [tot 4], 81 & 90 [tot 9])
             if (tot0 !== null && totW !== null && tot0 === totW) {
+              // General Same Total Pair for this column & week gap
               const kRelTot = `rel_same_total_${w}_${c}`;
               if (!outcomeCounts[kRelTot]) {
                 outcomeCounts[kRelTot] = {
@@ -321,11 +322,28 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelTot].count++;
+              // Both cells in the pair get the exact SAME common total digit!
               outcomeCounts[kRelTot].cells.push({ r: r0, c, badgeVal: `${tot0}` });
-              outcomeCounts[kRelTot].cells.push({ r: rW, c, badgeVal: `${totW}` });
+              outcomeCounts[kRelTot].cells.push({ r: rW, c, badgeVal: `${tot0}` });
+
+              // Specific Total Value Pair (e.g. 4 Total -> 4 Total, 6 Total -> 6 Total, 3 Total -> 3 Total)
+              const kRelTotVal = `rel_same_tot_val_${tot0}_${w}_${c}`;
+              if (!outcomeCounts[kRelTotVal]) {
+                outcomeCounts[kRelTotVal] = {
+                  type: 'rel_total_val',
+                  week: w,
+                  col: c,
+                  val: `${tot0} Total`,
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kRelTotVal].count++;
+              outcomeCounts[kRelTotVal].cells.push({ r: r0, c, badgeVal: `${tot0}` });
+              outcomeCounts[kRelTotVal].cells.push({ r: rW, c, badgeVal: `${tot0}` });
             }
 
-            // Same Open Pair
+            // Same Open Pair (e.g. Open 3 -> Open 3)
             if (val0[0] === valW[0]) {
               const kRelOpen = `rel_same_open_${w}_${c}`;
               if (!outcomeCounts[kRelOpen]) {
@@ -339,11 +357,12 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelOpen].count++;
+              // Both cells get the SAME Open digit!
               outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${val0[0]}` });
-              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${valW[0]}` });
+              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${val0[0]}` });
             }
 
-            // Same Close Pair
+            // Same Close Pair (e.g. Close 8 -> Close 8)
             if (val0[1] === valW[1]) {
               const kRelClose = `rel_same_close_${w}_${c}`;
               if (!outcomeCounts[kRelClose]) {
@@ -357,11 +376,12 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelClose].count++;
+              // Both cells get the SAME Close digit!
               outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${val0[1]}` });
-              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${valW[1]}` });
+              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${val0[1]}` });
             }
 
-            // Cut Total Pair
+            // Cut Total Pair (e.g. Total 4 -> Total 9)
             if (tot0 !== null && totW !== null && totW === (tot0 + 5) % 10) {
               const kCutTot = `rel_cut_total_${w}_${c}`;
               if (!outcomeCounts[kCutTot]) {
@@ -375,8 +395,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kCutTot].count++;
-              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `${tot0}` });
-              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `${totW}` });
+              outcomeCounts[kCutTot].cells.push({ r: r0, c, badgeVal: `${tot0}⚡${totW}` });
+              outcomeCounts[kCutTot].cells.push({ r: rW, c, badgeVal: `${tot0}⚡${totW}` });
             }
 
             // Repeat Jodi Pair
