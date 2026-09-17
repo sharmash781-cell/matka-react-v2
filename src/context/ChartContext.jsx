@@ -4,6 +4,8 @@ import srideviPreset from '../data/sridevi_preset.json';
 
 import mainBazarPreset from '../data/main_bazar_preset.json';
 import srideviiiiPreset from '../data/srideviiii_preset.json';
+import milanDayyPreset from '../data/milan_dayy_preset.json';
+import milanNighttPreset from '../data/milan_nightt_preset.json';
 
 const ChartContext = createContext();
 
@@ -47,12 +49,16 @@ export const calculateDiffTotal = (val) => {
 
 export const DEFAULT_PUBLISHED_CHARTS = {
   "MAIN BAZAR": mainBazarPreset,
-  "SRIDEVIIII": srideviiiiPreset
+  "SRIDEVIIII": srideviiiiPreset,
+  "MILAN DAYY": milanDayyPreset,
+  "MILAN NIGHTT": milanNighttPreset
 };
 
 export const DEFAULT_PRESETS = {
   "MAIN BAZAR": mainBazarPreset,
-  "SRIDEVIIII": srideviiiiPreset
+  "SRIDEVIIII": srideviiiiPreset,
+  "MILAN DAYY": milanDayyPreset,
+  "MILAN NIGHTT": milanNighttPreset
 };
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
@@ -65,13 +71,17 @@ const getInitialCharts = () => {
       if (parsed && typeof parsed === 'object') {
         parsed["MAIN BAZAR"] = mainBazarPreset;
         parsed["SRIDEVIIII"] = srideviiiiPreset;
+        parsed["MILAN DAYY"] = milanDayyPreset;
+        parsed["MILAN NIGHTT"] = milanNighttPreset;
         return parsed;
       }
     }
   } catch (e) {}
   return {
     "MAIN BAZAR": mainBazarPreset,
-    "SRIDEVIIII": srideviiiiPreset
+    "SRIDEVIIII": srideviiiiPreset,
+    "MILAN DAYY": milanDayyPreset,
+    "MILAN NIGHTT": milanNighttPreset
   };
 };
 
