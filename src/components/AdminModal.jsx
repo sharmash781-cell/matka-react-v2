@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
-import { Lock, ShieldCheck, ShieldAlert, X, PlusCircle, Trash2, Table, Save, FileText, Download, Upload, LogOut, CheckCircle, RefreshCw, Key, Copy, Edit3, Plus } from 'lucide-react';
+import { Lock, ShieldCheck, ShieldAlert, X, PlusCircle, Trash2, Table, Save, FileText, Download, Upload, LogOut, CheckCircle, RefreshCw, Key, Copy, Edit3, Plus, Share2 } from 'lucide-react';
 
 export const AdminModal = () => {
   const {
@@ -129,6 +129,17 @@ export const AdminModal = () => {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  const handleCopyShareLink = () => {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(charts));
+      const shareUrl = `${window.location.origin}${window.location.pathname}#share=${encoded}`;
+      navigator.clipboard.writeText(shareUrl);
+      setAdminMsg('📋 Copied 1-Click Mobile Share Link! Send/open this link on any mobile phone to sync all charts instantly.');
+    } catch (err) {
+      setAdminMsg('❌ Failed to copy share link.');
+    }
   };
 
   const handleImportBackupFile = (e) => {
@@ -529,6 +540,19 @@ export const AdminModal = () => {
               {/* TAB 3: BACKUP & RESTORE JSON */}
               {activeAdminTab === 'backup' && (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-4">
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">Mobile &amp; Multi-Device Sync Link</h4>
+                    <p className="text-[11px] text-slate-400 mb-2">Generate a 1-click share link to immediately sync all published charts on any mobile phone or browser.</p>
+                    <button
+                      onClick={handleCopyShareLink}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow active:scale-95 transition"
+                    >
+                      <Share2 className="w-4 h-4" /> 📋 Copy 1-Click Mobile Share Link
+                    </button>
+                  </div>
+
+                  <hr className="border-slate-800" />
+
                   <div>
                     <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider mb-1">Export Chart Repository</h4>
                     <p className="text-[11px] text-slate-400 mb-2">Download all saved market charts as a JSON backup file.</p>

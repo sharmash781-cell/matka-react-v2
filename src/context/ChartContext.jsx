@@ -143,6 +143,43 @@ export const ChartProvider = ({ children }) => {
     } catch (e) {}
   }, [charts]);
 
+  // Sync state when storage changes across windows/tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && typeof parsed === 'object') {
+            setCharts(parsed);
+          }
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Check URL Hash for shared published chart code on mobile/desktop mount
+  useEffect(() => {
+    try {
+      if (window.location.hash && window.location.hash.startsWith('#share=')) {
+        const hashData = window.location.hash.replace('#share=', '');
+        const decoded = JSON.parse(decodeURIComponent(hashData));
+        if (decoded && typeof decoded === 'object') {
+          setCharts(prev => {
+            const merged = { ...prev, ...decoded };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            return merged;
+          });
+          const keys = Object.keys(decoded);
+          if (keys.length > 0) {
+            setActiveChartName(keys[0]);
+          }
+        }
+      }
+    } catch (err) {}
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem('matkaLearnedModels', JSON.stringify(learnedModels));
