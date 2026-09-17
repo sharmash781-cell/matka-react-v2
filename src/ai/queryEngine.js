@@ -307,6 +307,77 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         crossMatches.forEach(m => {
           let typeStr = m[1].toLowerCase().replace(/\s+/g, '_');
           if (typeStr.includes('total') && typeStr.includes('open')) typeStr = 'total_to_open';
+          // Special check for Master Game Triad query
+          if (q.includes('master game') || q.includes('master triad') || q.includes('master')) {
+            const stepWeeks = 4; // Default 4-week step down
+            let pCount = 1;
+
+            for (let r3 = stepWeeks * 2; r3 < grid.length; r3++) {
+              const r1 = r3 - (stepWeeks * 2);
+              const r2 = r3 - stepWeeks;
+
+              if (!grid[r1] || !grid[r2] || !grid[r3]) continue;
+
+              for (let c1 = 0; c1 < cols; c1++) {
+                const val1 = grid[r1][c1]?.val;
+                if (!val1 || !/^\d{2}$/.test(val1)) continue;
+
+                for (let c2 = 0; c2 < cols; c2++) {
+                  const val2 = grid[r2][c2]?.val;
+                  if (!val2 || !/^\d{2}$/.test(val2)) continue;
+
+                  for (let c3 = 0; c3 < cols; c3++) {
+                    const val3 = grid[r3][c3]?.val;
+                    if (!val3 || !/^\d{2}$/.test(val3)) continue;
+
+                    const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
+                    const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
+                    const o3 = parseInt(val3[0]), cVal3 = parseInt(val3[1]);
+
+                    const targetSum = (o1 + o2 + o3) % 10;
+
+                    // Check Close Balance line
+                    let isCloseBalanced = false;
+                    if (c2 > 0 && grid[r2][c2 - 1]?.val && /^\d{2}$/.test(grid[r2][c2 - 1].val)) {
+                      const adjVal = grid[r2][c2 - 1].val;
+                      const adjTotal = (parseInt(adjVal[0]) + parseInt(adjVal[1])) % 10;
+                      const reqCloseSum = (adjTotal + o2) % 10;
+                      if ((cVal1 + cVal2 + cVal3) % 10 === reqCloseSum) {
+                        isCloseBalanced = true;
+                      }
+                    }
+
+                    if (isCloseBalanced || (o1 + o2 + o3) % 10 === 0 || (o1 + o2 + o3) % 10 === 8 || (o1 + o2 + o3) % 10 === 6 || (o1 + o2 + o3) % 10 === 4 || (o1 + o2 + o3) % 10 === 2) {
+                      const pId = `MG${pCount++}`;
+
+                      const m1 = {
+                        r: r1, c: c1, day: DAY_NAMES[c1], rowNum: r1 + 1, val: val1, pairId: pId,
+                        reason: `👑 [MASTER GAME STEP 1] Open=${o1} (Row #${r1+1})`,
+                        color: '#06b6d4', border: '#0891b2', dot: '🔵'
+                      };
+                      const m2 = {
+                        r: r2, c: c2, day: DAY_NAMES[c2], rowNum: r2 + 1, val: val2, pairId: pId,
+                        reason: `👑 [MASTER GAME STEP 2] Open=${o2} (Row #${r2+1})`,
+                        color: '#f59e0b', border: '#d97706', dot: '🟡'
+                      };
+                      const m3 = {
+                        r: r3, c: c3, day: DAY_NAMES[c3], rowNum: r3 + 1, val: val3, pairId: pId,
+                        reason: `👑 [MASTER GAME TARGET] Open=${o3} (${o1}+${o2}+${o3}=${targetSum}) (Row #${r3+1})`,
+                        color: '#ec4899', border: '#be185d', dot: '🩷'
+                      };
+
+                      if (!matchMap[`${r1}_${c1}`]) { matches.push(m1); matchMap[`${r1}_${c1}`] = m1; }
+                      if (!matchMap[`${r2}_${c2}`]) { matches.push(m2); matchMap[`${r2}_${c2}`] = m2; }
+                      if (!matchMap[`${r3}_${c3}`]) { matches.push(m3); matchMap[`${r3}_${c3}`] = m3; }
+                    }
+                  }
+                }
+              }
+            }
+
+            return { matches, isRelational: true, stats: { totalMatches: matches.length } };
+          }
+
           const relObj = parseRelation(m[2]);
           if (relObj) {
             crossClauses.push({ type: typeStr, rel: relObj });
