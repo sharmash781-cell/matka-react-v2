@@ -144,21 +144,15 @@ export const ChartStore = () => {
           <div>
             <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your chart repository is clean and empty. Create your custom chart in the Editor or click below to load optional presets.
+              Your chart repository is empty. Log in as Admin to create and publish charts for all users.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
             <button
-              onClick={() => setActiveTab('editor')}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
+              onClick={() => setShowAdminModal(true)}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
             >
-              <PlusCircle className="w-4 h-4" /> Create Custom Chart in Editor
-            </button>
-            <button
-              onClick={resetToDefaultCharts}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs shadow transition-all active:scale-95 inline-flex items-center gap-1.5"
-            >
-              <RefreshCw className="w-4 h-4 text-emerald-400" /> Load Optional Presets
+              <Key className="w-4 h-4" /> Admin Login &amp; Create Chart
             </button>
           </div>
         </div>

@@ -41,44 +41,25 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-export const DEFAULT_PUBLISHED_CHARTS = {
-  "TIME BAZAR": {
-    rows: 15,
-    cols: 7,
-    updatedAt: new Date().toISOString(),
-    data: [
-      [{val:"69"}, {val:"71"}, {val:"84"}, {val:"57"}, {val:"12"}, {val:"**"}, {val:"74"}],
-      [{val:"23"}, {val:"10"}, {val:"25"}, {val:"97"}, {val:"51"}, {val:"08"}, {val:"59"}],
-      [{val:"80"}, {val:"35"}, {val:"52"}, {val:"17"}, {val:"95"}, {val:"11"}, {val:"33"}]
-    ]
-  },
-  "SRIDEVI": srideviPreset,
-  "KALYAN MARKET": {
-    rows: 10,
-    cols: 7,
-    updatedAt: new Date().toISOString(),
-    data: [
-      [{val:"12"}, {val:"45"}, {val:"78"}, {val:"90"}, {val:"23"}, {val:"56"}, {val:"89"}],
-      [{val:"34"}, {val:"67"}, {val:"01"}, {val:"24"}, {val:"57"}, {val:"80"}, {val:"13"}]
-    ]
-  }
-};
-
-export const DEFAULT_PRESETS = DEFAULT_PUBLISHED_CHARTS;
+export const DEFAULT_PRESETS = {};
 
 const STORAGE_KEY = 'userStoreCharts_v3';
 
 const getInitialCharts = () => {
   try {
+    // Clean legacy storage keys so demo presets do not resurrect
+    localStorage.removeItem('chartHistory');
+    localStorage.removeItem('matkaCharts');
+    
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+      if (parsed && typeof parsed === 'object') {
         return parsed;
       }
     }
   } catch (e) {}
-  return DEFAULT_PUBLISHED_CHARTS; // DEFAULT TO PUBLISHED CHARTS SO USER NEVER SEES EMPTY STORE
+  return {}; // NO DEMO CHARTS - ONLY ADMIN CREATED CHARTS
 };
 
 export const ChartProvider = ({ children }) => {
