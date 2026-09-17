@@ -266,6 +266,7 @@ export const AILearningEngine = () => {
 
     const outcomeCounts = {};
     occurrences.forEach(occ => {
+      // 1. Single cell absolute outcomes across weeks 1..6
       for (let w = 1; w <= 6; w++) {
         const targetR = occ.row2 + w;
         if (targetR < grid.length) {
@@ -288,6 +289,112 @@ export const AILearningEngine = () => {
               if (!outcomeCounts[kRed]) outcomeCounts[kRed] = { type: 'red', week: w, col: c, val: 'Red Pair', count: 0, cells: [] };
               outcomeCounts[kRed].count++;
               outcomeCounts[kRed].cells.push({ r: targetR, c });
+            }
+          }
+        }
+      }
+
+      // 2. Relational Outcomes between 0Wk (occ.row2) and wWk (occ.row2 + w)
+      for (let w = 1; w <= 4; w++) {
+        const r0 = occ.row2;
+        const rW = occ.row2 + w;
+        if (rW < grid.length) {
+          for (let c = 0; c < colsInput; c++) {
+            const val0 = grid[r0]?.[c]?.val;
+            const valW = grid[rW]?.[c]?.val;
+            if (!val0 || !valW || !/^\d{2}$/.test(val0) || !/^\d{2}$/.test(valW)) continue;
+
+            const tot0 = getJodiTotal(val0);
+            const totW = getJodiTotal(valW);
+
+            // Same Total Pair (e.g. Fri 51 & 88 [tot 6], 31 & 59 [tot 4], 81 & 90 [tot 9])
+            if (tot0 !== null && totW !== null && tot0 === totW) {
+              const kRelTot = `rel_same_total_${w}_${c}`;
+              if (!outcomeCounts[kRelTot]) {
+                outcomeCounts[kRelTot] = {
+                  type: 'rel_total',
+                  week: w,
+                  col: c,
+                  val: 'Same Total',
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kRelTot].count++;
+              outcomeCounts[kRelTot].cells.push({ r: r0, c });
+              outcomeCounts[kRelTot].cells.push({ r: rW, c });
+            }
+
+            // Same Open Pair
+            if (val0[0] === valW[0]) {
+              const kRelOpen = `rel_same_open_${w}_${c}`;
+              if (!outcomeCounts[kRelOpen]) {
+                outcomeCounts[kRelOpen] = {
+                  type: 'rel_open',
+                  week: w,
+                  col: c,
+                  val: 'Same Open',
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kRelOpen].count++;
+              outcomeCounts[kRelOpen].cells.push({ r: r0, c });
+              outcomeCounts[kRelOpen].cells.push({ r: rW, c });
+            }
+
+            // Same Close Pair
+            if (val0[1] === valW[1]) {
+              const kRelClose = `rel_same_close_${w}_${c}`;
+              if (!outcomeCounts[kRelClose]) {
+                outcomeCounts[kRelClose] = {
+                  type: 'rel_close',
+                  week: w,
+                  col: c,
+                  val: 'Same Close',
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kRelClose].count++;
+              outcomeCounts[kRelClose].cells.push({ r: r0, c });
+              outcomeCounts[kRelClose].cells.push({ r: rW, c });
+            }
+
+            // Cut Total Pair
+            if (tot0 !== null && totW !== null && totW === (tot0 + 5) % 10) {
+              const kCutTot = `rel_cut_total_${w}_${c}`;
+              if (!outcomeCounts[kCutTot]) {
+                outcomeCounts[kCutTot] = {
+                  type: 'rel_cut_total',
+                  week: w,
+                  col: c,
+                  val: 'Cut Total',
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kCutTot].count++;
+              outcomeCounts[kCutTot].cells.push({ r: r0, c });
+              outcomeCounts[kCutTot].cells.push({ r: rW, c });
+            }
+
+            // Repeat Jodi Pair
+            if (val0 === valW) {
+              const kRepJodi = `rel_repeat_jodi_${w}_${c}`;
+              if (!outcomeCounts[kRepJodi]) {
+                outcomeCounts[kRepJodi] = {
+                  type: 'rel_repeat_jodi',
+                  week: w,
+                  col: c,
+                  val: 'Repeat Jodi',
+                  count: 0,
+                  cells: []
+                };
+              }
+              outcomeCounts[kRepJodi].count++;
+              outcomeCounts[kRepJodi].cells.push({ r: r0, c });
+              outcomeCounts[kRepJodi].cells.push({ r: rW, c });
             }
           }
         }
@@ -326,16 +433,23 @@ export const AILearningEngine = () => {
       cells: patternCells
     };
 
-    const outcomeRules = commonOutcomes.slice(0, 4).map((out, idx) => {
+    const outcomeRules = commonOutcomes.slice(0, 6).map((out, idx) => {
       const isRed = out.type === 'red';
+      const isRel = out.type.startsWith('rel_');
       const dayName = COL_HEADERS[out.col];
+      const icon = isRed ? '🔴' : isRel ? '🔷' : '🟡';
+      const color = isRed ? '#ef4444' : isRel ? '#3b82f6' : '#f59e0b';
+      const borderColor = isRed ? '#dc2626' : isRel ? '#2563eb' : '#d97706';
+      const bg = isRed ? 'bg-red-950' : isRel ? 'bg-blue-950' : 'bg-amber-950';
+      const text = isRed ? 'text-red-300' : isRel ? 'text-blue-300' : 'text-amber-300';
+
       return {
         id: `outcome_${idx}_${Date.now()}`,
-        label: `${isRed ? '🔴' : '🟡'} ${out.week}Wk ${dayName}: ${out.val} (${out.count}x)`,
-        color: isRed ? '#ef4444' : '#f59e0b',
-        borderColor: isRed ? '#dc2626' : '#d97706',
-        bg: isRed ? 'bg-red-950' : 'bg-amber-950',
-        text: isRed ? 'text-red-300' : 'text-amber-300',
+        label: `${icon} ${out.week === 0 ? '' : `${out.week}Wk `}${dayName}: ${out.val} (${out.count}x)`,
+        color,
+        borderColor,
+        bg,
+        text,
         cells: out.cells
       };
     });
