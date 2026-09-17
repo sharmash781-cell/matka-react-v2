@@ -376,12 +376,11 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelOpen].count++;
-              // Both cells get the SAME Open digit!
-              outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${val0[0]}` });
-              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${val0[0]}` });
+              outcomeCounts[kRelOpen].cells.push({ r: r0, c, badgeVal: `${tot0}` });
+              outcomeCounts[kRelOpen].cells.push({ r: rW, c, badgeVal: `${totW}` });
             }
 
-            // Same Close Pair (e.g. Close 8 -> Close 8)
+            // Same Close Pair (e.g. Close 0 -> Close 0)
             if (val0[1] === valW[1]) {
               const kRelClose = `rel_same_close_${w}_${c}`;
               if (!outcomeCounts[kRelClose]) {
@@ -395,9 +394,8 @@ export const AILearningEngine = () => {
                 };
               }
               outcomeCounts[kRelClose].count++;
-              // Both cells get the SAME Close digit!
-              outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${val0[1]}` });
-              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${val0[1]}` });
+              outcomeCounts[kRelClose].cells.push({ r: r0, c, badgeVal: `${tot0}` });
+              outcomeCounts[kRelClose].cells.push({ r: rW, c, badgeVal: `${totW}` });
             }
 
             // Repeat Jodi Pair
