@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import publishedChartsData from '../data/published_charts.json';
 import srideviPreset from '../data/sridevi_preset.json';
 
+import mainBazarPreset from '../data/main_bazar_preset.json';
+
 const ChartContext = createContext();
 
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
@@ -42,9 +44,13 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-export const DEFAULT_PUBLISHED_CHARTS = {};
+export const DEFAULT_PUBLISHED_CHARTS = {
+  "MAIN BAZAR": mainBazarPreset
+};
 
-export const DEFAULT_PRESETS = {};
+export const DEFAULT_PRESETS = {
+  "MAIN BAZAR": mainBazarPreset
+};
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
 
@@ -54,11 +60,16 @@ const getInitialCharts = () => {
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
+        if (!parsed["MAIN BAZAR"]) {
+          parsed["MAIN BAZAR"] = mainBazarPreset;
+        }
         return parsed;
       }
     }
   } catch (e) {}
-  return {}; // Completely clean empty store on initial load (0 hardcoded charts)
+  return {
+    "MAIN BAZAR": mainBazarPreset
+  };
 };
 
 export const ChartProvider = ({ children }) => {
@@ -66,7 +77,7 @@ export const ChartProvider = ({ children }) => {
 
   const [activeChartName, setActiveChartName] = useState(() => {
     const keys = Object.keys(charts);
-    return keys.length > 0 ? keys[0] : "MY NEW CHART";
+    return keys.includes("MAIN BAZAR") ? "MAIN BAZAR" : (keys.length > 0 ? keys[0] : "MAIN BAZAR");
   });
 
   const [activeTab, setActiveTab] = useState('editor');
