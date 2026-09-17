@@ -9,6 +9,15 @@
     <title>Number-Cal: High-Performance Matka React Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
+      // Clear legacy service worker caches immediately
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+
       // Fallback logger for unhandled errors
       window.addEventListener('error', function(e) {
         console.error("Global script error:", e);

@@ -440,26 +440,6 @@ export const AILearningEngine = () => {
     occurrences.forEach(occ => {
       patternCells.push({ r: occ.row1, c: occ.col1 });
       patternCells.push({ r: occ.row2, c: occ.col2 });
-
-      // Highlight ONLY the SINGLE FIRST/NEAREST EXACT occurrence of target 2nd Jodi (occ.val2) after (occ.row2, occ.col2)
-      const targetJodi = occ.val2 || grid[occ.row2]?.[occ.col2]?.val;
-      if (targetJodi && /^\d{2}$/.test(targetJodi)) {
-        let foundNearest = false;
-
-        for (let r = occ.row2; r < Math.min(grid.length, occ.row2 + 30); r++) {
-          const startCol = (r === occ.row2) ? occ.col2 + 1 : 0;
-          for (let c = startCol; c < colsInput; c++) {
-            const cellVal = grid[r]?.[c]?.val;
-            // EXACT 2nd Jodi match only!
-            if (cellVal && cellVal === targetJodi) {
-              patternCells.push({ r, c });
-              foundNearest = true;
-              break;
-            }
-          }
-          if (foundNearest) break;
-        }
-      }
     });
 
     const patternRule = {
@@ -595,8 +575,9 @@ export const AILearningEngine = () => {
                   )}
                 </select>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                AI Pattern Engine | {grid.length} Rows × {colsInput} Cols (Showing {totalRows} Weeks)
+              <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span>AI Pattern Engine | {grid.length} Rows × {colsInput} Cols</span>
+                <span className="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-black text-[9px] border border-emerald-500/30">v2.6 • Clean Engine</span>
               </div>
             </div>
 
