@@ -90,8 +90,38 @@ export const ChartEditor = () => {
     setGrid(newGrid);
   };
 
+  const displayGrid = useMemo(() => {
+    if (!grid) return [];
+
+    let lastFilledIdx = -1;
+    for (let r = grid.length - 1; r >= 0; r--) {
+      if (grid[r] && grid[r].some(cell => cell && cell.val && cell.val.trim() !== '')) {
+        lastFilledIdx = r;
+        break;
+      }
+    }
+
+    const minEmptyBelow = 15;
+    const requiredRows = Math.max(
+      grid.length + minEmptyBelow,
+      lastFilledIdx + 1 + minEmptyBelow,
+      35
+    );
+
+    const padded = grid.map(row => [...row]);
+    while (padded.length < requiredRows) {
+      padded.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
+    }
+    return padded;
+  }, [grid, colsInput]);
+
   const handleCellChange = (rIdx, cIdx, value) => {
-    let updated = grid.map((row, r) =>
+    let currentGrid = [...grid];
+    while (currentGrid.length <= rIdx) {
+      currentGrid.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
+    }
+
+    let updated = currentGrid.map((row, r) =>
       row.map((cell, c) => (r === rIdx && c === cIdx) ? { val: value } : cell)
     );
 
@@ -128,6 +158,17 @@ export const ChartEditor = () => {
       const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
       saveChart(cleanName, updated.length, parseInt(colsInput) || 7, updated);
     }
+  };
+
+  const handleAdd10Weeks = () => {
+    let newGrid = [...grid];
+    for (let i = 0; i < 10; i++) {
+      newGrid.push(Array.from({ length: parseInt(colsInput) || 7 }, () => ({ val: '' })));
+    }
+    setGrid(newGrid);
+    setRowsInput(newGrid.length);
+    const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+    saveChart(cleanName, newGrid.length, parseInt(colsInput) || 7, newGrid);
   };
 
   const handleCellPaste = (e, startR, startC) => {
@@ -197,7 +238,7 @@ export const ChartEditor = () => {
   };
 
   const chartKeys = Object.keys(charts);
-  const totalRows = grid.length;
+  const totalRows = displayGrid.length;
   const visibleHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
 
   // Chunked virtualization: Render all rows directly for totalRows <= 250.
@@ -211,7 +252,7 @@ export const ChartEditor = () => {
     return { startRow: s, endRow: e, topPadding: s * rowHeight, bottomPadding: (totalRows - e) * rowHeight };
   }, [scrollTop, totalRows, rowHeight]);
 
-  const visibleRows = useMemo(() => grid.slice(startRow, endRow), [grid, startRow, endRow]);
+  const visibleRows = useMemo(() => displayGrid.slice(startRow, endRow), [displayGrid, startRow, endRow]);
 
   return (
     <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
@@ -250,6 +291,13 @@ export const ChartEditor = () => {
                 }`}
               >
                 🔢 <span>Stats: {showStats ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <button
+                onClick={handleAdd10Weeks}
+                className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+              >
+                ➕ Add 10 Weeks
               </button>
 
               <button
@@ -555,6 +603,17 @@ export const ChartEditor = () => {
               )}
             </tbody>
           </table>
+
+          {/* TABLE FOOTER ACTIONS */}
+          <div className="flex items-center justify-between flex-wrap gap-2 p-2 bg-[#fbbf24] border-t-2 border-slate-900 text-xs font-mono font-black text-slate-950">
+            <span>Showing {displayGrid.length} Weeks (Min 35 Weeks View)</span>
+            <button
+              onClick={handleAdd10Weeks}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-lg shadow active:scale-95 transition"
+            >
+              ➕ Add 10 More Weeks
+            </button>
+          </div>
         </div>
       </div>
     </div>

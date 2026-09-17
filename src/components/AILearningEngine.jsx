@@ -67,11 +67,40 @@ export const AILearningEngine = () => {
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
 
-  const rowHeight = showStats ? 54 : 38;
+  const displayGrid = useMemo(() => {
+    if (!grid) return [];
+    
+    let lastFilledIdx = -1;
+    for (let r = grid.length - 1; r >= 0; r--) {
+      if (grid[r] && grid[r].some(cell => cell && cell.val && cell.val.trim() !== '')) {
+        lastFilledIdx = r;
+        break;
+      }
+    }
+
+    const minEmptyBelow = 15;
+    const requiredRows = Math.max(
+      grid.length + minEmptyBelow,
+      lastFilledIdx + 1 + minEmptyBelow,
+      35
+    );
+
+    const padded = grid.map(row => [...row]);
+    while (padded.length < requiredRows) {
+      padded.push(Array.from({ length: colsInput }, () => ({ val: '' })));
+    }
+    return padded;
+  }, [grid, colsInput]);
 
   const handleAICellChange = (rIdx, cIdx, value) => {
     if (!activeChartObj) return;
-    let newGrid = grid.map((row, r) =>
+    
+    let currentGrid = [...grid];
+    while (currentGrid.length <= rIdx) {
+      currentGrid.push(Array.from({ length: colsInput }, () => ({ val: '' })));
+    }
+
+    let newGrid = currentGrid.map((row, r) =>
       row.map((cell, c) => (r === rIdx && c === cIdx) ? { val: value } : cell)
     );
 
@@ -83,9 +112,9 @@ export const AILearningEngine = () => {
         nextR++;
       }
 
-      if (nextR >= newGrid.length) {
+      while (nextR >= newGrid.length) {
         const emptyRow = Array.from({ length: colsInput }, () => ({ val: '' }));
-        newGrid = [...newGrid, emptyRow];
+        newGrid.push(emptyRow);
       }
 
       if (saveChart) {
@@ -103,6 +132,17 @@ export const AILearningEngine = () => {
       if (saveChart) {
         saveChart(selectedChart, newGrid.length, colsInput, newGrid);
       }
+    }
+  };
+
+  const handleAdd10Weeks = () => {
+    if (!activeChartObj) return;
+    let newGrid = [...grid];
+    for (let i = 0; i < 10; i++) {
+      newGrid.push(Array.from({ length: colsInput }, () => ({ val: '' })));
+    }
+    if (saveChart) {
+      saveChart(selectedChart, newGrid.length, colsInput, newGrid);
     }
   };
 
@@ -357,7 +397,7 @@ export const AILearningEngine = () => {
     }
   };
 
-  const totalRows = grid.length;
+  const totalRows = displayGrid.length;
 
   const handleScroll = (e) => {
     setScrollTop(e.target.scrollTop);
@@ -377,8 +417,8 @@ export const AILearningEngine = () => {
   }, [scrollTop, totalRows, rowHeight]);
 
   const visibleRows = useMemo(() => {
-    return grid.slice(startRow, endRow);
-  }, [grid, startRow, endRow]);
+    return displayGrid.slice(startRow, endRow);
+  }, [displayGrid, startRow, endRow]);
 
   const chartKeys = Object.keys(charts);
 
@@ -794,7 +834,7 @@ export const AILearningEngine = () => {
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="smooth-scroll-container overflow-y-auto overflow-x-auto max-h-[75vh] border border-slate-800 rounded-xl bg-white"
+            className="smooth-scroll-container overflow-y-auto overflow-x-auto min-h-[60vh] max-h-[82vh] border border-slate-800 rounded-xl bg-white shadow-2xl"
           >
             <div className="w-full min-w-full">
               <table className="w-full table-fixed white-chart-table">
@@ -979,6 +1019,33 @@ export const AILearningEngine = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* TABLE FOOTER ACTION BUTTONS */}
+          <div className="flex items-center justify-between flex-wrap gap-2 p-2 bg-slate-900 rounded-xl border border-slate-800 text-xs font-mono">
+            <span className="text-slate-400 font-bold">
+              Showing <strong className="text-amber-400">{displayGrid.length} Weeks</strong> (Min 35 Weeks View)
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAdd10Weeks}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-xl shadow transition active:scale-95 text-xs flex items-center gap-1"
+              >
+                ➕ Add 10 More Weeks
+              </button>
+              <button
+                onClick={() => scrollToRowIndex(0)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1.5 rounded-xl border border-slate-700"
+              >
+                Top ⬆
+              </button>
+              <button
+                onClick={() => scrollToRowIndex(lastFilledRowIndex)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1.5 rounded-xl border border-slate-700"
+              >
+                Bottom ⬇
+              </button>
             </div>
           </div>
         </div>
