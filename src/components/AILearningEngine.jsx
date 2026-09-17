@@ -443,20 +443,23 @@ export const AILearningEngine = () => {
       patternCells.push({ r: occ.row1, c: occ.col1 });
       patternCells.push({ r: occ.row2, c: occ.col2 });
 
-      // Highlight near/follow-up occurrences of target Jodi & family in subsequent 1..8 weeks
+      // Highlight the SINGLE FIRST/NEAREST occurrence of target Jodi (or family) after (occ.row2, occ.col2)
       const targetJodi = grid[occ.row2]?.[occ.col2]?.val;
       if (targetJodi && /^\d{2}$/.test(targetJodi)) {
         const familySet = getJodiFamily(targetJodi);
-        for (let w = 1; w <= 8; w++) {
-          const checkR = occ.row2 + w;
-          if (checkR < grid.length) {
-            for (let c = 0; c < colsInput; c++) {
-              const cellVal = grid[checkR]?.[c]?.val;
-              if (cellVal && (cellVal === targetJodi || familySet.has(cellVal))) {
-                patternCells.push({ r: checkR, c });
-              }
+        let foundNearest = false;
+
+        for (let r = occ.row2; r < Math.min(grid.length, occ.row2 + 15); r++) {
+          const startCol = (r === occ.row2) ? occ.col2 + 1 : 0;
+          for (let c = startCol; c < colsInput; c++) {
+            const cellVal = grid[r]?.[c]?.val;
+            if (cellVal && (cellVal === targetJodi || familySet.has(cellVal))) {
+              patternCells.push({ r, c });
+              foundNearest = true;
+              break;
             }
           }
+          if (foundNearest) break;
         }
       }
     });
