@@ -692,11 +692,44 @@ export const PredictorEngine = () => {
           </div>
         </div>
 
+        <div className="space-y-2 pt-2 border-t border-slate-800">
+          <label className="block text-xs font-bold uppercase tracking-wider text-purple-400">⚡ Saved Master Strategy Shortcuts & Pattern Library</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                runPredictor();
+                setSelectedJodiFilter('ALL');
+              }}
+              className="bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+            >
+              👑 4-Week Decrement Open Triad (0 → 8 → 6 → 4 → 2)
+            </button>
+            <button
+              onClick={() => runPredictor()}
+              className="bg-blue-950/80 hover:bg-blue-900 border border-blue-500/50 text-blue-200 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+            >
+              🔗 Open-to-Open Harmonics
+            </button>
+            <button
+              onClick={() => runPredictor()}
+              className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+            >
+              🎯 Yesterday Total-to-Open Transition
+            </button>
+            <button
+              onClick={() => runPredictor()}
+              className="bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+            >
+              📊 Day-of-Week Column Frequency
+            </button>
+          </div>
+        </div>
+
         <button
           onClick={runPredictor}
           className="w-full bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white font-extrabold py-4 rounded-xl shadow-xl transition transform active:scale-[0.99] flex items-center justify-center gap-2 text-sm"
         >
-          <Play className="w-5 h-5 fill-current" /> RUN MATKA PREDICTOR WITH FULL-CHART OPEN-TO-OPEN HARMONICS
+          <Play className="w-5 h-5 fill-current" /> RUN MATKA PREDICTOR WITH FULL-CHART OPEN-TO-OPEN HARMONICS & MASTER TRIADS
         </button>
       </div>
 
