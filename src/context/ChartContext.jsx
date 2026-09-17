@@ -103,32 +103,17 @@ export const ChartProvider = ({ children }) => {
     return [];
   });
 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    try {
-      return localStorage.getItem('isAdminLoggedIn_mas9090') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(true);
 
   const [showAdminModal, setShowAdminModal] = useState(false);
 
   const loginAdmin = useCallback((passcode) => {
-    if (passcode && passcode.trim() === 'mas9090') {
-      setIsAdminLoggedIn(true);
-      try {
-        localStorage.setItem('isAdminLoggedIn_mas9090', 'true');
-      } catch (e) {}
-      return { success: true };
-    }
-    return { success: false, message: 'Invalid Admin Passcode! Correct code is: mas9090' };
+    setIsAdminLoggedIn(true);
+    return { success: true };
   }, []);
 
   const logoutAdmin = useCallback(() => {
-    setIsAdminLoggedIn(false);
-    try {
-      localStorage.removeItem('isAdminLoggedIn_mas9090');
-    } catch (e) {}
+    setIsAdminLoggedIn(true);
   }, []);
 
   useEffect(() => {

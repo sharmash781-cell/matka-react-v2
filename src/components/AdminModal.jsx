@@ -176,21 +176,15 @@ export const AdminModal = () => {
         {/* MODAL HEADER */}
         <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/90 text-white">
           <div className="flex items-center gap-2.5">
-            {isAdminLoggedIn ? (
-              <div className="p-2 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-            ) : (
-              <div className="p-2 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-400">
-                <Lock className="w-6 h-6" />
-              </div>
-            )}
+            <div className="p-2 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
+              <Table className="w-6 h-6" />
+            </div>
             <div>
               <h2 className="text-base sm:text-lg font-black tracking-wide">
-                {isAdminLoggedIn ? 'Admin Control Center' : 'Admin Login Required'}
+                Chart Repository &amp; Controls
               </h2>
               <p className="text-[10px] text-slate-400 font-mono">
-                {isAdminLoggedIn ? 'Logged in as Admin' : 'Enter Secret Admin Passcode'}
+                Create, Manage, Export &amp; Sync Charts
               </p>
             </div>
           </div>
@@ -205,51 +199,6 @@ export const AdminModal = () => {
 
         {/* MODAL BODY */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
-
-          {/* IF NOT LOGGED IN: LOGIN FORM */}
-          {!isAdminLoggedIn ? (
-            <form onSubmit={handleLoginSubmit} className="space-y-4 max-w-md mx-auto py-2">
-              <div className="text-center space-y-1">
-                <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400 mb-2 shadow-inner">
-                  <Key className="w-7 h-7 animate-pulse" />
-                </div>
-                <h3 className="text-lg font-black text-white">Access Admin Options</h3>
-                <p className="text-xs text-slate-400">
-                  Users do not need to log in to use the app. Enter secret passcode to create &amp; manage charts.
-                </p>
-              </div>
-
-              {loginError && (
-                <div className="bg-red-950/80 border border-red-600 text-red-300 text-xs p-3 rounded-xl flex items-center gap-2 font-bold animate-shake">
-                  <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-300 uppercase tracking-wider block">
-                  Admin Passcode:
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={passcode}
-                    onChange={(e) => setPasscode(e.target.value)}
-                    placeholder="Enter Secret Passcode"
-                    autoFocus
-                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 text-amber-300 font-mono font-black rounded-xl px-4 py-3 text-sm outline-none shadow-inner"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3 rounded-xl text-sm shadow-xl active:scale-95 transition flex items-center justify-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" /> Verify Code &amp; Login Admin
-              </button>
-            </form>
-          ) : (
 
             /* IF LOGGED IN: ADMIN CONTROL PANEL */
             <div className="space-y-4">
@@ -578,7 +527,6 @@ export const AdminModal = () => {
               )}
 
             </div>
-          )}
 
         </div>
 

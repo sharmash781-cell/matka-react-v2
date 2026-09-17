@@ -72,27 +72,13 @@ export const ChartStore = () => {
             </button>
           )}
 
-          {/* ADMIN LOGIN BUTTON (In place of Load Presets) */}
           <button
             onClick={() => setShowAdminModal(true)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 shrink-0 border ${
-              isAdminLoggedIn
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 text-slate-950'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/50 hover:border-amber-400'
-            }`}
-            title="Admin Login & Chart Control Center"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 shrink-0 border bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700"
+            title="Repository Settings & Backup"
           >
-            {isAdminLoggedIn ? (
-              <>
-                <ShieldCheck className="w-4 h-4 text-slate-950" />
-                <span>👑 Admin Active</span>
-              </>
-            ) : (
-              <>
-                <Key className="w-4 h-4 text-amber-400 animate-pulse" />
-                <span>Admin Login</span>
-              </>
-            )}
+            <Archive className="w-4 h-4 text-amber-400" />
+            <span>Manage Store &amp; Backup</span>
           </button>
 
           <button
@@ -102,7 +88,7 @@ export const ChartStore = () => {
             }}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
           >
-            <PlusCircle className="w-4 h-4" /> + Create New Chart (Full Grid)
+            <PlusCircle className="w-4 h-4" /> + Create New Chart
           </button>
         </div>
       </div>
@@ -131,7 +117,7 @@ export const ChartStore = () => {
                 className="w-14 bg-slate-950 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
               <button onClick={handleCreateNew}
                 className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95">
-                Create & Open Grid
+                Create &amp; Open Grid
               </button>
             </div>
           </div>
@@ -147,15 +133,18 @@ export const ChartStore = () => {
           <div>
             <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your chart repository is empty. Log in as Admin to create and publish charts for all users.
+              Your chart repository is empty. Create your market charts below. All created charts persist in browser storage until deleted.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
             <button
-              onClick={() => setShowAdminModal(true)}
-              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
+              onClick={() => {
+                setActiveChartName("MY NEW CHART");
+                setActiveTab('editor');
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
             >
-              <Key className="w-4 h-4" /> Admin Login &amp; Create Chart
+              <PlusCircle className="w-4 h-4" /> + Create First Chart
             </button>
           </div>
         </div>

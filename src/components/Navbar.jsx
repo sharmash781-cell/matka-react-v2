@@ -22,26 +22,14 @@ export const Navbar = () => {
           </div>
         </div>
 
-        {/* Top Admin Login / Status Trigger */}
+        {/* Top Store / Backup Modal Trigger */}
         <button
           onClick={() => setShowAdminModal(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-md transition active:scale-95 border ${
-            isAdminLoggedIn
-              ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 text-slate-950 font-extrabold'
-              : 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
-          }`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-md transition active:scale-95 border bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800"
+          title="Manage Store & Backup"
         >
-          {isAdminLoggedIn ? (
-            <>
-              <ShieldCheck className="w-4 h-4 text-slate-950" />
-              <span>👑 Admin Active</span>
-            </>
-          ) : (
-            <>
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Admin Login</span>
-            </>
-          )}
+          <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <span>Manage Store &amp; Backup</span>
         </button>
 
       </div>
