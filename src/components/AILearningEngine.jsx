@@ -22,6 +22,25 @@ const getJodiTotal = (val) => {
   return (parseInt(val[0]) + parseInt(val[1])) % 10;
 };
 
+// Helper to compute all 8 family jodis (cut, reverse, cut-reverse, etc.)
+const getJodiFamily = (jodiStr) => {
+  if (!jodiStr || !/^\d{2}$/.test(jodiStr)) return new Set();
+  const o = parseInt(jodiStr[0], 10);
+  const c = parseInt(jodiStr[1], 10);
+  const cut = (d) => (d + 5) % 10;
+
+  return new Set([
+    `${o}${c}`,
+    `${cut(o)}${c}`,
+    `${o}${cut(c)}`,
+    `${cut(o)}${cut(c)}`,
+    `${c}${o}`,
+    `${cut(c)}${o}`,
+    `${c}${cut(o)}`,
+    `${cut(c)}${cut(o)}`
+  ]);
+};
+
 export const AILearningEngine = () => {
   const { charts = {}, activeChartName, setActiveChartName, setActiveTab, saveChart } = useChart();
 
@@ -423,6 +442,23 @@ export const AILearningEngine = () => {
     occurrences.forEach(occ => {
       patternCells.push({ r: occ.row1, c: occ.col1 });
       patternCells.push({ r: occ.row2, c: occ.col2 });
+
+      // Highlight near/follow-up occurrences of target Jodi & family in subsequent 1..8 weeks
+      const targetJodi = grid[occ.row2]?.[occ.col2]?.val;
+      if (targetJodi && /^\d{2}$/.test(targetJodi)) {
+        const familySet = getJodiFamily(targetJodi);
+        for (let w = 1; w <= 8; w++) {
+          const checkR = occ.row2 + w;
+          if (checkR < grid.length) {
+            for (let c = 0; c < colsInput; c++) {
+              const cellVal = grid[checkR]?.[c]?.val;
+              if (cellVal && (cellVal === targetJodi || familySet.has(cellVal))) {
+                patternCells.push({ r: checkR, c });
+              }
+            }
+          }
+        }
+      }
     });
 
     const patternRule = {
