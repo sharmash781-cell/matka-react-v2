@@ -66,6 +66,7 @@ export const AILearningEngine = () => {
   const activeChartObj = charts[selectedChart] || null;
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
+  const rowHeight = showStats ? 54 : 38;
 
   const displayGrid = useMemo(() => {
     if (!grid) return [];
