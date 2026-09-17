@@ -41,7 +41,16 @@ export const calculateDiffTotal = (val) => {
   return ((10 - c) + o) % 10;
 };
 
-export const DEFAULT_PRESETS = {};
+export const DEFAULT_PUBLISHED_CHARTS = {
+  "MAS": {
+    rows: 25,
+    cols: 7,
+    updatedAt: new Date().toISOString(),
+    data: Array.from({ length: 25 }, () => Array.from({ length: 7 }, () => ({ val: '' })))
+  }
+};
+
+export const DEFAULT_PRESETS = DEFAULT_PUBLISHED_CHARTS;
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
 
@@ -50,12 +59,12 @@ const getInitialCharts = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         return parsed;
       }
     }
   } catch (e) {}
-  return {}; // Clean empty store on first run, saves and keeps all user created charts on refresh
+  return DEFAULT_PUBLISHED_CHARTS; // Pre-loaded published charts (MAS) so mobile & desktop get MAS on refresh!
 };
 
 export const ChartProvider = ({ children }) => {

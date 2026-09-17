@@ -305,11 +305,25 @@ export const AdminModal = () => {
 
               {/* TAB 1: CREATE CHART FOR USERS */}
               {activeAdminTab === 'create' && (
-                <form onSubmit={handleCreateChart} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <PlusCircle className="w-4 h-4" /> Admin: Create &amp; Publish New Market Chart
-                    </h4>
+                <div className="space-y-3">
+                  {/* Direct Launch Full Interactive Controls Panel Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminModal(false);
+                      setActiveTab('editor');
+                    }}
+                    className="w-full bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 text-slate-950 font-black py-3 px-4 rounded-xl text-xs shadow-xl active:scale-95 transition flex items-center justify-center gap-2 border border-amber-300"
+                  >
+                    <PlusCircle className="w-4 h-4 text-slate-950" />
+                    <span>⚡ Open Full Grid Controls &amp; Editor Options</span>
+                  </button>
+
+                  <form onSubmit={handleCreateChart} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <PlusCircle className="w-4 h-4" /> Quick Publish New Market Chart
+                      </h4>
                     <button
                       type="button"
                       onClick={() => setIsImportMode(!isImportMode)}
@@ -373,13 +387,14 @@ export const AdminModal = () => {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-black py-2.5 rounded-xl text-xs shadow-lg active:scale-95 transition flex items-center justify-center gap-1.5"
-                  >
-                    <Save className="w-4 h-4" /> Publish Chart (Users Can Modify Grid)
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-black py-2.5 rounded-xl text-xs shadow-lg active:scale-95 transition flex items-center justify-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" /> Quick Publish Chart
+                    </button>
+                  </form>
+                </div>
               )}
 
               {/* TAB 2: MANAGE STORE CHARTS & ADMIN TOOLS */}

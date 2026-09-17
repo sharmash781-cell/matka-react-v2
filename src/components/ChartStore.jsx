@@ -96,10 +96,13 @@ export const ChartStore = () => {
           </button>
 
           <button
-            onClick={() => setShowNewForm(v => !v)}
+            onClick={() => {
+              setActiveChartName("MY NEW CHART");
+              setActiveTab('editor');
+            }}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
           >
-            <PlusCircle className="w-4 h-4" /> New Chart
+            <PlusCircle className="w-4 h-4" /> + Create New Chart (Full Grid)
           </button>
         </div>
       </div>
