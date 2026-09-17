@@ -40,6 +40,8 @@ export const AILearningEngine = () => {
   // ── AUTONOMOUS CROSS-DAY PATTERN SCANNER STATE ─────────────────────────────
   const [scanFromDay, setScanFromDay] = useState(0); // 0 = Mon
   const [scanToDay, setScanToDay] = useState(1);   // 1 = Tue
+  const [scanWeekGap, setScanWeekGap] = useState('auto'); // auto, same_week, next_week (+1), plus_2_weeks (+2)
+  
   const [rel1Type, setRel1Type] = useState('open_to_open');
   const [rel1Action, setRel1Action] = useState('UP'); // UP, DOWN, SAME, OPPOSITE
   const [rel1Step, setRel1Step] = useState(1);
@@ -47,6 +49,10 @@ export const AILearningEngine = () => {
   const [rel2Type, setRel2Type] = useState('close_to_close');
   const [rel2Action, setRel2Action] = useState('UP');
   const [rel2Step, setRel2Step] = useState(1);
+
+  // Follow-up expectation scanner
+  const [followUpTargetDay, setFollowUpTargetDay] = useState('next_day'); // next_day, 4 (Fri), 3 (Thu), etc.
+  const [followUpDigitType, setFollowUpDigitType] = useState('any'); // any, open, close, total
 
   // Active removable rules (Pattern chips + Discovered Outcome chips)
   const [activeRules, setActiveRules] = useState([]);
@@ -60,7 +66,7 @@ export const AILearningEngine = () => {
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
 
-  const rowHeight = isCompact ? (showStats ? 44 : 34) : (showStats ? 60 : 45);
+  const rowHeight = showStats ? 44 : 38;
 
   const handleAICellChange = (rIdx, cIdx, value) => {
     if (!activeChartObj) return;
@@ -165,10 +171,23 @@ export const AILearningEngine = () => {
     const fromCol = scanFromDay;
     const toCol = scanToDay;
 
-    // Scan all rows for the relation between fromCol and toCol
     for (let r = 0; r < grid.length; r++) {
       const val1 = grid[r]?.[fromCol]?.val || '';
-      const r2 = fromCol <= toCol ? r : r + 1;
+      
+      let r2 = r;
+      if (scanWeekGap === 'same_week') {
+        r2 = r;
+      } else if (scanWeekGap === 'next_week') {
+        r2 = r + 1;
+      } else if (scanWeekGap === 'plus_2_weeks') {
+        r2 = r + 2;
+      } else if (scanWeekGap === 'plus_3_weeks') {
+        r2 = r + 3;
+      } else {
+        // Auto mode
+        r2 = fromCol <= toCol ? r : r + 1;
+      }
+
       if (r2 >= grid.length) continue;
 
       const val2 = grid[r2]?.[toCol]?.val || '';
@@ -213,10 +232,8 @@ export const AILearningEngine = () => {
       return;
     }
 
-    // DISCOVER COMMON FOLLOW-UP OUTCOMES (Totals, Red Pairs)
-    const outcomeCounts = {}; // key: "type_week_col_val"
+    const outcomeCounts = {};
     occurrences.forEach(occ => {
-      // Check 1 to 6 weeks after occurrence
       for (let w = 1; w <= 6; w++) {
         const targetR = occ.row2 + w;
         if (targetR < grid.length) {
@@ -227,7 +244,6 @@ export const AILearningEngine = () => {
             const tot = getJodiTotal(cellVal);
             const red = isRedPair(cellVal);
 
-            // 1. Common Total
             if (tot !== null) {
               const kTot = `total_${w}_${c}_${tot}`;
               if (!outcomeCounts[kTot]) outcomeCounts[kTot] = { type: 'total', week: w, col: c, val: `${tot} Total`, count: 0, cells: [] };
@@ -235,7 +251,6 @@ export const AILearningEngine = () => {
               outcomeCounts[kTot].cells.push({ r: targetR, c });
             }
 
-            // 2. Common Red Pair
             if (red) {
               const kRed = `red_${w}_${c}`;
               if (!outcomeCounts[kRed]) outcomeCounts[kRed] = { type: 'red', week: w, col: c, val: 'Red Pair', count: 0, cells: [] };
@@ -251,11 +266,18 @@ export const AILearningEngine = () => {
       .filter(item => item.count >= Math.min(2, occurrences.length))
       .sort((a, b) => b.count - a.count);
 
-    const rel1Label = `${rel1Type.replace(/_/g, ' ')} ${rel1Step} ${rel1Action.toLowerCase()}`;
-    const rel2Label = rel2Type !== 'none' ? ` & ${rel2Type.replace(/_/g, ' ')} ${rel2Step} ${rel2Action.toLowerCase()}` : '';
-    const patternTitle = `${COL_HEADERS[fromCol]}→${COL_HEADERS[toCol]} ${rel1Label}${rel2Label}`;
+    const formatRelLabel = (type, action, step) => {
+      const tName = type.replace(/_/g, ' ');
+      if (action === 'SAME') return `${tName} same`;
+      if (action === 'OPPOSITE') return `${tName} cut`;
+      return `${tName} ${step} ${action.toLowerCase()}`;
+    };
 
-    // Create Pattern Rule Chip (Emerald)
+    const rel1Label = formatRelLabel(rel1Type, rel1Action, rel1Step);
+    const rel2Label = rel2Type !== 'none' ? ` & ${formatRelLabel(rel2Type, rel2Action, rel2Step)}` : '';
+    const gapLabel = scanWeekGap === 'next_week' ? ' (Next Wk)' : scanWeekGap === 'same_week' ? ' (Same Wk)' : '';
+    const patternTitle = `${COL_HEADERS[fromCol]}→${COL_HEADERS[toCol]}${gapLabel} ${rel1Label}${rel2Label}`;
+
     const patternCells = [];
     occurrences.forEach(occ => {
       patternCells.push({ r: occ.row1, c: occ.col1 });
@@ -272,7 +294,6 @@ export const AILearningEngine = () => {
       cells: patternCells
     };
 
-    // Create Discovered Outcome Chips (Amber for Total, Crimson for Red Pair)
     const outcomeRules = commonOutcomes.slice(0, 4).map((out, idx) => {
       const isRed = out.type === 'red';
       const dayName = COL_HEADERS[out.col];
@@ -290,7 +311,7 @@ export const AILearningEngine = () => {
     const generatedRules = [patternRule, ...outcomeRules];
     setActiveRules(generatedRules);
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences, commonOutcomes });
-  }, [grid, scanFromDay, scanToDay, rel1Type, rel1Action, rel1Step, rel2Type, rel2Action, rel2Step, colsInput]);
+  }, [grid, scanFromDay, scanToDay, scanWeekGap, rel1Type, rel1Action, rel1Step, rel2Type, rel2Action, rel2Step, colsInput]);
 
   const removeRule = (ruleId) => {
     setActiveRules(prev => prev.filter(r => r.id !== ruleId));
@@ -301,7 +322,6 @@ export const AILearningEngine = () => {
     setScanSummary(null);
   };
 
-  // Map active rules to cell highlight colors
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
     activeRules.forEach(rule => {
@@ -342,13 +362,13 @@ export const AILearningEngine = () => {
   };
 
   const { startRow, endRow, topPadding, bottomPadding } = useMemo(() => {
-    if (totalRows <= 250) {
+    if (totalRows <= 1000) {
       return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
     }
-    const chunkSize = 25;
+    const chunkSize = 50;
     const currentChunk = Math.floor(scrollTop / (chunkSize * rowHeight));
-    const startIndex = Math.max(0, (currentChunk - 1) * chunkSize);
-    const endIndex = Math.min(totalRows, (currentChunk + 3) * chunkSize);
+    const startIndex = Math.max(0, (currentChunk - 2) * chunkSize);
+    const endIndex = Math.min(totalRows, (currentChunk + 4) * chunkSize);
     const topPad = startIndex * rowHeight;
     const bottomPad = (totalRows - endIndex) * rowHeight;
     return { startRow: startIndex, endRow: endIndex, topPadding: topPad, bottomPadding: bottomPad };
@@ -363,14 +383,12 @@ export const AILearningEngine = () => {
   return (
     <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">
       
-      {/* CENTERED DESKTOP VIEW WITH SIDE MARGINS */}
       <div className="max-w-3xl mx-auto px-1 sm:px-3 space-y-2 pt-2">
         
         {/* 1. TOP HEADER PANEL WITH CONTROLS */}
         <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             
-            {/* Active Chart Selection */}
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Brain className="w-5 h-5 text-purple-400 animate-pulse" />
@@ -392,11 +410,10 @@ export const AILearningEngine = () => {
                 </select>
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                AI Pattern Color Highlighter &amp; Outcome Engine | {grid.length} Rows × {colsInput} Cols
+                AI Pattern Engine | {grid.length} Rows × {colsInput} Cols (Showing {totalRows} Weeks)
               </div>
             </div>
 
-            {/* Top Action Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={() => setShowStats(v => !v)}
@@ -412,7 +429,7 @@ export const AILearningEngine = () => {
                 onClick={() => scrollToRowIndex(lastFilledRowIndex)}
                 className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
               >
-                <ArrowDown className="w-3.5 h-3.5" /> Go to Bottom
+                <ArrowDown className="w-3.5 h-3.5" /> Bottom
               </button>
 
               <button
@@ -422,12 +439,11 @@ export const AILearningEngine = () => {
                 }`}
               >
                 <Settings2 className="w-3.5 h-3.5" />
-                {showControls ? 'Close Controls' : 'Edit Controls'}
+                {showControls ? 'Close' : 'Controls'}
               </button>
             </div>
           </div>
 
-          {/* EXPANDABLE CONTROLS PANEL */}
           {showControls && (
             <div className="pt-2 border-t border-slate-800 space-y-2 animate-fadeIn">
               <div className="flex items-center justify-between text-xs font-bold text-slate-300">
@@ -441,19 +457,13 @@ export const AILearningEngine = () => {
                 >
                   Stats (Sum / CN / Cond): {showStats ? 'ENABLED' : 'DISABLED'}
                 </button>
-                <button
-                  onClick={() => setIsCompact(v => !v)}
-                  className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-cyan-300 font-bold"
-                >
-                  Row Density: {isCompact ? 'COMPACT (15+ Rows)' : 'STANDARD'}
-                </button>
               </div>
             </div>
           )}
         </div>
 
         {/* 2. AUTONOMOUS CROSS-DAY PATTERN & FOLLOW-UP OUTCOME SCANNER */}
-        <div className="bg-slate-950 border-2 border-purple-500/80 text-white rounded-2xl p-3.5 shadow-2xl space-y-3">
+        <div className="bg-slate-950 border-2 border-purple-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5">
           
           <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-2">
@@ -465,7 +475,7 @@ export const AILearningEngine = () => {
                   Autonomous Cross-Day Pattern &amp; Color Outcome Scanner
                 </h3>
                 <p className="text-[10px] text-slate-400">
-                  Select day relations &amp; up/down steps (1 to 5) to scan, highlight in colors &amp; filter outcomes
+                  Scan horizontal (Same Wk Mon→Sat) or vertical (1st Mon→2nd Mon / Next Wk) up/down step patterns
                 </p>
               </div>
             </div>
@@ -475,17 +485,16 @@ export const AILearningEngine = () => {
               className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>SCAN &amp; HIGHLIGHT</span>
+              <span>SCAN CHART</span>
             </button>
           </div>
 
-          {/* CONTROLS GRID: DAYS, RELATIONS & STEPS (1 TO 5 UP/DOWN) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
             
-            {/* FROM DAY -> TO DAY SELECTORS */}
+            {/* FROM DAY -> TO DAY & WEEK GAP SELECTORS */}
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1.5">
-              <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">1. Select Days</div>
-              <div className="flex items-center gap-2">
+              <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">1. Select Days &amp; Row Gap</div>
+              <div className="flex items-center gap-1.5">
                 <div className="flex-1">
                   <label className="text-[9px] text-slate-400 block">From Day:</label>
                   <select
@@ -498,7 +507,9 @@ export const AILearningEngine = () => {
                     ))}
                   </select>
                 </div>
+
                 <span className="text-purple-400 font-black text-sm mt-3">→</span>
+
                 <div className="flex-1">
                   <label className="text-[9px] text-slate-400 block">To Day:</label>
                   <select
@@ -511,6 +522,22 @@ export const AILearningEngine = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Week Gap Selection: Same Row vs Next Row (1st Mon -> 2nd Mon) */}
+              <div>
+                <label className="text-[9px] text-slate-400 block">Row / Week Gap:</label>
+                <select
+                  value={scanWeekGap}
+                  onChange={(e) => setScanWeekGap(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="auto">Auto (Same Row if Mon→Sat, Next Row if Mon→Mon)</option>
+                  <option value="same_week">Same Week / Row (e.g. 1st Mon → 1st Sat)</option>
+                  <option value="next_week">Next Week (+1 Row e.g. 1st Mon → 2nd Mon)</option>
+                  <option value="plus_2_weeks">+2 Weeks (+2 Rows)</option>
+                  <option value="plus_3_weeks">+3 Weeks (+3 Rows)</option>
+                </select>
               </div>
             </div>
 
@@ -600,7 +627,6 @@ export const AILearningEngine = () => {
             </div>
           </div>
 
-          {/* ACTIVE RULE & COLOR OUTCOME CHIPS (WITH REMOVABLE X BUTTONS MATCHING PHOTO) */}
           {activeRules.length > 0 && (
             <div className="flex items-center justify-between flex-wrap bg-slate-900 border border-slate-800 rounded-xl p-2 gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -621,7 +647,7 @@ export const AILearningEngine = () => {
                     <button
                       onClick={() => removeRule(rule.id)}
                       className="ml-1 text-slate-300 hover:text-white hover:bg-black/40 rounded-full p-0.5 transition"
-                      title="Remove this highlight color filter"
+                      title="Remove filter"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -632,28 +658,26 @@ export const AILearningEngine = () => {
                 onClick={clearAllRules}
                 className="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-950/60 border border-red-800/80 px-2 py-0.5 rounded-md transition"
               >
-                Clear All Rules
+                Clear All
               </button>
             </div>
           )}
 
-          {/* SCAN SUMMARY */}
           {scanSummary && (
-            <div className="bg-slate-900 border border-purple-500/50 p-2.5 rounded-xl space-y-1.5 font-mono text-xs text-white">
+            <div className="bg-slate-900 border border-purple-500/50 p-2 rounded-xl space-y-1 font-mono text-xs text-white">
               <div className="flex items-center justify-between flex-wrap">
                 <span className="font-bold text-purple-300">
-                  🎯 Pattern Match: <strong className="text-emerald-400 text-sm">{scanSummary.count} Occurrences</strong> found on chart!
+                  🎯 Found <strong className="text-emerald-400 text-sm">{scanSummary.count} Occurrences</strong>
                 </span>
-                <span className="text-[10px] text-slate-400">All matching cells &amp; outcomes highlighted in grid below</span>
               </div>
               {scanSummary.occurrences && scanSummary.occurrences.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
                   <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">Rows:</span>
                   {scanSummary.occurrences.map((occ, idx) => (
                     <button
                       key={idx}
                       onClick={() => scrollToRowIndex(occ.row1)}
-                      className="bg-slate-950 border border-slate-700 hover:border-purple-400 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 transition"
+                      className="bg-slate-950 border border-slate-700 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 transition"
                     >
                       #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
                     </button>
@@ -662,180 +686,14 @@ export const AILearningEngine = () => {
               )}
             </div>
           )}
-
         </div>
 
-        {/* 3. FORWARD SEQUENCE SEARCH INPUT FIELD & SLNO MATCH LIST */}
-        <div className="bg-slate-950 border-2 border-cyan-500/80 text-white rounded-2xl p-3.5 shadow-2xl space-y-3">
-          
-          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <Search className="w-5 h-5 text-cyan-400" />
-              <div>
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white">Visual Sequence Search Engine</h3>
-                <p className="text-[10px] text-slate-400">Search any 3-step sequence (e.g. "7, 8, 1" or "5, 3, 2") across entire chart</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className={`px-3.5 py-1 rounded-full text-xs font-mono font-black border shadow-md transition-all ${
-                sequenceResults.totalMatches > 0
-                  ? 'bg-cyan-950 border-cyan-400 text-cyan-300'
-                  : 'bg-slate-900 border-slate-800 text-slate-400'
-              }`}>
-                Found {sequenceResults.totalMatches} Matches
-              </span>
-            </div>
-          </div>
-
-          {/* INPUT FIELD & QUICK PRESETS */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={sequenceInput}
-                onChange={(e) => {
-                  setSequenceInput(e.target.value);
-                  setActiveMatchFilter('all');
-                }}
-                placeholder="ENTER DIGIT SEQUENCE (e.g. 7, 8, 1)"
-                className="w-full bg-slate-900 border-2 border-cyan-400 text-cyan-300 font-mono font-black text-sm sm:text-base rounded-xl px-3.5 py-2.5 outline-none shadow-inner tracking-widest uppercase placeholder-slate-600 focus:ring-2 focus:ring-cyan-400"
-              />
-              {sequenceInput && (
-                <button
-                  onClick={() => setSequenceInput('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {/* Quick Sequence Presets */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Presets:</span>
-              {['5, 8, 0', '7, 8, 1', '5, 3, 2', '1, 2, 3'].map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => {
-                    setSequenceInput(preset);
-                    setActiveMatchFilter('all');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-black border transition ${
-                    sequenceInput === preset
-                      ? 'bg-cyan-600 border-cyan-400 text-white shadow-md'
-                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* EXACT MATCH SLNO & DAY LOCATION LIST */}
-          {sequenceResults.matches.length > 0 && (
-            <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-2">
-              <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-slate-300">
-                <span className="flex items-center gap-1.5 text-cyan-300">
-                  <MapPin className="w-4 h-4 text-cyan-400" /> Match SLNO Locations &amp; Gaps (Click to jump):
-                </span>
-                
-                <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 p-0.5 rounded-lg">
-                  <button
-                    onClick={() => setActiveMatchFilter('all')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
-                      activeMatchFilter === 'all' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    All ({sequenceResults.totalMatches})
-                  </button>
-                  <button
-                    onClick={() => setActiveMatchFilter('short_range')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-black flex items-center gap-0.5 ${
-                      activeMatchFilter === 'short_range' ? 'bg-emerald-600 text-white' : 'text-emerald-400 hover:text-emerald-300'
-                    }`}
-                  >
-                    ⚡ 5-12 Row Gaps ({sequenceResults.shortRangeMatchesCount})
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowLocationList(v => !v)}
-                  className="text-[10px] text-slate-400 hover:text-white"
-                >
-                  {showLocationList ? 'Hide List ▲' : 'Show List ▼'}
-                </button>
-              </div>
-
-              {showLocationList && (
-                <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
-                  {sequenceResults.matches.map((m) => {
-                    const firstCell = m.cells[0];
-                    const lastCell = m.cells[m.cells.length - 1];
-                    return (
-                      <div
-                        key={m.id}
-                        onClick={() => {
-                          setActiveMatchFilter(m.id);
-                          scrollToRowIndex(firstCell.r);
-                        }}
-                        style={{ borderLeftColor: m.color }}
-                        className="bg-slate-950 border-l-4 border-y border-r border-slate-800 p-2 rounded-r-xl flex items-center justify-between gap-2 hover:bg-slate-800 cursor-pointer transition"
-                      >
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className="px-2 py-0.5 rounded text-[10px] font-black text-slate-950 uppercase"
-                            style={{ backgroundColor: m.color }}
-                          >
-                            Match #{m.matchNumber}
-                          </span>
-                          <span className="text-white font-bold">
-                            SLNO Row #{firstCell.r + 1} → Row #{lastCell.r + 1}
-                          </span>
-                          <span className="text-slate-400 text-[10px]">
-                            ({m.direction})
-                          </span>
-
-                          {m.rowGap !== null && (
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
-                              m.isShortRangeGap ? 'bg-emerald-950 border border-emerald-500 text-emerald-300' : 'bg-slate-900 text-slate-400'
-                            }`}>
-                              {m.isShortRangeGap ? `⚡ Gap: ${m.rowGap} Rows` : `Gap: ${m.rowGap} Rows`}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-amber-300 font-bold text-[10px]">
-                            {m.cells.map((c, idx) => (
-                              <span key={idx} className="mr-1">
-                                {COL_HEADERS[c.c]} {c.digitType.toUpperCase()} ({c.digit}) {idx < m.cells.length - 1 ? '→' : ''}
-                              </span>
-                            ))}
-                          </div>
-
-                          {m.subsequentOutcome && (
-                            <span className="bg-purple-950 border border-purple-500/60 text-purple-300 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                              Next: {m.subsequentOutcome.nextVal} (O:{m.subsequentOutcome.nextOpen}/C:{m.subsequentOutcome.nextClose})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* MATKA GRID */}
-        <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800">
+        {/* 3. MATKA GRID - EXPANDED HEIGHT TO SEE MORE WEEKS WITHOUT WHITE SCREEN GAPS */}
+        <div className="bg-slate-950 p-1 rounded-2xl shadow-2xl space-y-2 border border-slate-800">
           <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="overflow-y-auto overflow-x-auto max-h-[calc(100vh-220px)] border border-slate-800 rounded-xl bg-white"
+            className="smooth-scroll-container overflow-y-auto overflow-x-auto max-h-[75vh] border border-slate-800 rounded-xl bg-white"
           >
             <div className="w-full min-w-full">
               <table className="w-full table-fixed white-chart-table">
@@ -851,7 +709,7 @@ export const AILearningEngine = () => {
                       </button>
                     </th>
                     {Array.from({ length: colsInput }).map((_, c) => (
-                      <th key={c} className="text-center border border-slate-950 text-slate-950 font-black text-xs sm:text-base py-0.5 sm:py-1">
+                      <th key={c} className="text-center border border-slate-950 text-slate-950 font-black text-xs sm:text-base py-0.5">
                         {COL_HEADERS[c] || `C${c + 1}`}
                       </th>
                     ))}
@@ -887,7 +745,6 @@ export const AILearningEngine = () => {
                           const emptyCellPredictions = emptyCellMap[`${rIdx}_${cIdx}`] || [];
                           const primaryEmptyPred = emptyCellPredictions[0] || null;
 
-                          // Pattern / Outcome Highlight Rule lookup for this cell
                           const scanHighlightRule = scanCellHighlightMap[`${rIdx}_${cIdx}`] || null;
 
                           let bgStyle = 'white';
@@ -925,7 +782,6 @@ export const AILearningEngine = () => {
                                 primaryMatch || scanHighlightRule ? 'z-10' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
-                              {/* SCAN HIGHLIGHT MICRO-DOT (WHEN COLOR RULE ACTIVE) */}
                               {scanHighlightRule && !primaryMatch && (
                                 <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
                                   <span
@@ -958,7 +814,7 @@ export const AILearningEngine = () => {
                                   onFocus={(e) => e.target.select()}
                                   maxLength={2}
                                   placeholder=""
-                                  className={`w-full text-center text-lg xs:text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
+                                  className={`w-full text-center text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 rounded ${
                                     primaryMatch || scanHighlightRule
                                       ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
                                       : (red ? 'red-pair-text' : 'text-slate-950 font-black')
@@ -1011,21 +867,6 @@ export const AILearningEngine = () => {
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          {/* SUMMARY STATUS FOOTER */}
-          <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs text-slate-300">
-            <div className="flex items-center gap-2 font-mono">
-              <Layers className="w-4 h-4 text-purple-400" />
-              <span>Target Sequence: <strong className="text-cyan-300 font-black tracking-widest">{sequenceResults.targetSeqStr || 'NONE'}</strong></span>
-            </div>
-            <div className="text-[11px] font-bold">
-              {sequenceResults.totalMatches === 0 ? (
-                <span className="text-amber-400">No matching sequence found.</span>
-              ) : (
-                <span className="text-emerald-400 font-black">All {sequenceResults.totalMatches} matches visually highlighted across grid!</span>
-              )}
             </div>
           </div>
         </div>

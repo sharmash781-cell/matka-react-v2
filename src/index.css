@@ -8,7 +8,17 @@
     background-attachment: fixed;
     font-family: 'Poppins', sans-serif;
     color: #f8fafc;
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+/* Smooth Touch Scroll & Hardware Acceleration */
+.smooth-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
+  transform: translateZ(0);
+  overscroll-behavior-y: contain;
+  contain: layout style;
 }
 
 /* Glassmorphism Panels */
@@ -20,31 +30,72 @@
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
-/* White Card Chart Grid (Exact Screenshot & Mobile-Fit Styling) */
+/* White Card Chart Grid (Optimized for Mobile - Zero Shaking) */
 .white-chart-table {
   background-color: #ffffff;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
+  table-layout: fixed;
 }
 
 .white-chart-table th {
   background-color: #f1f5f9;
   color: #0f172a;
   font-weight: 900;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   text-align: center;
-  padding: 0.35rem 0.25rem;
-  border: 2px solid #0f172a;
+  padding: 0.25rem 0.1rem;
+  border: 1px solid #0f172a;
+  height: 32px;
+  line-height: 1;
 }
 
 .white-chart-table td {
   background-color: #ffffff;
-  border: 2px solid #0f172a;
-  vertical-align: top;
-  padding: 0.2rem 0.25rem;
-  height: 68px;
-  min-width: 58px;
+  border: 1px solid #0f172a;
+  vertical-align: middle;
+  padding: 0.1rem;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  box-sizing: border-box;
   position: relative;
+  overflow: hidden;
+}
+
+/* Beige Chart Grid for ChartFinder */
+.beige-chart-table {
+  background-color: #fef9c3;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.beige-chart-table th {
+  background-color: #fef08a;
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.25rem 0.1rem;
+  border: 1px solid #0f172a;
+  height: 32px;
+  line-height: 1;
+}
+
+.beige-chart-table td {
+  background-color: #fef9c3;
+  border: 1px solid #0f172a;
+  vertical-align: middle;
+  padding: 0.1rem;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Red Pair Special Text */

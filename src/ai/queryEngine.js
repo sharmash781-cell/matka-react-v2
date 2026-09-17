@@ -653,3 +653,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   return { matches, summary, matchMap };
 };
+
+export const queryChart = (grid, queryStr) => parseAndSearchChart(queryStr, grid);
+export const parseQuery = (queryStr) => queryStr;
+

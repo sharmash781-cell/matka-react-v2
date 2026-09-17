@@ -1,140 +1,169 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { useChart, isRedPair, isHoliday, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { parseAndSearchChart } from '../ai/queryEngine';
-import { Search, Sparkles, MapPin, Eye, Filter, Table, Layers, ArrowRight, Link, X } from 'lucide-react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useChart, isRedPair } from '../context/ChartContext';
+import { parseQuery, queryChart } from '../ai/queryEngine';
+import { Search, Sparkles, Filter, Eye, Layers, ArrowRight, HelpCircle, Check, X } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
-const OVERSCAN = 20;
+const OVERSCAN = 150;
 
-// Vibrant, distinct colors for multi-family highlights
-const FAMILY_PALETTE = [
-  { exact: '#06b6d4', member: '#0ea5e9', border: '#0284c7', text: 'text-cyan-300', bg: 'bg-cyan-950', badge: 'bg-cyan-500' }, // Cyan
-  { exact: '#a855f7', member: '#c084fc', border: '#9333ea', text: 'text-purple-300', bg: 'bg-purple-950', badge: 'bg-purple-500' }, // Purple
-  { exact: '#10b981', member: '#34d399', border: '#059669', text: 'text-emerald-300', bg: 'bg-emerald-950', badge: 'bg-emerald-500' }, // Emerald
-  { exact: '#f59e0b', member: '#fbbf24', border: '#d97706', text: 'text-amber-300', bg: 'bg-amber-950', badge: 'bg-amber-500' }, // Amber
-  { exact: '#ec4899', member: '#f472b6', border: '#db2777', text: 'text-pink-300', bg: 'bg-pink-950', badge: 'bg-pink-500' }  // Pink
+// Up to 5 vibrant color themes for active highlighted families
+const PALETTES = [
+  { id: 'cyan',   name: 'Cyan',   exact: '#06b6d4', member: '#67e8f9', bg: 'bg-cyan-950',   text: 'text-cyan-300',   dot: 'bg-cyan-400' },
+  { id: 'purple', name: 'Purple', exact: '#a855f7', member: '#c084fc', bg: 'bg-purple-950', text: 'text-purple-300', dot: 'bg-purple-400' },
+  { id: 'emerald',name: 'Emerald',exact: '#10b981', member: '#6ee7b7', bg: 'bg-emerald-950',text: 'text-emerald-300',dot: 'bg-emerald-400' },
+  { id: 'amber',  name: 'Amber',  exact: '#f59e0b', member: '#fcd34d', bg: 'bg-amber-950',  text: 'text-amber-300',  dot: 'bg-amber-400' },
+  { id: 'pink',   name: 'Pink',   exact: '#ec4899', member: '#f472b6', bg: 'bg-pink-950',   text: 'text-pink-300',   dot: 'bg-pink-400' }
 ];
 
-// Compute jodi family: open, close, cut-open, cut-close and all reverses
+// Helper to compute all 8 family jodis (cut, reverse, cut-reverse, etc.)
 const getJodiFamily = (jodiStr) => {
   if (!jodiStr || !/^\d{2}$/.test(jodiStr)) return new Set();
-  const o = parseInt(jodiStr[0]);
-  const c = parseInt(jodiStr[1]);
-  const cutO = (o + 5) % 10;
-  const cutC = (c + 5) % 10;
-  return new Set([
-    `${o}${c}`, `${o}${cutC}`, `${cutO}${c}`, `${cutO}${cutC}`,
-    `${c}${o}`, `${c}${cutO}`, `${cutC}${o}`, `${cutC}${cutO}`
-  ]);
+  const o = parseInt(jodiStr[0], 10);
+  const c = parseInt(jodiStr[1], 10);
+
+  const cut = (d) => (d + 5) % 10;
+
+  const f1 = `${o}${c}`;          // direct
+  const f2 = `${cut(o)}${c}`;     // open cut
+  const f3 = `${o}${cut(c)}`;     // close cut
+  const f4 = `${cut(o)}${cut(c)}`;// double cut
+
+  const f5 = `${c}${o}`;          // reverse
+  const f6 = `${cut(c)}${o}`;     // reverse open cut
+  const f7 = `${c}${cut(o)}`;     // reverse close cut
+  const f8 = `${cut(c)}${cut(o)}`;// reverse double cut
+
+  return new Set([f1, f2, f3, f4, f5, f6, f7, f8]);
 };
 
 export const ChartFinder = () => {
-  const { charts = {}, activeChartName, setActiveChartName, saveChart } = useChart();
-
+  const { charts = {}, activeChartName, setActiveChartName } = useChart();
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
-  const [searchQuery, setSearchQuery] = useState('open to open same and close to close one down between 1 to 4 row');
+
+  const [searchQuery, setSearchQuery] = useState('03 family');
   const [hoveredPairId, setHoveredPairId] = useState(null);
 
-  // ── MULTI-FAMILY HIGHLIGHT STATE ───────────────────────────────────────────
-  // Array of active family objects: [{ jodi: "54", familySet: Set(), colorObj: FAMILY_PALETTE[i] }]
+  // MULTI-FAMILY HIGHLIGHT STATE (Up to 5 active families with distinct color palettes)
   const [activeFamilies, setActiveFamilies] = useState([]);
-  const [pressProgress, setPressProgress] = useState(0);     // 0-100 for press progress
-  const [pressingCell, setPressingCell] = useState(null);    // "rIdx_cIdx" of cell held
-  const longPressTimerRef = useRef(null);
-  const progressIntervalRef = useRef(null);
-  const LONG_PRESS_MS = 750;
 
-  const clearLongPress = useCallback(() => {
-    clearTimeout(longPressTimerRef.current);
-    clearInterval(progressIntervalRef.current);
-    setPressProgress(0);
-    setPressingCell(null);
-  }, []);
+  // PRESS-AND-HOLD GESTURE STATE (1000ms threshold)
+  const [pressingCell, setPressingCell] = useState(null); // format: `${r}_${c}`
+  const [pressProgress, setPressProgress] = useState(0);  // 0 -> 100%
+  const pressTimerRef = useRef(null);
+  const progressAnimRef = useRef(null);
 
-  const handleCellPointerDown = useCallback((e, val, rIdx, cIdx) => {
-    if (!val || !/^\d{2}$/.test(val)) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+  const containerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
 
-    const cellKey = `${rIdx}_${cIdx}`;
-    setPressingCell(cellKey);
-    setPressProgress(0);
+  const activeChartObj = charts[selectedChart] || null;
+  const grid = activeChartObj ? activeChartObj.data : [];
+  const colsInput = activeChartObj ? activeChartObj.cols : 7;
+  const rowHeight = 38;
 
-    const startTime = Date.now();
-    progressIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const pct = Math.min(100, (elapsed / LONG_PRESS_MS) * 100);
-      setPressProgress(pct);
-    }, 16);
+  // Toggle or add a family to active state
+  const toggleJodiFamily = useCallback((jodiStr) => {
+    if (!jodiStr || !/^\d{2}$/.test(jodiStr)) return;
 
-    longPressTimerRef.current = setTimeout(() => {
-      clearInterval(progressIntervalRef.current);
-      setPressProgress(100);
-      setPressingCell(null);
+    setActiveFamilies((prev) => {
+      const existingIdx = prev.findIndex((f) => f.jodi === jodiStr);
+      if (existingIdx !== -1) {
+        return prev.filter((f) => f.jodi !== jodiStr);
+      }
+      if (prev.length >= 5) {
+        const nextPalette = prev[0].colorObj;
+        const newFam = {
+          jodi: jodiStr,
+          familySet: getJodiFamily(jodiStr),
+          colorObj: nextPalette
+        };
+        return [...prev.slice(1), newFam];
+      }
 
-      // Check if this jodi (or a jodi belonging to an active family) is already active
-      setActiveFamilies(prev => {
-        const existingIdx = prev.findIndex(f => f.jodi === val || f.familySet.has(val));
-        if (existingIdx !== -1) {
-          // Toggle OFF existing family
-          return prev.filter((_, idx) => idx !== existingIdx);
-        } else {
-          // Add NEW family with next color from palette
-          const nextColorObj = FAMILY_PALETTE[prev.length % FAMILY_PALETTE.length];
-          const newFamSet = getJodiFamily(val);
-          return [...prev, { jodi: val, familySet: newFamSet, colorObj: nextColorObj }];
+      const usedPaletteIds = new Set(prev.map((f) => f.colorObj.id));
+      const availablePalette = PALETTES.find((p) => !usedPaletteIds.has(p.id)) || PALETTES[prev.length % PALETTES.length];
+
+      return [
+        ...prev,
+        {
+          jodi: jodiStr,
+          familySet: getJodiFamily(jodiStr),
+          colorObj: availablePalette
         }
-      });
-    }, LONG_PRESS_MS);
+      ];
+    });
   }, []);
 
-  const handleCellPointerUp = useCallback(() => {
-    clearLongPress();
-  }, [clearLongPress]);
-
-  const handleCellPointerCancel = useCallback(() => {
-    clearLongPress();
-  }, [clearLongPress]);
-
-  const removeFamily = useCallback((jodiToRemove) => {
-    setActiveFamilies(prev => prev.filter(f => f.jodi !== jodiToRemove));
+  const removeFamily = useCallback((jodiStr) => {
+    setActiveFamilies((prev) => prev.filter((f) => f.jodi !== jodiStr));
   }, []);
 
   const clearAllFamilies = useCallback(() => {
     setActiveFamilies([]);
   }, []);
 
-  // Cleanup timers on unmount
-  useEffect(() => () => clearLongPress(), [clearLongPress]);
-  // ───────────────────────────────────────────────────────────────────────────
+  // PRESS-AND-HOLD HANDLERS
+  const startPressTimer = (rIdx, cIdx, cellVal) => {
+    if (!cellVal || !/^\d{2}$/.test(cellVal)) return;
 
-  // Virtualization Scroll State
-  const [scrollTop, setScrollTop] = useState(0);
-  const containerRef = useRef(null);
+    cancelPressTimer();
+    const cellKey = `${rIdx}_${cIdx}`;
+    setPressingCell(cellKey);
+    setPressProgress(0);
 
-  const activeChartObj = charts[selectedChart] || null;
-  const grid = activeChartObj ? activeChartObj.data : [];
-  const colsInput = activeChartObj ? activeChartObj.cols : 7;
+    const startTime = Date.now();
+    const duration = 1000;
 
-  // Perform Natural Language Search
-  const searchResult = useMemo(() => {
-    return parseAndSearchChart(searchQuery, grid, colsInput);
-  }, [searchQuery, grid, colsInput]);
+    const updateProgress = () => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, (elapsed / duration) * 100);
+      setPressProgress(pct);
 
-  const { matches = [], summary = '', matchMap = {} } = searchResult;
-
-  // Group matches by pairId if available
-  const pairedGroupMap = useMemo(() => {
-    const groups = {};
-    matches.forEach(m => {
-      if (m.pairId) {
-        if (!groups[m.pairId]) groups[m.pairId] = [];
-        groups[m.pairId].push(m);
+      if (pct < 100) {
+        progressAnimRef.current = requestAnimationFrame(updateProgress);
       }
+    };
+    progressAnimRef.current = requestAnimationFrame(updateProgress);
+
+    pressTimerRef.current = setTimeout(() => {
+      toggleJodiFamily(cellVal);
+      cancelPressTimer();
+    }, duration);
+  };
+
+  const cancelPressTimer = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+    if (progressAnimRef.current) {
+      cancelAnimationFrame(progressAnimRef.current);
+      progressAnimRef.current = null;
+    }
+    setPressingCell(null);
+    setPressProgress(0);
+  };
+
+  // Run natural language NLP query parser on active grid
+  const queryResult = useMemo(() => {
+    if (!grid || grid.length === 0) return { matches: [], isRelational: false, stats: {} };
+    return queryChart(grid, searchQuery);
+  }, [grid, searchQuery]);
+
+  const { matches = [], parsedFilter, isRelational = false, stats = {}, relationalGroups = [] } = queryResult;
+
+  const matchMap = useMemo(() => {
+    const map = {};
+    matches.forEach((m) => {
+      map[`${m.r}_${m.c}`] = m;
     });
-    return groups;
+    return map;
   }, [matches]);
 
-  const rowHeight = 44;
+  const isHoliday = (val) => {
+    if (!val) return false;
+    const v = val.toUpperCase();
+    return v === '*' || v === 'X' || v === '**';
+  };
 
   const handleScroll = (e) => {
     setScrollTop(e.target.scrollTop);
@@ -147,8 +176,7 @@ export const ChartFinder = () => {
     }
   };
 
-  // Auto-scroll to first matched row instantly on search
-  React.useEffect(() => {
+  useEffect(() => {
     if (matches && matches.length > 0 && matches[0].r !== undefined) {
       scrollToRowIndex(matches[0].r);
     }
@@ -163,17 +191,25 @@ export const ChartFinder = () => {
     'somavaram 03 family and 5th varam red pair'
   ];
 
-  // Virtualization slicing
   const totalRows = grid.length;
-  const viewportHeight = 600;
-  const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN);
-  const endRow = Math.min(totalRows, Math.ceil((scrollTop + viewportHeight) / rowHeight) + OVERSCAN);
-  const visibleRows = grid.slice(startRow, endRow);
 
-  const topPadding = startRow * rowHeight;
-  const bottomPadding = Math.max(0, (totalRows - endRow) * rowHeight);
+  const { startRow, endRow, topPadding, bottomPadding } = useMemo(() => {
+    if (totalRows <= 1000) {
+      return { startRow: 0, endRow: totalRows, topPadding: 0, bottomPadding: 0 };
+    }
+    const chunkSize = 50;
+    const currentChunk = Math.floor(scrollTop / (chunkSize * rowHeight));
+    const startIndex = Math.max(0, (currentChunk - 2) * chunkSize);
+    const endIndex = Math.min(totalRows, (currentChunk + 4) * chunkSize);
+    const topPad = startIndex * rowHeight;
+    const bottomPad = (totalRows - endIndex) * rowHeight;
+    return { startRow: startIndex, endRow: endIndex, topPadding: topPad, bottomPadding: bottomPad };
+  }, [scrollTop, totalRows, rowHeight]);
 
-  // Quick lookup helper for cell family highlights
+  const visibleRows = useMemo(() => {
+    return grid.slice(startRow, endRow);
+  }, [grid, startRow, endRow]);
+
   const getCellFamilyInfo = useCallback((val) => {
     if (!val || activeFamilies.length === 0) return null;
     for (const fam of activeFamilies) {
@@ -189,7 +225,6 @@ export const ChartFinder = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-3 p-1.5 sm:p-4 text-slate-100 font-poppins">
-      {/* HEADER & SEARCH BAR */}
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
           <div className="flex items-center gap-2">
@@ -225,7 +260,6 @@ export const ChartFinder = () => {
           </div>
         </div>
 
-        {/* SEARCH INPUT FIELD */}
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="w-4 h-4 text-pink-400" />
@@ -247,7 +281,6 @@ export const ChartFinder = () => {
           )}
         </div>
 
-        {/* PRESET QUERY CHIPS */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" /> Try:
@@ -267,7 +300,6 @@ export const ChartFinder = () => {
           ))}
         </div>
 
-        {/* MULTI-FAMILY HIGHLIGHT ACTIVE BANNERS */}
         {activeFamilies.length > 0 && (
           <div className="flex items-center justify-between flex-wrap bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -299,54 +331,57 @@ export const ChartFinder = () => {
               onClick={clearAllFamilies}
               className="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-950/60 hover:bg-red-900/80 border border-red-800/80 px-2 py-0.5 rounded-md transition"
             >
-              Clear All Families
+              Clear All
             </button>
           </div>
         )}
 
-        {/* SEARCH RESULT SUMMARY */}
-        <div className="flex items-center justify-between text-xs bg-slate-900/90 p-2 rounded-xl border border-slate-800">
-          <span className="font-mono font-bold text-pink-300 text-[11px] sm:text-xs">
-            {summary}
-          </span>
-          <span className="text-[10px] font-mono text-slate-400">
-            Chart: <strong className="text-white">{selectedChart}</strong> ({grid.length} Rows)
-          </span>
+        <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono pt-1">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-pink-300">
+              Found <strong className="text-pink-400 text-sm">{matches.length}</strong> matching cell(s)
+            </span>
+            {isRelational && (
+              <span className="bg-purple-900/80 text-purple-200 border border-purple-500/80 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
+                Relational Pattern Query
+              </span>
+            )}
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Showing {totalRows} total weeks
+          </div>
         </div>
 
-        {/* MATCHES LOCATION CHIPS */}
         {matches.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-t border-slate-900">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <Link className="w-3 h-3 text-emerald-400" /> Matches ({Object.keys(pairedGroupMap).length > 0 ? `${Object.keys(pairedGroupMap).length} Pairs` : matches.length}):
-            </span>
-
-            {Object.keys(pairedGroupMap).length > 0 ? (
-              Object.entries(pairedGroupMap).map(([pId, pairItems]) => {
-                const pColor = pairItems[0]?.color || '#10b981';
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+            <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">Matches:</span>
+            {isRelational && relationalGroups.length > 0 ? (
+              relationalGroups.map((group) => {
+                const isHovered = group.id === hoveredPairId;
                 return (
                   <div
-                    key={pId}
-                    onMouseEnter={() => setHoveredPairId(pId)}
+                    key={group.id}
+                    onMouseEnter={() => setHoveredPairId(group.id)}
                     onMouseLeave={() => setHoveredPairId(null)}
-                    style={{ borderColor: hoveredPairId === pId ? pColor : '#334155' }}
-                    className={`flex items-center gap-1.5 bg-slate-900 border px-2.5 py-1 rounded-lg transition shrink-0 cursor-pointer shadow-md ${
-                      hoveredPairId === pId ? 'scale-105 shadow-xl' : ''
-                    }`}
+                    onClick={() => scrollToRowIndex(group.m1.r)}
+                    style={{
+                      borderColor: group.color,
+                      backgroundColor: isHovered ? `${group.color}40` : 'rgba(15, 23, 42, 0.9)'
+                    }}
+                    className="flex items-center gap-1.5 border-2 px-2.5 py-1 rounded-xl cursor-pointer hover:scale-105 transition shadow-md shrink-0"
                   >
-                    <span
-                      style={{ backgroundColor: pColor }}
-                      className="w-2.5 h-2.5 rounded-full inline-block border border-black/40 shadow-sm"
-                    />
-                    {pairItems.map((m, idx) => (
+                    <span className="text-[10px] font-black text-amber-300">
+                      Pair #{group.id} (R{group.m1.r + 1} → R{group.m2.r + 1})
+                    </span>
+                    {group.items.map((m, idx) => (
                       <React.Fragment key={idx}>
-                        {idx > 0 && <span className="text-[10px] font-black" style={{ color: pColor }}>↔</span>}
-                        <button
-                          onClick={() => scrollToRowIndex(m.r)}
-                          className="text-[10px] font-mono text-white font-bold hover:underline"
+                        <span
+                          style={{ backgroundColor: group.color, color: '#020617' }}
+                          className="text-[9px] font-black font-mono px-1.5 py-0.2 rounded"
                         >
-                          #{m.rowNum} {m.day}: <strong>{m.val}</strong>
-                        </button>
+                          {m.day}: {m.val}
+                        </span>
+                        {idx < group.items.length - 1 && <span className="text-slate-400 text-[10px] font-bold">→</span>}
                       </React.Fragment>
                     ))}
                   </div>
@@ -369,9 +404,7 @@ export const ChartFinder = () => {
         )}
       </div>
 
-      {/* MATKA GRID */}
       <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
-        {/* Long-press hint */}
         <div className="flex items-center justify-between gap-1.5 px-1 pb-1 flex-wrap">
           <span className="text-[9px] text-slate-400 font-mono">
             💡 <span className="text-cyan-400 font-bold">Hold any cell 1s</span> → toggle family highlight with custom colors
@@ -386,17 +419,17 @@ export const ChartFinder = () => {
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="overflow-y-auto overflow-x-auto max-h-[calc(100vh-300px)] border border-slate-800 rounded-xl bg-[#fef9c3] relative"
+          className="smooth-scroll-container overflow-y-auto overflow-x-auto max-h-[75vh] border border-slate-800 rounded-xl bg-[#fef9c3] relative"
         >
           <div className="w-full min-w-full relative">
             <table className="w-full table-fixed beige-chart-table relative z-10">
               <thead className="sticky top-0 z-20 shadow-md bg-white border-b-2 border-slate-950">
                 <tr>
-                  <th className="w-10 sm:w-14 py-2 text-center font-black text-slate-950 text-xs sm:text-base border border-slate-950 bg-slate-100">
+                  <th className="w-10 sm:w-14 py-1 text-center font-black text-slate-950 text-xs sm:text-base border border-slate-950 bg-slate-100">
                     #
                   </th>
                   {Array.from({ length: colsInput }).map((_, cIdx) => (
-                    <th key={cIdx} className="py-2 text-center font-black text-slate-950 text-xs sm:text-base border border-slate-950 bg-slate-100">
+                    <th key={cIdx} className="py-1 text-center font-black text-slate-950 text-xs sm:text-base border border-slate-950 bg-slate-100">
                       {COL_HEADERS[cIdx] || `Col ${cIdx + 1}`}
                     </th>
                   ))}
@@ -427,14 +460,10 @@ export const ChartFinder = () => {
                         const isHoveredPair = matchItem && matchItem.pairId && matchItem.pairId === hoveredPairId;
                         const pColor = matchItem?.color || '#f59e0b';
 
-                        // Multi-family highlight lookup for this cell
                         const familyInfo = getCellFamilyInfo(val);
                         const isFamilyHighlight = !!familyInfo;
-
-                        // Press-in-progress indicator on THIS cell
                         const isBeingPressed = pressingCell === `${rIdx}_${cIdx}`;
 
-                        // Determine final cell styling: Search matches take priority over family highlight
                         let cellBg, cellBorderColor, cellBorderWidth, cellShadow;
                         if (matchItem) {
                           cellBg = isHoveredPair ? `${pColor}90` : `${pColor}45`;
@@ -449,6 +478,16 @@ export const ChartFinder = () => {
                           cellShadow = familyInfo.isExact
                             ? `0 0 14px ${fColor}cc inset`
                             : `0 0 8px ${fColor}80 inset`;
+                        } else if (holiday) {
+                          cellBg = '#f1f5f9';
+                          cellBorderColor = '#020617';
+                          cellBorderWidth = '1px';
+                          cellShadow = 'none';
+                        } else if (red) {
+                          cellBg = '#fee2e2';
+                          cellBorderColor = '#020617';
+                          cellBorderWidth = '1px';
+                          cellShadow = 'none';
                         } else {
                           cellBg = '#fef9c3';
                           cellBorderColor = '#020617';
@@ -459,65 +498,51 @@ export const ChartFinder = () => {
                         return (
                           <td
                             key={cIdx}
-                            onMouseEnter={() => matchItem && matchItem.pairId && setHoveredPairId(matchItem.pairId)}
-                            onMouseLeave={() => setHoveredPairId(null)}
-                            onPointerDown={(e) => handleCellPointerDown(e, val, rIdx, cIdx)}
-                            onPointerUp={handleCellPointerUp}
-                            onPointerCancel={handleCellPointerCancel}
-                            onPointerLeave={handleCellPointerUp}
+                            onMouseDown={() => startPressTimer(rIdx, cIdx, val)}
+                            onMouseUp={cancelPressTimer}
+                            onMouseLeave={cancelPressTimer}
+                            onTouchStart={() => startPressTimer(rIdx, cIdx, val)}
+                            onTouchEnd={cancelPressTimer}
+                            onTouchCancel={cancelPressTimer}
                             style={{
                               backgroundColor: cellBg,
-                              borderColor: isBeingPressed ? '#06b6d4' : cellBorderColor,
-                              borderWidth: isBeingPressed ? '2.5px' : cellBorderWidth,
-                              boxShadow: isBeingPressed
-                                ? `0 0 0 ${Math.round(pressProgress / 14)}px rgba(6,182,212,0.45) inset`
-                                : cellShadow,
-                              outline: isBeingPressed ? `2px solid rgba(6,182,212,${pressProgress / 100})` : 'none',
-                              userSelect: 'none',
-                              touchAction: 'none'
+                              borderColor: cellBorderColor,
+                              borderWidth: cellBorderWidth,
+                              boxShadow: cellShadow
                             }}
-                            className={`relative px-0.5 py-0.5 text-center align-middle transition-all duration-150 cursor-pointer ${
-                              matchItem ? 'z-10 font-black' : ''
-                            } ${isFamilyHighlight && !matchItem ? 'z-5' : ''}`}
+                            className={`text-center align-middle font-mono font-black select-none cursor-pointer relative transition-all ${
+                              matchItem || isFamilyHighlight ? 'z-10' : ''
+                            }`}
                           >
-                            {/* SEARCH MATCH MICRO DOT */}
-                            {matchItem && (
-                              <div className="absolute top-1 right-1 z-20 pointer-events-none flex items-center justify-center">
-                                <span
-                                  style={{
-                                    backgroundColor: pColor,
-                                    boxShadow: `0 0 5px ${pColor}, 0 0 1.5px #000`
-                                  }}
-                                  className="w-2 h-2 rounded-full border border-slate-950/90 inline-block"
-                                />
+                            {isBeingPressed && (
+                              <div className="absolute inset-0 bg-cyan-500/30 z-30 flex items-center justify-center pointer-events-none">
+                                <span className="text-[10px] font-black text-cyan-950 bg-cyan-300 px-1 rounded shadow">
+                                  {Math.round(pressProgress)}%
+                                </span>
                               </div>
                             )}
 
-                            {/* MULTI-FAMILY MICRO DOT (only when no search match) */}
                             {isFamilyHighlight && !matchItem && (
-                              <div className="absolute top-1 right-1 z-20 pointer-events-none">
+                              <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none flex items-center gap-0.5">
                                 <span
                                   style={{
-                                    backgroundColor: familyInfo.isExact ? familyInfo.colorObj.exact : familyInfo.colorObj.member,
-                                    boxShadow: `0 0 5px ${familyInfo.colorObj.exact}, 0 0 1.5px #000`,
-                                    width: familyInfo.isExact ? '8px' : '6px',
-                                    height: familyInfo.isExact ? '8px' : '6px',
+                                    backgroundColor: familyInfo.colorObj.exact,
+                                    boxShadow: `0 0 6px ${familyInfo.colorObj.exact}`
                                   }}
-                                  className="rounded-full border border-slate-950/90 inline-block"
+                                  className={`rounded-full border border-slate-950/80 ${
+                                    familyInfo.isExact ? 'w-2 h-2' : 'w-1.5 h-1.5'
+                                  }`}
                                 />
                               </div>
                             )}
 
-                            {/* Center Jodi Number - 100% Unobscured & Fully Legible */}
-                            <div className="flex items-center justify-center my-auto relative z-10 w-full h-full">
-                              <span
-                                className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-wider leading-none ${
-                                  red ? 'text-red-600 drop-shadow-sm font-black' : (holiday ? 'text-slate-400 font-bold' : 'text-slate-950 font-black')
-                                }`}
-                              >
-                                {val || ''}
-                              </span>
-                            </div>
+                            <span
+                              className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter ${
+                                red ? 'red-pair-text' : 'normal-jodi-text'
+                              }`}
+                            >
+                              {val || ''}
+                            </span>
                           </td>
                         );
                       })}
