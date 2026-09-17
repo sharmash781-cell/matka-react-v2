@@ -13,6 +13,12 @@ export const PredictorEngine = () => {
   const [predictionResult, setPredictionResult] = useState(null);
   const [selectedJodiFilter, setSelectedJodiFilter] = useState('ALL');
 
+  // Master Triad Strategy Options (Default OFF)
+  const [enableMasterTriadFinder, setEnableMasterTriadFinder] = useState(false);
+  const [triadCycleInterval, setTriadCycleInterval] = useState('4');
+  const [triadTargetSeq, setTriadTargetSeq] = useState('DECREMENT_2');
+  const [triadHighlightColor, setTriadHighlightColor] = useState('BLUE');
+
   const activeModel = learnedModels[activeModelName] || {
     columnWeight: 1.35, rowWeight: 1.20, conditionWeight: 1.45, familyWeight: 1.15, redPairWeight: 1.25, recencyDecay: 0.97
   };
@@ -496,66 +502,90 @@ export const PredictorEngine = () => {
       }
     }
 
-    // --- PASS 12: MASTER 4-WEEK DECREMENT OPEN-SUM & CLOSE-BALANCE TRIAD SCANNER ---
-    // Evaluates 4-week step-down cycles where Open1 + Open2 + OpenTarget = Target Sum (S -> S-2 -> S-4 -> S-6)
-    // and Close1 + Close2 + CloseTarget = Adjacent Total + Open2
-    for (let stepWeeks of [4, 5]) {
-      const r1 = targetRowIdx - (stepWeeks * 2);
-      const r2 = targetRowIdx - stepWeeks;
+    // --- PASS 12: MASTER DYNAMIC MULTI-INTERVAL OPEN/CLOSE/TOTAL TRIAD SCANNER ---
+    if (enableMasterTriadFinder) {
+      // Dynamic intervals W from 2 to 12 weeks
+      const stepWeeksList = triadCycleInterval === 'AUTO' 
+        ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] 
+        : [parseInt(triadCycleInterval)];
 
-      if (r1 >= 0 && r2 >= 0 && grid[r1] && grid[r2]) {
-        // Center/Diagonal Column pairs
-        for (let c1 = 0; c1 < activeChart.cols; c1++) {
-          const val1 = grid[r1][c1]?.val;
-          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+      stepWeeksList.forEach(stepWeeks => {
+        const r1 = targetRowIdx - (stepWeeks * 2);
+        const r2 = targetRowIdx - stepWeeks;
 
-          for (let c2 = 0; c2 < activeChart.cols; c2++) {
-            const val2 = grid[r2][c2]?.val;
-            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+        if (r1 >= 0 && r2 >= 0 && grid[r1] && grid[r2]) {
+          for (let c1 = 0; c1 < activeChart.cols; c1++) {
+            const val1 = grid[r1][c1]?.val;
+            if (!val1 || !/^\d{2}$/.test(val1)) continue;
 
-            const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
-            const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
+            for (let c2 = 0; c2 < activeChart.cols; c2++) {
+              const val2 = grid[r2][c2]?.val;
+              if (!val2 || !/^\d{2}$/.test(val2)) continue;
 
-            // Test target sum S from 0 to 9, especially even decrements
-            for (let targetSum = 0; targetSum <= 9; targetSum++) {
-              const requiredOpen = (targetSum - o1 - o2 + 20) % 10;
+              const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
+              const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
+              const tot1 = (o1 + cVal1) % 10, tot2 = (o2 + cVal2) % 10;
 
-              // Check if an adjacent cell total exists to calculate required Close digit
-              let requiredClose = null;
-              if (c2 > 0 && grid[r2][c2 - 1]?.val && /^\d{2}$/.test(grid[r2][c2 - 1].val)) {
-                const adjVal = grid[r2][c2 - 1].val;
-                const adjTotal = (parseInt(adjVal[0]) + parseInt(adjVal[1])) % 10;
-                const targetCloseSum = (adjTotal + o2) % 10;
-                requiredClose = (targetCloseSum - cVal1 - cVal2 + 20) % 10;
-              }
+              for (let targetSum = 0; targetSum <= 9; targetSum++) {
+                const reqOpen = (targetSum - o1 - o2 + 20) % 10;
+                const reqClose = (targetSum - cVal1 - cVal2 + 20) % 10;
+                const reqTotal = (targetSum - tot1 - tot2 + 20) % 10;
 
-              for (let closeD = 0; closeD <= 9; closeD++) {
-                const candJodi = `${requiredOpen}${closeD}`;
+                for (let o = 0; o <= 9; o++) {
+                  for (let c = 0; c <= 9; c++) {
+                    const candJodi = `${o}${c}`;
+                    const candTot = (o + c) % 10;
 
-                // Boost Open-Sum Triad match
-                addPoints(
-                  candJodi,
-                  45,
-                  activeModel.conditionWeight,
-                  1.0,
-                  `🔥 [MASTER 4-WEEK OPEN TRIAD] 3-Open Sum (${o1} + ${o2} + ${requiredOpen}) = Target ${targetSum} (${stepWeeks}-Week Cycle from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
-                );
+                    // 1. Open Triad Match
+                    if (o === reqOpen) {
+                      addPoints(
+                        candJodi,
+                        45,
+                        activeModel.conditionWeight * 1.2,
+                        1.0,
+                        `👑 [DYNAMIC OPEN TRIAD] 3-Open Sum (${o1}+${o2}+${o}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                      );
+                    }
 
-                // Additional massive boost if Close Balance line also matches
-                if (requiredClose !== null && closeD === requiredClose) {
-                  addPoints(
-                    candJodi,
-                    65,
-                    activeModel.conditionWeight * 1.3,
-                    1.0,
-                    `👑 [MASTER FULL MATRIX BALANCE] Both Open Sum (${o1}+${o2}+${requiredOpen}=${targetSum}) AND Close Sum (${cVal1}+${cVal2}+${closeD} = AdjTotal+Open2) fully aligned for Jodi ${candJodi}!`
-                  );
+                    // 2. Close Triad Match
+                    if (c === reqClose) {
+                      addPoints(
+                        candJodi,
+                        40,
+                        activeModel.conditionWeight * 1.1,
+                        1.0,
+                        `👑 [DYNAMIC CLOSE TRIAD] 3-Close Sum (${cVal1}+${cVal2}+${c}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                      );
+                    }
+
+                    // 3. Total Sum Triad Match
+                    if (candTot === reqTotal) {
+                      addPoints(
+                        candJodi,
+                        40,
+                        activeModel.conditionWeight * 1.1,
+                        1.0,
+                        `👑 [DYNAMIC TOTAL TRIAD] 3-Total Sum (${tot1}+${tot2}+${candTot}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                      );
+                    }
+
+                    // Dual Open & Close Triad Master Convergence
+                    if (o === reqOpen && c === reqClose) {
+                      addPoints(
+                        candJodi,
+                        75,
+                        activeModel.conditionWeight * 1.5,
+                        1.0,
+                        `🌟 [FULL MASTER DUAL DYNAMIC TRIAD] Both 3-Open Sum (${targetSum}) AND 3-Close Sum (${targetSum}) fully aligned for Jodi ${candJodi} across ${stepWeeks}-Week Cycle!`
+                      );
+                    }
+                  }
                 }
               }
             }
           }
         }
-      }
+      });
     }
 
     // Calculate aggregated probabilities for Open, Close, and Total digits
@@ -692,11 +722,87 @@ export const PredictorEngine = () => {
           </div>
         </div>
 
+        {/* Master Strategy Finder Control Panel (Default OFF) */}
+        <div className="space-y-4 pt-4 border-t border-slate-800">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-purple-950/40 p-4 rounded-2xl border border-purple-500/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-purple-500/20 rounded-xl border border-purple-500/30">
+                <Brain className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-white">Master 4-Week Decrement Triad Finder</h4>
+                <p className="text-[11px] text-purple-300 font-mono">Scans 3-Open Harmonic Triads & Close Balance Lines ($0 \rightarrow 8 \rightarrow 6 \rightarrow 4 \rightarrow 2$)</p>
+              </div>
+            </div>
+
+            {/* Toggle Switch (Default OFF) */}
+            <button
+              onClick={() => setEnableMasterTriadFinder(!enableMasterTriadFinder)}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center gap-2 border ${
+                enableMasterTriadFinder
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              <span>{enableMasterTriadFinder ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}</span>
+              <span className={`w-3 h-3 rounded-full ${enableMasterTriadFinder ? 'bg-slate-950 animate-ping' : 'bg-slate-600'}`} />
+            </button>
+          </div>
+
+          {/* Options (Visible when enabled) */}
+          {enableMasterTriadFinder && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-950/80 border border-purple-500/30 rounded-2xl animate-fadeIn font-mono text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Cycle Step Interval</label>
+                <select
+                  value={triadCycleInterval}
+                  onChange={(e) => setTriadCycleInterval(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 font-bold outline-none focus:border-purple-500"
+                >
+                  <option value="4">4 Weeks (Default Master)</option>
+                  <option value="3">3 Weeks</option>
+                  <option value="2">2 Weeks</option>
+                  <option value="5">5 Weeks</option>
+                  <option value="AUTO">Auto-Scan All Intervals</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Target Sum Sequence</label>
+                <select
+                  value={triadTargetSeq}
+                  onChange={(e) => setTriadTargetSeq(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 font-bold outline-none focus:border-purple-500"
+                >
+                  <option value="DECREMENT_2">Decrement -2 (0 → 8 → 6 → 4 → 2)</option>
+                  <option value="CONSTANT">Constant Target Sum</option>
+                  <option value="AUTO">Auto-Detect Progression</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Highlight Color Theme</label>
+                <select
+                  value={triadHighlightColor}
+                  onChange={(e) => setTriadHighlightColor(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 font-bold outline-none focus:border-purple-500"
+                >
+                  <option value="BLUE">Neon Blue</option>
+                  <option value="PURPLE">Purple Gem</option>
+                  <option value="EMERALD">Emerald Green</option>
+                  <option value="ROSE">Rose Flame</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2 pt-2 border-t border-slate-800">
           <label className="block text-xs font-bold uppercase tracking-wider text-purple-400">⚡ Saved Master Strategy Shortcuts & Pattern Library</label>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
+                setEnableMasterTriadFinder(true);
                 runPredictor();
                 setSelectedJodiFilter('ALL');
               }}
