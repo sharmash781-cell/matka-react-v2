@@ -227,6 +227,75 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 8: CONDITIONAL TRIGGER -> FOLLOWER TRANSITION MATRIX ---
+    // Scans full chart history to learn what Open, Close, or Total ALWAYS follows a given Total/Open/Close trigger
+    if (targetRowIdx >= 0) {
+      const recentTriggers = [];
+      if (colVal > 0 && grid[targetRowIdx] && grid[targetRowIdx][colVal - 1]?.val) {
+        recentTriggers.push(grid[targetRowIdx][colVal - 1].val); // Yesterday
+      }
+      if (targetRowIdx > 0 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal]?.val) {
+        recentTriggers.push(grid[targetRowIdx - 1][colVal].val); // Same day last week
+      }
+
+      recentTriggers.forEach(triggerJodi => {
+        if (/^\d{2}$/.test(triggerJodi)) {
+          const tO = parseInt(triggerJodi[0]), tC = parseInt(triggerJodi[1]);
+          const tTotal = (tO + tC) % 10;
+
+          const followerOpenCounts = Array(10).fill(0);
+          const followerTotalCounts = Array(10).fill(0);
+          let totalOccurrences = 0;
+
+          for (let r = 0; r < targetRowIdx; r++) {
+            for (let c = 0; c < activeChart.cols; c++) {
+              const histVal = grid[r] ? grid[r][c]?.val : null;
+              if (histVal && /^\d{2}$/.test(histVal)) {
+                const hO = parseInt(histVal[0]), hC = parseInt(histVal[1]);
+                const hTotal = (hO + hC) % 10;
+
+                // Match trigger on Total or Open
+                if (hTotal === tTotal || hO === tO) {
+                  let nextR = r, nextC = c + 1;
+                  if (nextC >= activeChart.cols) {
+                    nextR = r + 1;
+                    nextC = 0;
+                  }
+                  if (nextR < targetRowIdx && grid[nextR] && grid[nextR][nextC]?.val) {
+                    const nextVal = grid[nextR][nextC].val;
+                    if (/^\d{2}$/.test(nextVal)) {
+                      const nO = parseInt(nextVal[0]), nC = parseInt(nextVal[1]);
+                      followerOpenCounts[nO]++;
+                      followerTotalCounts[(nO + nC) % 10]++;
+                      totalOccurrences++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (totalOccurrences >= 2) {
+            for (let o = 0; o <= 9; o++) {
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${o}${c}`;
+                const candTotal = (o + c) % 10;
+                const openProb = followerOpenCounts[o] / totalOccurrences;
+                const totalProb = followerTotalCounts[candTotal] / totalOccurrences;
+
+                if (openProb >= 0.25) {
+                  addPoints(candJodi, 26, activeModel.conditionWeight, 1.0, `🔁 [TRIGGER->FOLLOWER OPEN] Trigger "${triggerJodi}" historically followed by Open ${o} (${(openProb * 100).toFixed(0)}% frequency, ${followerOpenCounts[o]}/${totalOccurrences} times)`);
+                }
+                if (totalProb >= 0.25) {
+                  addPoints(candJodi, 24, activeModel.conditionWeight, 1.0, `🔁 [TRIGGER->FOLLOWER TOTAL] Trigger "${triggerJodi}" historically followed by Total ${candTotal} (${(totalProb * 100).toFixed(0)}% frequency, ${followerTotalCounts[candTotal]}/${totalOccurrences} times)`);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
     // --- PASS 6: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
     for (let r = startRowIdx; r < targetRowIdx; r++) {
       const rowDistance = targetRowIdx - r;
@@ -330,16 +399,31 @@ export const PredictorEngine = () => {
       });
     }
 
-    // --- PASS 8: Red-Pair & Touch-Digit Symmetry Boost ---
-    let redCountInCol = 0;
-    for (let r = startRowIdx; r < targetRowIdx; r++) {
-      const val = grid[r] ? grid[r][colVal]?.val : null;
-      if (val && isRedPair(val)) redCountInCol++;
-    }
-    if (redCountInCol >= 2) {
-      for (let d = 0; d <= 9; d++) {
-        addPoints(`${d}${d}`, 20, activeModel.redPairWeight, 1.0, `Red-Pair Same Digit Symmetry Boost (${redCountInCol} historical red pairs in column)`);
-        addPoints(`${d}${RED_PAIRS[d]}`, 20, activeModel.redPairWeight, 1.0, `Red-Pair Complement Boost`);
+    // --- PASS 9: CROSS TOTAL = OPEN & CROSS CUT = CLOSE PATTERN SCANNER ---
+    // Scans surrounding cross matrix cells to see if Cross Total matches candidate Open digit or Cross Cut matches candidate Close digit
+    for (let r = Math.max(0, targetRowIdx - 15); r < targetRowIdx; r++) {
+      for (let c = 0; c < activeChart.cols; c++) {
+        if (grid[r] && grid[r][c]?.val && /^\d{2}$/.test(grid[r][c].val)) {
+          const crossVal = grid[r][c].val;
+          const crO = parseInt(crossVal[0]), crC = parseInt(crossVal[1]);
+          const crossTotal = (crO + crC) % 10;
+          const crossCutO = getCut(crO);
+          const crossCutC = getCut(crC);
+          const rec = Math.pow(0.97, targetRowIdx - r);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let closeD = 0; closeD <= 9; closeD++) {
+              // Cross Total matches candidate Open digit
+              if (crossTotal === o) {
+                addPoints(`${o}${closeD}`, 28, activeModel.conditionWeight, rec, `✨ [CROSS TOTAL = OPEN] Cell (Row #${r + 1}, Col #${c + 1} "${crossVal}") Total ${crossTotal} matches candidate Open ${o}`);
+              }
+              // Cross Cut-Open matches candidate Close digit
+              if (crossCutO === closeD) {
+                addPoints(`${o}${closeD}`, 22, activeModel.conditionWeight, rec, `✨ [CROSS CUT = CLOSE] Cell (Row #${r + 1}, Col #${c + 1} "${crossVal}") Cut Open ${crossCutO} matches candidate Close ${closeD}`);
+              }
+            }
+          }
+        }
       }
     }
 

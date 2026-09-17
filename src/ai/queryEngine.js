@@ -293,7 +293,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     const hasFamily = cStr.includes('family');
     const hasRedPair = cStr.includes('red pair') || cStr.includes('red jodi') || cStr.includes('double');
     const hasSameJodi = cStr.includes('jodi same') || cStr.includes('same jodi') || (cStr.includes('jodi') && cStr.includes('same') && !cStr.includes('open') && !cStr.includes('close'));
-    const isCrossDigitQuery = /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close/i.test(cStr);
+    const isCrossDigitQuery = /open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|total\s+(?:becomes|to|matches|is)?\s*open/i.test(cStr);
 
     // CLAUSE TYPE CROSS-DIGIT: Multi-Relation Cross-Digit Matcher
     if (isCrossDigitQuery) {
@@ -301,23 +301,24 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       const hasOrLogic = cStr.includes(' or ');
 
       // Extract each cross-digit clause and its exact relation
-      // CRITICAL FIX: Lookahead uses |$ OUTSIDE \s+ so last clause at end-of-string is always captured
-      const crossMatches = [...cStr.matchAll(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s+([a-z0-9\s]+?)(?=\s+(?:open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|between|from|row|and)|$)/gi)];
+      const crossMatches = [...cStr.matchAll(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|total\s+(?:becomes|to|matches|is)?\s*open)\s*([a-z0-9\s]*?)(?=\s+(?:open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|total\s+(?:becomes|to|matches|is)?\s*open|between|from|row|and)|$)/gi)];
 
       if (crossMatches.length > 0) {
         crossMatches.forEach(m => {
-          const typeStr = m[1].toLowerCase().replace(/\s+/g, '_');
+          let typeStr = m[1].toLowerCase().replace(/\s+/g, '_');
+          if (typeStr.includes('total') && typeStr.includes('open')) typeStr = 'total_to_open';
           const relObj = parseRelation(m[2]);
           if (relObj) {
             crossClauses.push({ type: typeStr, rel: relObj });
           }
         });
       } else {
-        const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)/i);
+        const subTokens = cStr.split(/\s*(?=open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|total\s+(?:becomes|to|matches|is)?\s*open)/i);
         subTokens.forEach(tok => {
-          const subMatch = tok.match(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close)\s*(.*)/i);
+          const subMatch = tok.match(/(open\s+to\s+close|close\s+to\s+open|open\s+to\s+open|close\s+to\s+close|total\s+(?:becomes|to|matches|is)?\s*open)\s*(.*)/i);
           if (subMatch) {
-            const typeStr = subMatch[1].toLowerCase().replace(/\s+/g, '_');
+            let typeStr = subMatch[1].toLowerCase().replace(/\s+/g, '_');
+            if (typeStr.includes('total') && typeStr.includes('open')) typeStr = 'total_to_open';
             const relObj = parseRelation(subMatch[2]);
             if (relObj) {
               crossClauses.push({ type: typeStr, rel: relObj });
@@ -349,6 +350,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               else if (cl.type === 'close_to_open') { d1 = c1Digit; d2 = o2; }
               else if (cl.type === 'open_to_open') { d1 = o1; d2 = o2; }
               else if (cl.type === 'close_to_close') { d1 = c1Digit; d2 = c2Digit; }
+              else if (cl.type === 'total_to_open') { d1 = (o1 + c1Digit) % 10; d2 = o2; }
 
               if (checkDigitRelation(d1, d2, cl.rel)) passesCount++;
             });
