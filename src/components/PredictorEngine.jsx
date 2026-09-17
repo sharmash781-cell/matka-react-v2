@@ -17,8 +17,34 @@ export const PredictorEngine = () => {
   };
 
   useEffect(() => {
-    if (activeChart) {
-      setTargetRow(Math.min(activeChart.rows, 15));
+    if (activeChart && activeChart.data) {
+      const grid = activeChart.data;
+      let lastR = -1;
+      let lastC = -1;
+
+      for (let r = 0; r < grid.length; r++) {
+        if (grid[r]) {
+          for (let c = 0; c < grid[r].length; c++) {
+            if (grid[r][c]?.val && grid[r][c].val.trim() !== '') {
+              lastR = r;
+              lastC = c;
+            }
+          }
+        }
+      }
+
+      if (lastR !== -1 && lastC !== -1) {
+        if (lastC >= activeChart.cols - 1) {
+          setTargetRow(lastR + 2); // Next row, Monday
+          setTargetCol(1);
+        } else {
+          setTargetRow(lastR + 1); // Same row, next column
+          setTargetCol(lastC + 2);
+        }
+      } else {
+        setTargetRow(1);
+        setTargetCol(1);
+      }
     }
   }, [activeChartName, activeChart]);
 
@@ -38,8 +64,8 @@ export const PredictorEngine = () => {
 
     const startTime = performance.now();
     const grid = activeChart.data;
-    const targetRowIdx = Math.min(grid.length - 1, targetRow - 1);
-    const colVal = targetCol - 1;
+    const targetRowIdx = Math.max(0, targetRow - 1);
+    const colVal = Math.max(0, Math.min(activeChart.cols - 1, targetCol - 1));
 
     const candidateScores = {};
     const candidateLogs = {};
@@ -74,7 +100,7 @@ export const PredictorEngine = () => {
         const projC = (c1 + deltaC) % 10;
         const projJodi = `${projO}${projC}`;
 
-        addPoints(projJodi, 45, activeModel.columnWeight, 1.0, `Recent Column Step Match: Row -1 (${prev1}) vs Row -2 (${prev2}) -> ΔOpen=+${deltaO}, ΔClose=+${deltaC}`);
+        addPoints(projJodi, 45, activeModel.columnWeight, 1.0, `Vertical Column Step: Row -1 (${prev1}) vs Row -2 (${prev2}) -> ΔOpen=+${deltaO}, ΔClose=+${deltaC}`);
         addPoints(`${getCut(projO)}${projC}`, 25, activeModel.columnWeight, 1.0, `Cut-Open Harmonic Variation from projected ${projJodi}`);
       }
     }
@@ -99,7 +125,67 @@ export const PredictorEngine = () => {
       }
     }
 
-    // --- PASS 3: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
+    // --- PASS 3: Periodic 10-Week / 5-Week Interval Cycle Scanner ---
+    const periodicGaps = [10, 5, 20, 15, 30];
+    periodicGaps.forEach(gap => {
+      const pastR = targetRowIdx - gap;
+      if (pastR >= 0 && grid[pastR] && grid[pastR][colVal]?.val && /^\d{2}$/.test(grid[pastR][colVal].val)) {
+        const cycleVal = grid[pastR][colVal].val;
+        const cO = parseInt(cycleVal[0]), cC = parseInt(cycleVal[1]);
+        
+        addPoints(cycleVal, 42, activeModel.columnWeight, 1.0, `🔄 [${gap}-WEEK CYCLE MATCH] Direct repeat from Row #${pastR + 1}, Col #${colVal + 1} (${cycleVal})`);
+        addPoints(`${getCut(cO)}${cC}`, 24, activeModel.columnWeight, 0.95, `🔄 [${gap}-WEEK CYCLE CUT] Cut-Open variant derived from ${cycleVal}`);
+        
+        const cycleFamily = getFamilySet(cO, cC);
+        cycleFamily.forEach(fJodi => {
+          addPoints(fJodi, 16, activeModel.familyWeight, 0.9, `🔄 [${gap}-WEEK CYCLE FAMILY] Family member of ${cycleVal}`);
+        });
+      }
+    });
+
+    // --- PASS 4: Open Digit Triad & Sequence Progression (e.g. 5, 9 -> 3 / 0 / 5) ---
+    const recentOpens = [];
+    for (let r = targetRowIdx - 1; r >= Math.max(0, targetRowIdx - 6); r--) {
+      if (grid[r] && grid[r][colVal]?.val && /^\d{2}$/.test(grid[r][colVal].val)) {
+        recentOpens.push(parseInt(grid[r][colVal].val[0]));
+      }
+    }
+    if (recentOpens.length >= 2) {
+      const o1 = recentOpens[0]; // Most recent Open
+      const o2 = recentOpens[1]; // Second most recent Open
+      const step = (o1 - o2 + 10) % 10;
+      const projOpen = (o1 + step) % 10;
+      const cutProjOpen = getCut(projOpen);
+
+      for (let d = 0; d <= 9; d++) {
+        addPoints(`${projOpen}${d}`, 28, activeModel.columnWeight, 1.0, `📈 [OPEN TRIAD PROGRESSION] Recent Opens (${o2} -> ${o1}, Δ=+${step}) project next Open ${projOpen}`);
+        addPoints(`${cutProjOpen}${d}`, 18, activeModel.columnWeight, 0.95, `📈 [OPEN TRIAD CUT] Cut Open ${cutProjOpen} derived from sequence delta +${step}`);
+      }
+    }
+
+    // --- PASS 5: Diagonal Cross-Line Harmonics (Top-Left & Top-Right Cross) ---
+    if (targetRowIdx >= 1) {
+      // Top-Left to Bottom-Right Diagonal (Row -1, Col -1)
+      if (colVal >= 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal - 1]?.val) {
+        const diagVal = grid[targetRowIdx - 1][colVal - 1].val;
+        if (/^\d{2}$/.test(diagVal)) {
+          const dO = parseInt(diagVal[0]), dC = parseInt(diagVal[1]);
+          addPoints(diagVal, 32, activeModel.rowWeight, 1.0, `↘ [DIAGONAL TOP-LEFT CROSS] Cross match from Row #${targetRowIdx}, Col #${colVal} (${diagVal})`);
+          addPoints(`${getCut(dO)}${dC}`, 20, activeModel.rowWeight, 0.95, `↘ [DIAGONAL TOP-LEFT CUT] Cut-Open from ${diagVal}`);
+        }
+      }
+      // Top-Right to Bottom-Left Diagonal (Row -1, Col +1)
+      if (colVal < activeChart.cols - 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal + 1]?.val) {
+        const diagVal = grid[targetRowIdx - 1][colVal + 1].val;
+        if (/^\d{2}$/.test(diagVal)) {
+          const dO = parseInt(diagVal[0]), dC = parseInt(diagVal[1]);
+          addPoints(diagVal, 32, activeModel.rowWeight, 1.0, `↙ [DIAGONAL TOP-RIGHT CROSS] Cross match from Row #${targetRowIdx}, Col #${colVal + 2} (${diagVal})`);
+          addPoints(`${dO}${getCut(dC)}`, 20, activeModel.rowWeight, 0.95, `↙ [DIAGONAL TOP-RIGHT CUT] Cut-Close from ${diagVal}`);
+        }
+      }
+    }
+
+    // --- PASS 6: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
     for (let r = startRowIdx; r < targetRowIdx; r++) {
       const rowDistance = targetRowIdx - r;
       const recencyFactor = Math.pow(activeModel.recencyDecay || 0.97, rowDistance);
@@ -132,14 +218,13 @@ export const PredictorEngine = () => {
       }
     }
 
-    // --- PASS 4: CUSTOM VISUAL TRAINED MARKINGS & FULL-CHART OPEN-TO-OPEN HARMONIC SCAN ---
+    // --- PASS 7: CUSTOM VISUAL TRAINED MARKINGS & FULL-CHART OPEN-TO-OPEN HARMONIC SCAN ---
     if (customAIPatterns && customAIPatterns.length > 0) {
       customAIPatterns.forEach((pattern) => {
         if (pattern.markings && pattern.markings.length >= 2) {
           const m1 = pattern.markings[0];
           const m2 = pattern.markings[1];
 
-          // Check if Open-to-Open relationship occurred across full chart matrix
           const val1 = grid[m1.r] ? grid[m1.r][m1.c]?.val : null;
           const val2 = grid[m2.r] ? grid[m2.r][m2.c]?.val : null;
 
@@ -203,7 +288,7 @@ export const PredictorEngine = () => {
       });
     }
 
-    // --- PASS 5: Red-Pair Symmetry Boost ---
+    // --- PASS 8: Red-Pair & Touch-Digit Symmetry Boost ---
     let redCountInCol = 0;
     for (let r = startRowIdx; r < targetRowIdx; r++) {
       const val = grid[r] ? grid[r][colVal]?.val : null;
