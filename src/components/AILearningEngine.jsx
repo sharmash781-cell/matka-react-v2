@@ -441,16 +441,16 @@ export const AILearningEngine = () => {
       patternCells.push({ r: occ.row1, c: occ.col1 });
       patternCells.push({ r: occ.row2, c: occ.col2 });
 
-      // Highlight ONLY the SINGLE FIRST/NEAREST EXACT occurrence of target Jodi after (occ.row2, occ.col2)
-      const targetJodi = grid[occ.row2]?.[occ.col2]?.val;
+      // Highlight ONLY the SINGLE FIRST/NEAREST EXACT occurrence of target 2nd Jodi (occ.val2) after (occ.row2, occ.col2)
+      const targetJodi = occ.val2 || grid[occ.row2]?.[occ.col2]?.val;
       if (targetJodi && /^\d{2}$/.test(targetJodi)) {
         let foundNearest = false;
 
-        for (let r = occ.row2; r < Math.min(grid.length, occ.row2 + 15); r++) {
+        for (let r = occ.row2; r < Math.min(grid.length, occ.row2 + 30); r++) {
           const startCol = (r === occ.row2) ? occ.col2 + 1 : 0;
           for (let c = startCol; c < colsInput; c++) {
             const cellVal = grid[r]?.[c]?.val;
-            // EXACT Jodi match only!
+            // EXACT 2nd Jodi match only!
             if (cellVal && cellVal === targetJodi) {
               patternCells.push({ r, c });
               foundNearest = true;
