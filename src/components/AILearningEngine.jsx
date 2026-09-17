@@ -28,7 +28,7 @@ export const AILearningEngine = () => {
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
 
   // FORWARD SEQUENCE SEARCH INPUT
-  const [sequenceInput, setSequenceInput] = useState('5, 8, 0');
+  const [sequenceInput, setSequenceInput] = useState('');
   const [activeMatchFilter, setActiveMatchFilter] = useState('all');
 
   // CONTROLS & TABLE UI OPTIONS

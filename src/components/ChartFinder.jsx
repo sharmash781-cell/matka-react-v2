@@ -40,7 +40,7 @@ export const ChartFinder = () => {
   const { charts = {}, activeChartName, setActiveChartName } = useChart();
   const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
 
-  const [searchQuery, setSearchQuery] = useState('03 family');
+  const [searchQuery, setSearchQuery] = useState('');
   const [hoveredPairId, setHoveredPairId] = useState(null);
 
   // MULTI-FAMILY HIGHLIGHT STATE (Up to 5 active families with distinct color palettes)
