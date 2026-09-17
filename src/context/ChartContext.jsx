@@ -3,6 +3,7 @@ import publishedChartsData from '../data/published_charts.json';
 import srideviPreset from '../data/sridevi_preset.json';
 
 import mainBazarPreset from '../data/main_bazar_preset.json';
+import srideviiiiPreset from '../data/srideviiii_preset.json';
 
 const ChartContext = createContext();
 
@@ -45,11 +46,13 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
-  "MAIN BAZAR": mainBazarPreset
+  "MAIN BAZAR": mainBazarPreset,
+  "SRIDEVIIII": srideviiiiPreset
 };
 
 export const DEFAULT_PRESETS = {
-  "MAIN BAZAR": mainBazarPreset
+  "MAIN BAZAR": mainBazarPreset,
+  "SRIDEVIIII": srideviiiiPreset
 };
 
 const STORAGE_KEY = 'adminPublishedCharts_v5';
@@ -60,15 +63,15 @@ const getInitialCharts = () => {
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        if (!parsed["MAIN BAZAR"]) {
-          parsed["MAIN BAZAR"] = mainBazarPreset;
-        }
+        parsed["MAIN BAZAR"] = mainBazarPreset;
+        parsed["SRIDEVIIII"] = srideviiiiPreset;
         return parsed;
       }
     }
   } catch (e) {}
   return {
-    "MAIN BAZAR": mainBazarPreset
+    "MAIN BAZAR": mainBazarPreset,
+    "SRIDEVIIII": srideviiiiPreset
   };
 };
 
