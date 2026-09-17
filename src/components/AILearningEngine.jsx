@@ -5,7 +5,6 @@ import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Lay
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const DAY_NAMES_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const OVERSCAN = 20;
 
 // Helper to calculate digit relation up/down/same/opposite
 const matchDigitRelation = (d1, d2, relType, step) => {
@@ -46,12 +45,12 @@ export const AILearningEngine = () => {
   const [rel1Step, setRel1Step] = useState(1);
   
   const [rel2Type, setRel2Type] = useState('close_to_close');
-  const [rel2Action, setRel2Action] = useState('DOWN');
+  const [rel2Action, setRel2Action] = useState('UP');
   const [rel2Step, setRel2Step] = useState(1);
 
-  // Scanned results & active removable rules
-  const [scanResults, setScanResults] = useState(null);
+  // Active removable rules (Pattern chips + Discovered Outcome chips)
   const [activeRules, setActiveRules] = useState([]);
+  const [scanSummary, setScanSummary] = useState(null);
 
   // Virtualization Scroll State
   const [scrollTop, setScrollTop] = useState(0);
@@ -169,7 +168,6 @@ export const AILearningEngine = () => {
     // Scan all rows for the relation between fromCol and toCol
     for (let r = 0; r < grid.length; r++) {
       const val1 = grid[r]?.[fromCol]?.val || '';
-      // If toCol is on same row or next row if scanning across weeks
       const r2 = fromCol <= toCol ? r : r + 1;
       if (r2 >= grid.length) continue;
 
@@ -179,7 +177,6 @@ export const AILearningEngine = () => {
       const o1 = parseInt(val1[0]), c1 = parseInt(val1[1]);
       const o2 = parseInt(val2[0]), c2 = parseInt(val2[1]);
 
-      // Check Rel 1
       let d1_rel1, d2_rel1;
       if (rel1Type === 'open_to_open') { d1_rel1 = o1; d2_rel1 = o2; }
       else if (rel1Type === 'open_to_close') { d1_rel1 = o1; d2_rel1 = c2; }
@@ -188,7 +185,6 @@ export const AILearningEngine = () => {
 
       const passRel1 = matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
 
-      // Check Rel 2 (if specified)
       let passRel2 = true;
       if (rel2Type !== 'none') {
         let d1_rel2, d2_rel2;
@@ -212,28 +208,45 @@ export const AILearningEngine = () => {
       }
     }
 
-    // DISCOVER COMMON FOLLOW-UP OUTCOMES & TOTALS
-    const outcomeCounts = {}; // key: "weekOffset_col_total" -> count
+    if (occurrences.length === 0) {
+      setScanSummary({ count: 0, label: 'No matches found for specified pattern.' });
+      return;
+    }
+
+    // DISCOVER COMMON FOLLOW-UP OUTCOMES (Totals, Red Pairs)
+    const outcomeCounts = {}; // key: "type_week_col_val"
     occurrences.forEach(occ => {
-      // Check 1 to 4 weeks after the occurrence
-      for (let w = 1; w <= 4; w++) {
+      // Check 1 to 6 weeks after occurrence
+      for (let w = 1; w <= 6; w++) {
         const targetR = occ.row2 + w;
         if (targetR < grid.length) {
           for (let c = 0; c < colsInput; c++) {
             const cellVal = grid[targetR]?.[c]?.val;
+            if (!cellVal || !/^\d{2}$/.test(cellVal)) continue;
+
             const tot = getJodiTotal(cellVal);
+            const red = isRedPair(cellVal);
+
+            // 1. Common Total
             if (tot !== null) {
-              const key = `${w}_${c}_${tot}`;
-              if (!outcomeCounts[key]) outcomeCounts[key] = { week: w, col: c, total: tot, count: 0, rows: [] };
-              outcomeCounts[key].count++;
-              outcomeCounts[key].rows.push(targetR + 1);
+              const kTot = `total_${w}_${c}_${tot}`;
+              if (!outcomeCounts[kTot]) outcomeCounts[kTot] = { type: 'total', week: w, col: c, val: `${tot} Total`, count: 0, cells: [] };
+              outcomeCounts[kTot].count++;
+              outcomeCounts[kTot].cells.push({ r: targetR, c });
+            }
+
+            // 2. Common Red Pair
+            if (red) {
+              const kRed = `red_${w}_${c}`;
+              if (!outcomeCounts[kRed]) outcomeCounts[kRed] = { type: 'red', week: w, col: c, val: 'Red Pair', count: 0, cells: [] };
+              outcomeCounts[kRed].count++;
+              outcomeCounts[kRed].cells.push({ r: targetR, c });
             }
           }
         }
       }
     });
 
-    // Filter top common outcomes appearing in multiple occurrences
     const commonOutcomes = Object.values(outcomeCounts)
       .filter(item => item.count >= Math.min(2, occurrences.length))
       .sort((a, b) => b.count - a.count);
@@ -242,29 +255,65 @@ export const AILearningEngine = () => {
     const rel2Label = rel2Type !== 'none' ? ` & ${rel2Type.replace(/_/g, ' ')} ${rel2Step} ${rel2Action.toLowerCase()}` : '';
     const patternTitle = `${COL_HEADERS[fromCol]}→${COL_HEADERS[toCol]} ${rel1Label}${rel2Label}`;
 
-    const newRule = {
-      id: Date.now().toString(),
-      label: patternTitle,
-      count: occurrences.length,
-      occurrences,
-      commonOutcomes: commonOutcomes.slice(0, 5)
+    // Create Pattern Rule Chip (Emerald)
+    const patternCells = [];
+    occurrences.forEach(occ => {
+      patternCells.push({ r: occ.row1, c: occ.col1 });
+      patternCells.push({ r: occ.row2, c: occ.col2 });
+    });
+
+    const patternRule = {
+      id: `pattern_${Date.now()}`,
+      label: `🟢 Pattern: ${patternTitle} (${occurrences.length}x)`,
+      color: '#10b981',
+      borderColor: '#059669',
+      bg: 'bg-emerald-950',
+      text: 'text-emerald-300',
+      cells: patternCells
     };
 
-    setScanResults(newRule);
-    setActiveRules(prev => [...prev.filter(r => r.label !== patternTitle), newRule]);
+    // Create Discovered Outcome Chips (Amber for Total, Crimson for Red Pair)
+    const outcomeRules = commonOutcomes.slice(0, 4).map((out, idx) => {
+      const isRed = out.type === 'red';
+      const dayName = COL_HEADERS[out.col];
+      return {
+        id: `outcome_${idx}_${Date.now()}`,
+        label: `${isRed ? '🔴' : '🟡'} ${out.week}Wk ${dayName}: ${out.val} (${out.count}x)`,
+        color: isRed ? '#ef4444' : '#f59e0b',
+        borderColor: isRed ? '#dc2626' : '#d97706',
+        bg: isRed ? 'bg-red-950' : 'bg-amber-950',
+        text: isRed ? 'text-red-300' : 'text-amber-300',
+        cells: out.cells
+      };
+    });
+
+    const generatedRules = [patternRule, ...outcomeRules];
+    setActiveRules(generatedRules);
+    setScanSummary({ count: occurrences.length, label: patternTitle, occurrences, commonOutcomes });
   }, [grid, scanFromDay, scanToDay, rel1Type, rel1Action, rel1Step, rel2Type, rel2Action, rel2Step, colsInput]);
 
   const removeRule = (ruleId) => {
     setActiveRules(prev => prev.filter(r => r.id !== ruleId));
-    if (scanResults && scanResults.id === ruleId) {
-      setScanResults(null);
-    }
   };
 
   const clearAllRules = () => {
     setActiveRules([]);
-    setScanResults(null);
+    setScanSummary(null);
   };
+
+  // Map active rules to cell highlight colors
+  const scanCellHighlightMap = useMemo(() => {
+    const map = {};
+    activeRules.forEach(rule => {
+      rule.cells.forEach(cell => {
+        const key = `${cell.r}_${cell.c}`;
+        if (!map[key]) {
+          map[key] = rule;
+        }
+      });
+    });
+    return map;
+  }, [activeRules]);
   // ───────────────────────────────────────────────────────────────────────────
 
   const lastFilledRowIndex = useMemo(() => {
@@ -343,7 +392,7 @@ export const AILearningEngine = () => {
                 </select>
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                AI Pattern &amp; Outcome Discovery Engine | {grid.length} Rows × {colsInput} Cols
+                AI Pattern Color Highlighter &amp; Outcome Engine | {grid.length} Rows × {colsInput} Cols
               </div>
             </div>
 
@@ -413,10 +462,10 @@ export const AILearningEngine = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-purple-300">
-                  Autonomous Cross-Day Pattern &amp; Outcome Scanner
+                  Autonomous Cross-Day Pattern &amp; Color Outcome Scanner
                 </h3>
                 <p className="text-[10px] text-slate-400">
-                  Select day relations &amp; up/down steps (1 to 5) to scan occurrences and discover follow-up totals
+                  Select day relations &amp; up/down steps (1 to 5) to scan, highlight in colors &amp; filter outcomes
                 </p>
               </div>
             </div>
@@ -426,7 +475,7 @@ export const AILearningEngine = () => {
               className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>SCAN CHART</span>
+              <span>SCAN &amp; HIGHLIGHT</span>
             </button>
           </div>
 
@@ -507,7 +556,7 @@ export const AILearningEngine = () => {
 
             {/* RELATION 2 SELECTOR (COMPOUND CONDITION) */}
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1.5 sm:col-span-2">
-              <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">3. Relation 2 (Optional Compound Condition)</div>
+              <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">3. Relation 2 (e.g. Close to Close 1 Up)</div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <select
                   value={rel2Type}
@@ -528,8 +577,8 @@ export const AILearningEngine = () => {
                       onChange={(e) => setRel2Action(e.target.value)}
                       className="bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
                     >
-                      <option value="DOWN">Down</option>
                       <option value="UP">Up</option>
+                      <option value="DOWN">Down</option>
                       <option value="SAME">Same</option>
                       <option value="OPPOSITE">Cut / Opp</option>
                     </select>
@@ -551,7 +600,7 @@ export const AILearningEngine = () => {
             </div>
           </div>
 
-          {/* ACTIVE RULE BADGES (WITH REMOVABLE X BUTTONS LIKE PHOTO) */}
+          {/* ACTIVE RULE & COLOR OUTCOME CHIPS (WITH REMOVABLE X BUTTONS MATCHING PHOTO) */}
           {activeRules.length > 0 && (
             <div className="flex items-center justify-between flex-wrap bg-slate-900 border border-slate-800 rounded-xl p-2 gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -561,15 +610,18 @@ export const AILearningEngine = () => {
                 {activeRules.map((rule) => (
                   <div
                     key={rule.id}
-                    className="flex items-center gap-1.5 bg-purple-950/80 border border-purple-500/70 text-purple-200 text-xs font-black font-mono px-2.5 py-1 rounded-lg shadow-sm"
+                    className={`flex items-center gap-1.5 border ${rule.bg} ${rule.text} text-xs font-black font-mono px-2.5 py-1 rounded-lg shadow-sm`}
+                    style={{ borderColor: rule.borderColor }}
                   >
-                    <span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-black/40"
+                      style={{ backgroundColor: rule.color, boxShadow: `0 0 6px ${rule.color}` }}
+                    />
                     <span>{rule.label}</span>
-                    <span className="text-[10px] text-purple-400 font-normal">({rule.count}x)</span>
                     <button
                       onClick={() => removeRule(rule.id)}
-                      className="ml-1 text-purple-400 hover:text-white hover:bg-purple-900 rounded-full p-0.5 transition"
-                      title="Remove Rule"
+                      className="ml-1 text-slate-300 hover:text-white hover:bg-black/40 rounded-full p-0.5 transition"
+                      title="Remove this highlight color filter"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -585,53 +637,27 @@ export const AILearningEngine = () => {
             </div>
           )}
 
-          {/* SCAN RESULTS & DISCOVERED FOLLOW-UP OUTCOMES */}
-          {scanResults && (
-            <div className="bg-slate-900 border border-purple-500/50 p-3 rounded-xl space-y-2 animate-fadeIn font-mono">
-              <div className="flex items-center justify-between flex-wrap text-xs text-white">
+          {/* SCAN SUMMARY */}
+          {scanSummary && (
+            <div className="bg-slate-900 border border-purple-500/50 p-2.5 rounded-xl space-y-1.5 font-mono text-xs text-white">
+              <div className="flex items-center justify-between flex-wrap">
                 <span className="font-bold text-purple-300">
-                  🎯 Found <strong className="text-emerald-400 text-sm">{scanResults.count} Occurrences</strong> of &quot;{scanResults.label}&quot;
+                  🎯 Pattern Match: <strong className="text-emerald-400 text-sm">{scanSummary.count} Occurrences</strong> found on chart!
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  Historical Matches Across Chart
-                </span>
+                <span className="text-[10px] text-slate-400">All matching cells &amp; outcomes highlighted in grid below</span>
               </div>
-
-              {/* List of matched rows */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-                <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">Rows:</span>
-                {scanResults.occurrences.map((occ, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => scrollToRowIndex(occ.row1)}
-                    className="bg-slate-950 border border-slate-700 hover:border-purple-400 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 transition"
-                  >
-                    #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
-                  </button>
-                ))}
-              </div>
-
-              {/* Discovered Follow-Up Totals */}
-              {scanResults.commonOutcomes.length > 0 && (
-                <div className="border-t border-slate-800 pt-2 space-y-1">
-                  <div className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
-                    🔮 Discovered Common Follow-Up Totals (What happened AFTER?):
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {scanResults.commonOutcomes.map((out, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-slate-950 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between text-[11px]"
-                      >
-                        <span className="text-slate-300">
-                          {out.week}W After ({COL_HEADERS[out.col]}): <strong className="text-amber-400 text-xs">{out.total} Total</strong>
-                        </span>
-                        <span className="bg-amber-950 border border-amber-500/60 text-amber-300 text-[9px] px-1.5 py-0.2 rounded font-black">
-                          {out.count} / {scanResults.count} times ({Math.round((out.count / scanResults.count) * 100)}%)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+              {scanSummary.occurrences && scanSummary.occurrences.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                  <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">Rows:</span>
+                  {scanSummary.occurrences.map((occ, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => scrollToRowIndex(occ.row1)}
+                      className="bg-slate-950 border border-slate-700 hover:border-purple-400 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 transition"
+                    >
+                      #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -861,19 +887,57 @@ export const AILearningEngine = () => {
                           const emptyCellPredictions = emptyCellMap[`${rIdx}_${cIdx}`] || [];
                           const primaryEmptyPred = emptyCellPredictions[0] || null;
 
+                          // Pattern / Outcome Highlight Rule lookup for this cell
+                          const scanHighlightRule = scanCellHighlightMap[`${rIdx}_${cIdx}`] || null;
+
+                          let bgStyle = 'white';
+                          let borderStyle = '#020617';
+                          let borderWidthStyle = '1px';
+                          let shadowStyle = 'none';
+
+                          if (primaryMatch) {
+                            bgStyle = `${primaryMatch.color}35`;
+                            borderStyle = primaryMatch.color;
+                            borderWidthStyle = '3.5px';
+                            shadowStyle = `0 0 12px ${primaryMatch.color}90 inset`;
+                          } else if (scanHighlightRule) {
+                            bgStyle = `${scanHighlightRule.color}40`;
+                            borderStyle = scanHighlightRule.color;
+                            borderWidthStyle = '3px';
+                            shadowStyle = `0 0 10px ${scanHighlightRule.color}bb inset`;
+                          } else if (primaryEmptyPred) {
+                            bgStyle = '#fce7f3';
+                            borderStyle = '#ec4899';
+                            borderWidthStyle = '3.5px';
+                            shadowStyle = '0 0 12px #ec489980 inset';
+                          }
+
                           return (
                             <td
                               key={cIdx}
                               style={{
-                                backgroundColor: primaryMatch ? `${primaryMatch.color}35` : (primaryEmptyPred ? '#fce7f3' : 'white'),
-                                borderColor: primaryMatch ? primaryMatch.color : (primaryEmptyPred ? '#ec4899' : '#020617'),
-                                borderWidth: primaryMatch || primaryEmptyPred ? '3.5px' : '1px',
-                                boxShadow: primaryMatch ? `0 0 12px ${primaryMatch.color}90 inset` : (primaryEmptyPred ? '0 0 12px #ec489980 inset' : 'none')
+                                backgroundColor: bgStyle,
+                                borderColor: borderStyle,
+                                borderWidth: borderWidthStyle,
+                                boxShadow: shadowStyle
                               }}
                               className={`relative px-0.5 py-0.5 text-center align-middle ${
-                                primaryMatch ? 'z-10 bg-amber-50/50' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
+                                primaryMatch || scanHighlightRule ? 'z-10' : (primaryEmptyPred ? 'z-10 bg-pink-100/60' : '')
                               }`}
                             >
+                              {/* SCAN HIGHLIGHT MICRO-DOT (WHEN COLOR RULE ACTIVE) */}
+                              {scanHighlightRule && !primaryMatch && (
+                                <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
+                                  <span
+                                    style={{
+                                      backgroundColor: scanHighlightRule.color,
+                                      boxShadow: `0 0 6px ${scanHighlightRule.color}, 0 0 1.5px #000`
+                                    }}
+                                    className="w-2.5 h-2.5 rounded-full border border-slate-950/90 inline-block"
+                                  />
+                                </div>
+                              )}
+
                               {showStats && (
                                 <div className="flex justify-between items-center w-full px-0.5 leading-none pt-0.5 pointer-events-none">
                                   <span className="text-emerald-600 font-extrabold text-[9px] sm:text-xs font-mono">
@@ -895,7 +959,7 @@ export const AILearningEngine = () => {
                                   maxLength={2}
                                   placeholder=""
                                   className={`w-full text-center text-lg xs:text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-tighter sm:tracking-wider leading-none bg-transparent border-none outline-none focus:ring-1 focus:ring-cyan-400 focus:bg-amber-100/80 rounded ${
-                                    primaryMatch
+                                    primaryMatch || scanHighlightRule
                                       ? (red ? 'red-pair-text font-black drop-shadow-md' : 'text-slate-950 font-black drop-shadow-md')
                                       : (red ? 'red-pair-text' : 'text-slate-950 font-black')
                                   }`}
