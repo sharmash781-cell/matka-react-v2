@@ -608,17 +608,17 @@ export const PredictorEngine = () => {
     const topOpens = openScores
       .map((score, digit) => ({ digit, prob: ((score / sumOpen) * 100).toFixed(1) }))
       .sort((a, b) => b.prob - a.prob)
-      .slice(0, 2);
+      .slice(0, 3);
 
     const topCloses = closeScores
       .map((score, digit) => ({ digit, prob: ((score / sumClose) * 100).toFixed(1) }))
       .sort((a, b) => b.prob - a.prob)
-      .slice(0, 2);
+      .slice(0, 3);
 
     const topTotals = totalScores
       .map((score, digit) => ({ digit, prob: ((score / sumTotal) * 100).toFixed(1) }))
       .sort((a, b) => b.prob - a.prob)
-      .slice(0, 2);
+      .slice(0, 3);
 
     const executionTime = (performance.now() - startTime).toFixed(2);
     const sorted = Object.entries(candidateScores).sort((a, b) => b[1] - a[1]);
@@ -861,32 +861,27 @@ export const PredictorEngine = () => {
             </div>
           </div>
 
-          {/* Prominent Chart Name Header Banner (visible on mobile & desktop screenshots) */}
-          <div className="bg-gradient-to-r from-pink-950/80 via-purple-900/80 to-indigo-950/80 border-2 border-pink-500/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-pink-500/20 rounded-xl border border-pink-500/40">
-                <Trophy className="w-6 h-6 text-pink-400" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-pink-400">TARGET GAME CHART</span>
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase font-mono">
-                  {predictionResult.chartName || activeChartName} ({activeChart?.rows || 0} ROWS)
-                </h2>
-              </div>
-            </div>
-            <div className="bg-slate-900/90 border border-purple-400/40 px-3.5 py-1.5 rounded-xl text-xs font-mono text-purple-300 font-bold">
-              Cell #{predictionResult.targetRowDisplay}, {predictionResult.colHeaderDisplay}
+          {/* Compact Chart Name & Target Cell Header Pill */}
+          <div className="flex justify-center items-center my-1">
+            <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-purple-950 border border-purple-500/50 px-5 py-2 rounded-2xl text-xs font-mono shadow-xl flex items-center gap-2.5">
+              <span className="text-pink-400 font-black uppercase tracking-wider text-sm">
+                {predictionResult.chartName || activeChartName}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="text-purple-300 font-bold">
+                Cell #{predictionResult.targetRowDisplay}, {predictionResult.colHeaderDisplay}
+              </span>
             </div>
           </div>
 
-          {/* Key Digit Probability Heatmap Pills (Top 2 Digits Only) */}
+          {/* Key Digit Probability Heatmap Pills (Top 3 Digits) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top 2 Open Digits
+                <Palette className="w-3.5 h-3.5" /> Top Open Digits
               </span>
               <div className="flex items-center gap-2 pt-1">
-                {predictionResult.topOpens.slice(0, 2).map((item, i) => (
+                {predictionResult.topOpens.map((item, i) => (
                   <div key={i} className="flex-1 bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
                     <span className="block text-2xl font-black text-emerald-300">{item.digit}</span>
                     <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
@@ -897,10 +892,10 @@ export const PredictorEngine = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top 2 Close Digits
+                <Palette className="w-3.5 h-3.5" /> Top Close Digits
               </span>
               <div className="flex items-center gap-2 pt-1">
-                {predictionResult.topCloses.slice(0, 2).map((item, i) => (
+                {predictionResult.topCloses.map((item, i) => (
                   <div key={i} className="flex-1 bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
                     <span className="block text-2xl font-black text-blue-300">{item.digit}</span>
                     <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
@@ -911,10 +906,10 @@ export const PredictorEngine = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top 2 Total Sums
+                <Palette className="w-3.5 h-3.5" /> Top Total Sums
               </span>
               <div className="flex items-center gap-2 pt-1">
-                {predictionResult.topTotals.slice(0, 2).map((item, i) => (
+                {predictionResult.topTotals.map((item, i) => (
                   <div key={i} className="flex-1 bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
                     <span className="block text-2xl font-black text-amber-300">{item.digit}</span>
                     <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
