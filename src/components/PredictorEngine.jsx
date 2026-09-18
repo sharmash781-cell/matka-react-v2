@@ -729,7 +729,7 @@ export const PredictorEngine = () => {
           onClick={runPredictor}
           className="w-full bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white font-black py-4 rounded-xl shadow-xl transition transform active:scale-[0.99] flex items-center justify-center gap-2 text-base sm:text-lg uppercase tracking-wider"
         >
-          <Play className="w-5 h-5 fill-current" /> RUN {activeChartName || 'MATKA'}
+          <Play className="w-5 h-5 fill-current" /> RUN
         </button>
       </div>
 

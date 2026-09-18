@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
-import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2, ExternalLink, RefreshCw } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 30;
@@ -27,7 +27,7 @@ export const parseJodiTokens = (input) => {
 };
 
 export const ChartEditor = () => {
-  const { charts = {}, activeChartName, setActiveChartName, activeChart, saveChart, setActiveTab } = useChart();
+  const { charts = {}, activeChartName, setActiveChartName, activeChart, saveChart, syncLiveChart, setActiveTab } = useChart();
 
   const [nameInput, setNameInput] = useState(activeChartName || 'NEW CHART');
   const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 20);
@@ -38,8 +38,30 @@ export const ChartEditor = () => {
   const [showStats, setShowStats] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef(null);
+
+  const handleSyncLiveChart = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSaveSuccessMsg(`Syncing latest live results for "${activeChartName}"...`);
+    try {
+      const synced = await syncLiveChart(activeChartName);
+      if (synced && synced.data) {
+        setGrid(synced.data);
+        setRowsInput(synced.rows);
+        setColsInput(synced.cols);
+        setSaveSuccessMsg(`✅ Synced "${synced.name}" with latest live results (${synced.rows} Rows × ${synced.cols} Cols)!`);
+      }
+      setTimeout(() => setSaveSuccessMsg(''), 5000);
+    } catch (err) {
+      setSaveSuccessMsg(`⚠️ Sync failed: ${err.message || 'Check network connection'}`);
+      setTimeout(() => setSaveSuccessMsg(''), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Optimized row height allowing 12-14 rows on mobile screen
   const rowHeight = isCompact ? (showStats ? 54 : 34) : (showStats ? 68 : 45);
@@ -340,6 +362,20 @@ export const ChartEditor = () => {
                 <span className="bg-purple-950 text-purple-200 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
                   {chartKeys.length}
                 </span>
+              </button>
+
+              <button
+                onClick={handleSyncLiveChart}
+                disabled={isSyncing}
+                title="Fetch & Auto-Fill Latest Live Results"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 border ${
+                  isSyncing
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Refresh'}</span>
               </button>
             </div>
           </div>

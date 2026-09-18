@@ -9,6 +9,7 @@ import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
 import timeBazarPreset from '../data/time_bazar_preset.json';
+import { fetchLiveChartData } from '../utils/dpbossSync';
 
 const ChartContext = createContext();
 
@@ -233,6 +234,22 @@ export const ChartProvider = ({ children }) => {
     setActiveChartName(cleanName);
   }, []);
 
+  const syncLiveChart = useCallback(async (targetName) => {
+    const chartName = targetName || activeChartName;
+    const syncedData = await fetchLiveChartData(chartName);
+    setCharts(prev => {
+      const updated = {
+        ...prev,
+        [syncedData.name]: syncedData
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    return syncedData;
+  }, [activeChartName]);
+
   const deleteChart = useCallback((name) => {
     const cleanName = name.trim().toUpperCase();
     setCharts((prevCharts) => {
@@ -382,6 +399,7 @@ export const ChartProvider = ({ children }) => {
       setActiveChartName,
       activeChart: currentChart,
       saveChart,
+      syncLiveChart,
       deleteChart,
       resetToDefaultCharts,
       clearAllCharts,

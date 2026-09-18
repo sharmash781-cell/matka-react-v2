@@ -795,17 +795,17 @@ export const AILearningEngine = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-purple-300">
-                  RUN {selectedChart || 'MATKA'}
+                  RUN
                 </h3>
               </div>
             </div>
 
             <button
               onClick={runAutonomousPatternScan}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>RUN {selectedChart || 'MATKA'}</span>
+              <span>RUN</span>
             </button>
           </div>
 
