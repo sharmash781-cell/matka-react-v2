@@ -452,13 +452,15 @@ export const AILearningEngine = () => {
     const gapLabel = scanWeekGap === 'next_week' ? ' (Next Wk)' : scanWeekGap === 'same_week' ? ' (Same Wk)' : '';
     const patternTitle = `${COL_HEADERS[fromCol]}→${COL_HEADERS[toCol]}${gapLabel} ${rel1Label}${rel2Label}`;
 
-    const patternCells = [];
+    const primaryPatternCells = [];
+    const repeatJodiCells = [];
+
     occurrences.forEach(occ => {
       // 1. Highlight the pattern occurrence pair cells (val1 and val2)
-      patternCells.push({ r: occ.row1, c: occ.col1 });
-      patternCells.push({ r: occ.row2, c: occ.col2 });
+      primaryPatternCells.push({ r: occ.row1, c: occ.col1 });
+      primaryPatternCells.push({ r: occ.row2, c: occ.col2 });
 
-      // 2. Scan forward cell-by-cell after (row2, col2) for the VERY FIRST / NEAREST exact re-appearance of val2 (e.g. 34)
+      // 2. Scan forward cell-by-cell after (row2, col2) for the VERY FIRST / NEAREST exact re-appearance of val2 (e.g. 76)
       const targetVal = occ.val2;
       if (targetVal && /^\d{2}$/.test(targetVal)) {
         let found = false;
@@ -466,7 +468,7 @@ export const AILearningEngine = () => {
           const startC = (r === occ.row2) ? occ.col2 + 1 : 0;
           for (let c = startC; c < colsInput; c++) {
             if (grid[r]?.[c]?.val === targetVal) {
-              patternCells.push({ r, c });
+              repeatJodiCells.push({ r, c });
               found = true;
               break;
             }
@@ -482,7 +484,7 @@ export const AILearningEngine = () => {
       borderColor: '#059669',
       bg: 'bg-emerald-950',
       text: 'text-emerald-300',
-      cells: patternCells
+      cells: primaryPatternCells
     };
 
     const outcomeRules = commonOutcomes.slice(0, 6).map((out, idx) => {
@@ -506,7 +508,22 @@ export const AILearningEngine = () => {
       };
     });
 
-    const generatedRules = [patternRule, ...outcomeRules];
+    const generatedRules = [patternRule];
+
+    if (repeatJodiCells.length > 0) {
+      const sampleRepeatVal = occurrences[0]?.val2 || '';
+      generatedRules.push({
+        id: `repeat_jodi_${Date.now()}`,
+        label: `🔁 Nearest Repeat Jodi (${sampleRepeatVal}) (${repeatJodiCells.length}x)`,
+        color: '#34d399',
+        borderColor: '#10b981',
+        bg: 'bg-teal-950',
+        text: 'text-teal-300',
+        cells: repeatJodiCells
+      });
+    }
+
+    generatedRules.push(...outcomeRules);
     setActiveRules(generatedRules);
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences, commonOutcomes });
   }, [grid, scanFromDay, scanToDay, scanWeekGap, rel1Type, rel1Action, rel1Step, rel2Type, rel2Action, rel2Step, colsInput]);
