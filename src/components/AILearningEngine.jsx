@@ -226,21 +226,23 @@ export const AILearningEngine = () => {
       const val1 = grid[r]?.[fromCol]?.val || '';
       
       let r2 = r;
-      if (scanWeekGap === 'same_week') {
+      if (scanWeekGap === 'auto') {
+        r2 = fromCol <= toCol ? r : r + 1;
+      } else if (scanWeekGap === 'same_week' || scanWeekGap === '0') {
         r2 = r;
-      } else if (scanWeekGap === 'next_week') {
+      } else if (scanWeekGap === 'next_week' || scanWeekGap === '1') {
         r2 = r + 1;
-      } else if (scanWeekGap === 'plus_2_weeks') {
+      } else if (scanWeekGap === 'plus_2_weeks' || scanWeekGap === '2') {
         r2 = r + 2;
-      } else if (scanWeekGap === 'plus_3_weeks') {
+      } else if (scanWeekGap === 'plus_3_weeks' || scanWeekGap === '3') {
         r2 = r + 3;
-      } else if (scanWeekGap === 'plus_4_weeks') {
+      } else if (scanWeekGap === 'plus_4_weeks' || scanWeekGap === '4') {
         r2 = r + 4;
-      } else if (scanWeekGap === 'plus_5_weeks') {
+      } else if (scanWeekGap === 'plus_5_weeks' || scanWeekGap === '5') {
         r2 = r + 5;
       } else {
-        // Auto mode
-        r2 = fromCol <= toCol ? r : r + 1;
+        const gapNum = parseInt(scanWeekGap, 10);
+        r2 = r + (isNaN(gapNum) ? (fromCol <= toCol ? 0 : 1) : gapNum);
       }
 
       if (r2 >= grid.length) continue;
@@ -449,7 +451,12 @@ export const AILearningEngine = () => {
 
     const rel1Label = formatRelLabel(rel1Type, rel1Action, rel1Step);
     const rel2Label = rel2Type !== 'none' ? ` & ${formatRelLabel(rel2Type, rel2Action, rel2Step)}` : '';
-    const gapLabel = scanWeekGap === 'next_week' ? ' (Next Wk)' : scanWeekGap === 'same_week' ? ' (Same Wk)' : '';
+    const gapNum = parseInt(scanWeekGap, 10);
+    const gapLabel = scanWeekGap === 'auto'
+      ? ''
+      : (scanWeekGap === 'same_week' || scanWeekGap === '0'
+          ? ' (Same Wk)'
+          : ` (+${isNaN(gapNum) ? scanWeekGap : gapNum} Wk)`);
     const patternTitle = `${COL_HEADERS[fromCol]}→${COL_HEADERS[toCol]}${gapLabel} ${rel1Label}${rel2Label}`;
 
     const primaryPatternCells = [];
@@ -840,22 +847,78 @@ export const AILearningEngine = () => {
                 </div>
               </div>
 
-              {/* Week Gap Selection: Same Row vs Next Row (1st Mon -> 2nd Mon) */}
+              {/* Week Gap Selection: Interactive Stepper (- / +) & Dropdown */}
               <div>
-                <label className="text-[9px] text-slate-400 block">Row / Week Gap:</label>
-                <select
-                  value={scanWeekGap}
-                  onChange={(e) => setScanWeekGap(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
-                >
-                  <option value="auto">Auto (Same Row if Mon→Sat, Next Row if Mon→Mon)</option>
-                  <option value="same_week">Same Week / Row (e.g. 1st Mon → 1st Sat)</option>
-                  <option value="next_week">Next Week (+1 Row e.g. 1st Mon → 2nd Mon)</option>
-                  <option value="plus_2_weeks">+2 Weeks (+2 Rows)</option>
-                  <option value="plus_3_weeks">+3 Weeks (+3 Rows)</option>
-                  <option value="plus_4_weeks">+4 Weeks (+4 Rows)</option>
-                  <option value="plus_5_weeks">+5 Weeks (+5 Rows)</option>
-                </select>
+                <label className="text-[9px] text-slate-400 block mb-1">
+                  Row / Week Gap <span className="text-amber-400 font-bold">(Use - / + to adjust weeks)</span>:
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setScanWeekGap('auto')}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold font-mono transition border ${
+                      scanWeekGap === 'auto'
+                        ? 'bg-purple-600 text-white border-purple-400 shadow-md'
+                        : 'bg-slate-950 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    Auto
+                  </button>
+
+                  <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5">
+                    <button
+                      onClick={() => {
+                        const cur = scanWeekGap === 'auto'
+                          ? (scanFromDay <= scanToDay ? 0 : 1)
+                          : (scanWeekGap === 'same_week' ? 0 : scanWeekGap === 'next_week' ? 1 : parseInt(scanWeekGap, 10) || 0);
+                        const prev = Math.max(0, cur - 1);
+                        setScanWeekGap(prev.toString());
+                      }}
+                      className="w-6 h-6 bg-slate-900 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-sm active:scale-95"
+                      title="Decrease Week Gap (-1)"
+                    >
+                      -
+                    </button>
+
+                    <span className="px-2.5 text-xs font-mono font-black text-amber-300 min-w-[76px] text-center">
+                      {scanWeekGap === 'auto'
+                        ? 'Auto Gap'
+                        : (scanWeekGap === '0' || scanWeekGap === 'same_week'
+                            ? 'Same Wk'
+                            : `+${scanWeekGap === 'next_week' ? 1 : scanWeekGap.replace(/\D/g, '') || scanWeekGap} Wk`)}
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        const cur = scanWeekGap === 'auto'
+                          ? (scanFromDay <= scanToDay ? 0 : 1)
+                          : (scanWeekGap === 'same_week' ? 0 : scanWeekGap === 'next_week' ? 1 : parseInt(scanWeekGap, 10) || 0);
+                        const next = cur + 1;
+                        setScanWeekGap(next.toString());
+                      }}
+                      className="w-6 h-6 bg-slate-900 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-sm active:scale-95"
+                      title="Increase Week Gap (+1)"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <select
+                    value={scanWeekGap}
+                    onChange={(e) => setScanWeekGap(e.target.value)}
+                    className="bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs flex-1 min-w-[110px]"
+                  >
+                    <option value="auto">Auto Gap</option>
+                    <option value="0">Same Wk (+0 Row)</option>
+                    <option value="1">+1 Wk (+1 Row)</option>
+                    <option value="2">+2 Wks (+2 Rows)</option>
+                    <option value="3">+3 Wks (+3 Rows)</option>
+                    <option value="4">+4 Wks (+4 Rows)</option>
+                    <option value="5">+5 Wks (+5 Rows)</option>
+                    <option value="6">+6 Wks (+6 Rows)</option>
+                    <option value="7">+7 Wks (+7 Rows)</option>
+                    <option value="8">+8 Wks (+8 Rows)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -994,24 +1057,40 @@ export const AILearningEngine = () => {
           )}
 
           {scanSummary && (
-            <div className="bg-slate-900 border border-purple-500/50 p-2 rounded-xl space-y-1 font-mono text-xs text-white">
+            <div className="bg-slate-900 border border-purple-500/50 p-2.5 rounded-xl space-y-2 font-mono text-xs text-white shadow-xl">
               <div className="flex items-center justify-between flex-wrap">
-                <span className="font-bold text-purple-300">
-                  🎯 Found <strong className="text-emerald-400 text-sm">{scanSummary.count} Occurrences</strong>
+                <span className="font-extrabold text-slate-200 flex items-center gap-1.5 text-sm sm:text-base">
+                  🎯 Found <span className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight px-1.5 py-0.5 bg-emerald-950/80 border border-emerald-500/50 rounded-lg shadow-inner">{scanSummary.count}</span>
                 </span>
               </div>
               {scanSummary.occurrences && scanSummary.occurrences.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-                  <span className="text-[9px] text-slate-400 uppercase font-bold shrink-0">Rows:</span>
-                  {scanSummary.occurrences.map((occ, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => scrollToRowIndex(occ.row1)}
-                      className="bg-slate-950 border border-slate-700 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 transition"
-                    >
-                      #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 overflow-x-auto py-1">
+                  {scanSummary.occurrences.map((occ, idx) => {
+                    const BADGE_COLORS = [
+                      'bg-cyan-500 text-slate-950 border-cyan-300',
+                      'bg-purple-500 text-white border-purple-300',
+                      'bg-emerald-500 text-slate-950 border-emerald-300',
+                      'bg-amber-500 text-slate-950 border-amber-300',
+                      'bg-pink-500 text-white border-pink-300',
+                      'bg-indigo-500 text-white border-indigo-300'
+                    ];
+                    const badgeClass = BADGE_COLORS[idx % BADGE_COLORS.length];
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => scrollToRowIndex(occ.row1)}
+                        className="flex items-center gap-1.5 bg-slate-950 border border-slate-700/80 hover:border-pink-500/60 text-purple-200 text-xs font-bold px-2.5 py-1 rounded-xl shrink-0 transition hover:scale-105 shadow-sm"
+                      >
+                        <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-black font-mono shadow-md border ${badgeClass}`}>
+                          {idx + 1}
+                        </span>
+                        <span className="font-mono text-slate-200">
+                          #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
