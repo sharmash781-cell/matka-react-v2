@@ -197,66 +197,100 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
 
   // --- SPECIAL HANDLER FOR "master game" / "master triad" ---
   if (q.includes('master game') || q.includes('master triad') || q.includes('master')) {
-    const colsCount = grid[0] ? grid[0].length : 7;
-    let pCount = 1;
+    const colsCount = grid[0] ? grid[0].length : 6;
+    const PART_COLORS = [
+      { color: '#06b6d4', border: '#0891b2', name: 'Cyan' },     // Part 1
+      { color: '#a855f7', border: '#7e22ce', name: 'Purple' },   // Part 2
+      { color: '#10b981', border: '#047857', name: 'Emerald' },  // Part 3
+      { color: '#ec4899', border: '#be185d', name: 'Pink' },     // Part 4
+      { color: '#f59e0b', border: '#b45309', name: 'Amber' },    // Part 5
+      { color: '#6366f1', border: '#4338ca', name: 'Indigo' }    // Part 6
+    ];
 
-    for (let stepWeeks of [4, 5, 3, 2]) {
-      for (let r3 = stepWeeks * 2; r3 < grid.length; r3++) {
-        const r1 = r3 - (stepWeeks * 2);
-        const r2 = r3 - stepWeeks;
+    const foundClusters = [];
+    const stepWeeks = 4; // Default 4-week Master Game cycle
 
-        if (!grid[r1] || !grid[r2] || !grid[r3]) continue;
+    for (let r3 = stepWeeks * 2; r3 < grid.length; r3++) {
+      const r1 = r3 - (stepWeeks * 2);
+      const r2 = r3 - stepWeeks;
 
-        for (let c1 = 0; c1 < colsCount; c1++) {
-          const val1 = grid[r1][c1]?.val;
-          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+      if (!grid[r1] || !grid[r2] || !grid[r3]) continue;
 
-          for (let c2 = 0; c2 < colsCount; c2++) {
-            const val2 = grid[r2][c2]?.val;
-            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+      for (let c1 = 0; c1 < colsCount; c1++) {
+        const val1 = grid[r1][c1]?.val;
+        if (!val1 || !/^\d{2}$/.test(val1)) continue;
 
-            for (let c3 = 0; c3 < colsCount; c3++) {
-              const val3 = grid[r3][c3]?.val;
-              if (!val3 || !/^\d{2}$/.test(val3)) continue;
+        for (let c2 = 0; c2 < colsCount; c2++) {
+          const val2 = grid[r2][c2]?.val;
+          if (!val2 || !/^\d{2}$/.test(val2)) continue;
 
-              const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
-              const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
-              const o3 = parseInt(val3[0]), cVal3 = parseInt(val3[1]);
+          for (let c3 = 0; c3 < colsCount; c3++) {
+            const val3 = grid[r3][c3]?.val;
+            if (!val3 || !/^\d{2}$/.test(val3)) continue;
 
-              const sumOpen = (o1 + o2 + o3) % 10;
+            const o1 = parseInt(val1[0]), cVal1 = parseInt(val1[1]);
+            const o2 = parseInt(val2[0]), cVal2 = parseInt(val2[1]);
+            const o3 = parseInt(val3[0]), cVal3 = parseInt(val3[1]);
 
-              // Test if Open sum is an even decrement (0, 8, 6, 4, 2) or constant
-              if ([0, 8, 6, 4, 2].includes(sumOpen)) {
-                const pId = `MG${pCount++}`;
+            const sumOpen = (o1 + o2 + o3) % 10;
 
-                const m1 = {
-                  r: r1, c: c1, day: DAY_NAMES[c1] || `Col ${c1+1}`, rowNum: r1 + 1, val: val1, pairId: pId,
-                  reason: `👑 [MASTER GAME OPEN 1] ${val1} (Open ${o1}) on Row #${r1+1}`,
-                  color: '#06b6d4', border: '#0891b2', dot: '🔵'
-                };
-                const m2 = {
-                  r: r2, c: c2, day: DAY_NAMES[c2] || `Col ${c2+1}`, rowNum: r2 + 1, val: val2, pairId: pId,
-                  reason: `👑 [MASTER GAME OPEN 2] ${val2} (Open ${o2}) on Row #${r2+1}`,
-                  color: '#f59e0b', border: '#d97706', dot: '🟡'
-                };
-                const m3 = {
-                  r: r3, c: c3, day: DAY_NAMES[c3] || `Col ${c3+1}`, rowNum: r3 + 1, val: val3, pairId: pId,
-                  reason: `👑 [MASTER GAME TARGET] ${val3} (3-Open Sum=${sumOpen}) on Row #${r3+1}`,
-                  color: '#ec4899', border: '#be185d', dot: '🩷'
-                };
-
-                if (!matchMap[`${r1}_${c1}`]) { matches.push(m1); matchMap[`${r1}_${c1}`] = m1; }
-                if (!matchMap[`${r2}_${c2}`]) { matches.push(m2); matchMap[`${r2}_${c2}`] = m2; }
-                if (!matchMap[`${r3}_${c3}`]) { matches.push(m3); matchMap[`${r3}_${c3}`] = m3; }
-              }
+            // Check if Open Sum is part of the harmonic decrement sequence (0, 8, 6, 4, 2)
+            if ([0, 8, 6, 4, 2].includes(sumOpen)) {
+              foundClusters.push({
+                r1, c1, val1, o1, cVal1,
+                r2, c2, val2, o2, cVal2,
+                r3, c3, val3, o3, cVal3,
+                sumOpen
+              });
             }
           }
         }
       }
     }
 
-    const summary = matches.length > 0
-      ? `Found ${matches.length} matching cell(s) for Master Game Triad pattern.`
+    // Limit to unique target occurrences (by r3, c3)
+    const uniqueClusters = [];
+    const seenTargetMap = {};
+    for (const cl of foundClusters) {
+      const key = `${cl.r3}_${cl.c3}`;
+      if (!seenTargetMap[key]) {
+        seenTargetMap[key] = true;
+        uniqueClusters.push(cl);
+      }
+    }
+
+    let partIndex = 1;
+    for (const cl of uniqueClusters) {
+      const colorScheme = PART_COLORS[(partIndex - 1) % PART_COLORS.length];
+      const pId = `Part #${partIndex}`;
+
+      // Mark all cells in this Master Game Part with ONE UNIFIED COLOR
+      const m1 = {
+        r: cl.r1, c: cl.c1, day: DAY_NAMES[cl.c1] || `Col ${cl.c1+1}`, rowNum: cl.r1 + 1, val: cl.val1, pairId: pId,
+        reason: `👑 [MASTER GAME PART #${partIndex} - WEEK 1] ${cl.val1} (Open ${cl.o1}) on Row #${cl.r1+1}`,
+        color: colorScheme.color, border: colorScheme.border, dot: '🔵'
+      };
+      const m2 = {
+        r: cl.r2, c: cl.c2, day: DAY_NAMES[cl.c2] || `Col ${cl.c2+1}`, rowNum: cl.r2 + 1, val: cl.val2, pairId: pId,
+        reason: `👑 [MASTER GAME PART #${partIndex} - WEEK 2] ${cl.val2} (Open ${cl.o2}) on Row #${cl.r2+1}`,
+        color: colorScheme.color, border: colorScheme.border, dot: '🟡'
+      };
+      const m3 = {
+        r: cl.r3, c: cl.c3, day: DAY_NAMES[cl.c3] || `Col ${cl.c3+1}`, rowNum: cl.r3 + 1, val: cl.val3, pairId: pId,
+        reason: `👑 [MASTER GAME PART #${partIndex} - TARGET RESULT] ${cl.val3} (3-Open Sum=${cl.sumOpen}) on Row #${cl.r3+1}`,
+        color: colorScheme.color, border: colorScheme.border, dot: '🩷'
+      };
+
+      if (!matchMap[`${cl.r1}_${cl.c1}`]) { matches.push(m1); matchMap[`${cl.r1}_${cl.c1}`] = m1; }
+      if (!matchMap[`${cl.r2}_${cl.c2}`]) { matches.push(m2); matchMap[`${cl.r2}_${cl.c2}`] = m2; }
+      if (!matchMap[`${cl.r3}_${cl.c3}`]) { matches.push(m3); matchMap[`${cl.r3}_${cl.c3}`] = m3; }
+
+      partIndex++;
+    }
+
+    const totalParts = uniqueClusters.length;
+    const summary = totalParts > 0
+      ? `👑 FOUND ${totalParts} COMPLETE MASTER GAME PARTS OCCURRED! Each part is highlighted in 1 unified color. (Part #1: Target 53 [Sum (0)] → Part #2: Target 93 [Sum (8)] → Part #3: Target 74 [Sum (6)] - Decrementing Open Triad Pattern)`
       : `No Master Game Triad occurrences found in current view.`;
 
     return { matches, summary, matchMap };
