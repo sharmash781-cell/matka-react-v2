@@ -234,6 +234,10 @@ export const AILearningEngine = () => {
         r2 = r + 2;
       } else if (scanWeekGap === 'plus_3_weeks') {
         r2 = r + 3;
+      } else if (scanWeekGap === 'plus_4_weeks') {
+        r2 = r + 4;
+      } else if (scanWeekGap === 'plus_5_weeks') {
+        r2 = r + 5;
       } else {
         // Auto mode
         r2 = fromCol <= toCol ? r : r + 1;
@@ -244,14 +248,18 @@ export const AILearningEngine = () => {
       const val2 = grid[r2]?.[toCol]?.val || '';
       if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
 
-      const o1 = parseInt(val1[0]), c1 = parseInt(val1[1]);
-      const o2 = parseInt(val2[0]), c2 = parseInt(val2[1]);
+      const o1 = parseInt(val1[0]), c1 = parseInt(val1[1]), tot1 = (o1 + c1) % 10;
+      const o2 = parseInt(val2[0]), c2 = parseInt(val2[1]), tot2 = (o2 + c2) % 10;
 
       let d1_rel1, d2_rel1;
       if (rel1Type === 'open_to_open') { d1_rel1 = o1; d2_rel1 = o2; }
       else if (rel1Type === 'open_to_close') { d1_rel1 = o1; d2_rel1 = c2; }
       else if (rel1Type === 'close_to_open') { d1_rel1 = c1; d2_rel1 = o2; }
       else if (rel1Type === 'close_to_close') { d1_rel1 = c1; d2_rel1 = c2; }
+      else if (rel1Type === 'total_to_open_same') { d1_rel1 = tot1; d2_rel1 = o2; }
+      else if (rel1Type === 'total_to_open_opposite') { d1_rel1 = tot1; d2_rel1 = (o2 + 5) % 10; }
+      else if (rel1Type === 'total_to_close_same') { d1_rel1 = tot1; d2_rel1 = c2; }
+      else if (rel1Type === 'total_to_close_opposite') { d1_rel1 = tot1; d2_rel1 = (c2 + 5) % 10; }
 
       const passRel1 = matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
 
@@ -262,6 +270,10 @@ export const AILearningEngine = () => {
         else if (rel2Type === 'open_to_close') { d1_rel2 = o1; d2_rel2 = c2; }
         else if (rel2Type === 'close_to_open') { d1_rel2 = c1; d2_rel2 = o2; }
         else if (rel2Type === 'close_to_close') { d1_rel2 = c1; d2_rel2 = c2; }
+        else if (rel2Type === 'total_to_open_same') { d1_rel2 = tot1; d2_rel2 = o2; }
+        else if (rel2Type === 'total_to_open_opposite') { d1_rel2 = tot1; d2_rel2 = (o2 + 5) % 10; }
+        else if (rel2Type === 'total_to_close_same') { d1_rel2 = tot1; d2_rel2 = c2; }
+        else if (rel2Type === 'total_to_close_opposite') { d1_rel2 = tot1; d2_rel2 = (c2 + 5) % 10; }
 
         passRel2 = matchDigitRelation(d1_rel2, d2_rel2, rel2Action, rel2Step);
       }
@@ -820,13 +832,15 @@ export const AILearningEngine = () => {
                   <option value="next_week">Next Week (+1 Row e.g. 1st Mon → 2nd Mon)</option>
                   <option value="plus_2_weeks">+2 Weeks (+2 Rows)</option>
                   <option value="plus_3_weeks">+3 Weeks (+3 Rows)</option>
+                  <option value="plus_4_weeks">+4 Weeks (+4 Rows)</option>
+                  <option value="plus_5_weeks">+5 Weeks (+5 Rows)</option>
                 </select>
               </div>
             </div>
 
             {/* RELATION 1 SELECTOR */}
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1.5">
-              <div className="text-[10px] text-pink-400 font-bold uppercase tracking-wider">2. Relation 1 (e.g. Open to Open 1 Up)</div>
+              <div className="text-[10px] text-pink-400 font-bold uppercase tracking-wider">2. Relation 1 (e.g. Total → Close Opp)</div>
               <div className="flex items-center gap-1.5">
                 <select
                   value={rel1Type}
@@ -837,6 +851,10 @@ export const AILearningEngine = () => {
                   <option value="open_to_close">Open → Close</option>
                   <option value="close_to_open">Close → Open</option>
                   <option value="close_to_close">Close → Close</option>
+                  <option value="total_to_open_same">Total → Open (Same)</option>
+                  <option value="total_to_open_opposite">Total → Open (Opposite / Cut)</option>
+                  <option value="total_to_close_same">Total → Close (Same)</option>
+                  <option value="total_to_close_opposite">Total → Close (Opposite / Cut)</option>
                 </select>
 
                 <select
@@ -844,10 +862,10 @@ export const AILearningEngine = () => {
                   onChange={(e) => setRel1Action(e.target.value)}
                   className="bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
                 >
-                  <option value="UP">Up</option>
-                  <option value="DOWN">Down</option>
                   <option value="SAME">Same</option>
                   <option value="OPPOSITE">Cut / Opp</option>
+                  <option value="UP">Up</option>
+                  <option value="DOWN">Down</option>
                 </select>
 
                 {(rel1Action === 'UP' || rel1Action === 'DOWN') && (
