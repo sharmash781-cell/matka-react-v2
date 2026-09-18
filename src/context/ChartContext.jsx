@@ -64,7 +64,7 @@ export const DEFAULT_PRESETS = {
   "MILAN NIGHTT": milanNighttPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v5';
+const STORAGE_KEY = 'adminPublishedCharts_v6';
 
 const getInitialCharts = () => {
   try {
