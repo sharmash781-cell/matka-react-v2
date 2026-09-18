@@ -65,3 +65,8 @@ console.log(`MILAN NIGHTT: ${milanNighttPreset.rows} rows, 6 cols.`);
 const kalyanPreset = parseChart('kalyan_raw.txt', 6, 'KALYAN');
 fs.writeFileSync(path.join(__dirname, 'kalyan_preset.json'), JSON.stringify(kalyanPreset, null, 2));
 console.log(`KALYAN: ${kalyanPreset.rows} rows, 6 cols.`);
+
+// 6. SRIDEVI NIGHT (7 Cols)
+const srideviNightPreset = parseChart('sridevi_night_raw.txt', 7, 'SRIDEVI NIGHT');
+fs.writeFileSync(path.join(__dirname, 'sridevi_night_preset.json'), JSON.stringify(srideviNightPreset, null, 2));
+console.log(`SRIDEVI NIGHT: ${srideviNightPreset.rows} rows, 7 cols.`);

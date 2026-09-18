@@ -794,21 +794,18 @@ export const AILearningEngine = () => {
                 <BarChart2 className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-purple-300">
-                  Autonomous Cross-Day Pattern &amp; Color Outcome Scanner
+                <h3 className="text-xs sm:text-base font-black uppercase tracking-wider text-purple-300">
+                  RUN {selectedChart || 'MATKA'}
                 </h3>
-                <p className="text-[10px] text-slate-400">
-                  Scan horizontal (Same Wk Mon→Sat) or vertical (1st Mon→2nd Mon / Next Wk) up/down step patterns
-                </p>
               </div>
             </div>
 
             <button
               onClick={runAutonomousPatternScan}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>SCAN CHART</span>
+              <span>RUN {selectedChart || 'MATKA'}</span>
             </button>
           </div>
 

@@ -7,6 +7,7 @@ import srideviiiiPreset from '../data/srideviiii_preset.json';
 import milanDayyPreset from '../data/milan_dayy_preset.json';
 import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
+import srideviNightPreset from '../data/sridevi_night_preset.json';
 
 const ChartContext = createContext();
 
@@ -51,6 +52,7 @@ export const calculateDiffTotal = (val) => {
 export const DEFAULT_PUBLISHED_CHARTS = {
   "KALYAN": kalyanPreset,
   "MAIN BAZAR": mainBazarPreset,
+  "SRIDEVI NIGHT": srideviNightPreset,
   "SRIDEVIIII": srideviiiiPreset,
   "MILAN DAYY": milanDayyPreset,
   "MILAN NIGHTT": milanNighttPreset
@@ -59,12 +61,13 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 export const DEFAULT_PRESETS = {
   "KALYAN": kalyanPreset,
   "MAIN BAZAR": mainBazarPreset,
+  "SRIDEVI NIGHT": srideviNightPreset,
   "SRIDEVIIII": srideviiiiPreset,
   "MILAN DAYY": milanDayyPreset,
   "MILAN NIGHTT": milanNighttPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v6';
+const STORAGE_KEY = 'adminPublishedCharts_v7';
 
 const getInitialCharts = () => {
   try {
@@ -76,6 +79,7 @@ const getInitialCharts = () => {
         return {
           "KALYAN": parsed["KALYAN"] || kalyanPreset,
           "MAIN BAZAR": parsed["MAIN BAZAR"] || mainBazarPreset,
+          "SRIDEVI NIGHT": parsed["SRIDEVI NIGHT"] || srideviNightPreset,
           "SRIDEVIIII": parsed["SRIDEVIIII"] || srideviiiiPreset,
           "MILAN DAYY": parsed["MILAN DAYY"] || milanDayyPreset,
           "MILAN NIGHTT": parsed["MILAN NIGHTT"] || milanNighttPreset,
@@ -87,6 +91,7 @@ const getInitialCharts = () => {
   return {
     "KALYAN": kalyanPreset,
     "MAIN BAZAR": mainBazarPreset,
+    "SRIDEVI NIGHT": srideviNightPreset,
     "SRIDEVIIII": srideviiiiPreset,
     "MILAN DAYY": milanDayyPreset,
     "MILAN NIGHTT": milanNighttPreset
