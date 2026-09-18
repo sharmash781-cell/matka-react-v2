@@ -52,11 +52,15 @@ export const ChartEditor = () => {
         setGrid(synced.data);
         setRowsInput(synced.rows);
         setColsInput(synced.cols);
-        setSaveSuccessMsg(`✅ Synced "${synced.name}" with latest live results (${synced.rows} Rows × ${synced.cols} Cols)!`);
+        if (synced.isLive) {
+          setSaveSuccessMsg(`✅ Synced "${synced.name}" with latest live server results (${synced.rows} Rows × ${synced.cols} Cols)!`);
+        } else {
+          setSaveSuccessMsg(`✅ Refreshed & Restored "${synced.name}" dataset (${synced.rows} Rows × ${synced.cols} Cols)!`);
+        }
       }
       setTimeout(() => setSaveSuccessMsg(''), 5000);
     } catch (err) {
-      setSaveSuccessMsg(`⚠️ Sync failed: ${err.message || 'Check network connection'}`);
+      setSaveSuccessMsg(`⚠️ Refresh failed: ${err.message || 'Check network connection'}`);
       setTimeout(() => setSaveSuccessMsg(''), 5000);
     } finally {
       setIsSyncing(false);

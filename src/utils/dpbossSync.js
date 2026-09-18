@@ -15,34 +15,56 @@ export const fetchLiveChartData = async (chartName) => {
   const cleanName = chartName ? chartName.trim().toUpperCase() : 'MAIN BAZAR';
   const targetUrl = DPBOSS_URL_MAP[cleanName] || DPBOSS_URL_MAP['MAIN BAZAR'];
 
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-    targetUrl
-  ];
-
   let htmlText = null;
-  for (const proxyUrl of proxies) {
+
+  // 1. Try AllOrigins JSON API wrapper (most reliable in browser)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.contents && data.contents.includes('<tr')) {
+        htmlText = data.contents;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Try CodeTabs CORS proxy wrapper
+  if (!htmlText) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const text = await res.text();
         if (text && text.includes('<tr')) {
           htmlText = text;
-          break;
         }
       }
-    } catch (e) {
-      // try next proxy
-    }
+    } catch (e) {}
+  }
+
+  // 3. Try Direct fetch / CorsProxy.io
+  if (!htmlText) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.includes('<tr')) {
+          htmlText = text;
+        }
+      }
+    } catch (e) {}
   }
 
   if (!htmlText) {
-    throw new Error(`Unable to reach live DPBoss server for ${cleanName}. Please check internet connection.`);
+    return null; // Return null so caller can seamlessly fallback to preset restoration!
   }
 
   const parser = new DOMParser();
@@ -63,7 +85,7 @@ export const fetchLiveChartData = async (chartName) => {
   });
 
   if (parsedGridValues.length === 0) {
-    throw new Error(`No valid chart rows returned from live server for ${cleanName}.`);
+    return null;
   }
 
   const cols = Math.max(...parsedGridValues.map(r => r.length));
@@ -82,6 +104,7 @@ export const fetchLiveChartData = async (chartName) => {
     rows: data.length,
     cols: cols,
     updatedAt: new Date().toISOString(),
-    data: data
+    data: data,
+    isLive: true
   };
 };

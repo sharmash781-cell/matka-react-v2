@@ -235,8 +235,20 @@ export const ChartProvider = ({ children }) => {
   }, []);
 
   const syncLiveChart = useCallback(async (targetName) => {
-    const chartName = targetName || activeChartName;
-    const syncedData = await fetchLiveChartData(chartName);
+    const chartName = (targetName || activeChartName).trim().toUpperCase();
+    let syncedData = await fetchLiveChartData(chartName);
+    
+    // Fallback to built-in default preset if live fetch fails or is offline
+    if (!syncedData) {
+      const preset = DEFAULT_PRESETS[chartName] || DEFAULT_PRESETS["MAIN BAZAR"];
+      syncedData = {
+        ...preset,
+        name: chartName,
+        updatedAt: new Date().toISOString(),
+        isPresetFallback: true
+      };
+    }
+
     setCharts(prev => {
       const updated = {
         ...prev,
