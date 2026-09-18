@@ -261,7 +261,9 @@ export const AILearningEngine = () => {
       else if (rel1Type === 'total_to_close_same') { d1_rel1 = tot1; d2_rel1 = c2; }
       else if (rel1Type === 'total_to_close_opposite') { d1_rel1 = tot1; d2_rel1 = (c2 + 5) % 10; }
 
-      const passRel1 = matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
+      const passRel1 = rel1Type.startsWith('total_to_')
+        ? (d1_rel1 === d2_rel1)
+        : matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
 
       let passRel2 = true;
       if (rel2Type !== 'none') {
@@ -275,7 +277,9 @@ export const AILearningEngine = () => {
         else if (rel2Type === 'total_to_close_same') { d1_rel2 = tot1; d2_rel2 = c2; }
         else if (rel2Type === 'total_to_close_opposite') { d1_rel2 = tot1; d2_rel2 = (c2 + 5) % 10; }
 
-        passRel2 = matchDigitRelation(d1_rel2, d2_rel2, rel2Action, rel2Step);
+        passRel2 = rel2Type.startsWith('total_to_')
+          ? (d1_rel2 === d2_rel2)
+          : matchDigitRelation(d1_rel2, d2_rel2, rel2Action, rel2Step);
       }
 
       if (passRel1 && passRel2) {
@@ -841,43 +845,47 @@ export const AILearningEngine = () => {
             {/* RELATION 1 SELECTOR */}
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1.5">
               <div className="text-[10px] text-pink-400 font-bold uppercase tracking-wider">2. Relation 1 (e.g. Total → Close Opp)</div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <select
                   value={rel1Type}
                   onChange={(e) => setRel1Type(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs flex-1"
+                  className="bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs flex-1 min-w-[120px] max-w-[62%] sm:max-w-none truncate"
                 >
                   <option value="open_to_open">Open → Open</option>
                   <option value="open_to_close">Open → Close</option>
                   <option value="close_to_open">Close → Open</option>
                   <option value="close_to_close">Close → Close</option>
                   <option value="total_to_open_same">Total → Open (Same)</option>
-                  <option value="total_to_open_opposite">Total → Open (Opposite / Cut)</option>
+                  <option value="total_to_open_opposite">Total → Open (Cut/Opp)</option>
                   <option value="total_to_close_same">Total → Close (Same)</option>
-                  <option value="total_to_close_opposite">Total → Close (Opposite / Cut)</option>
+                  <option value="total_to_close_opposite">Total → Close (Cut/Opp)</option>
                 </select>
 
-                <select
-                  value={rel1Action}
-                  onChange={(e) => setRel1Action(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
-                >
-                  <option value="SAME">Same</option>
-                  <option value="OPPOSITE">Cut / Opp</option>
-                  <option value="UP">Up</option>
-                  <option value="DOWN">Down</option>
-                </select>
+                {!rel1Type.startsWith('total_to_') && (
+                  <>
+                    <select
+                      value={rel1Action}
+                      onChange={(e) => setRel1Action(e.target.value)}
+                      className="bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs shrink-0"
+                    >
+                      <option value="SAME">Same</option>
+                      <option value="OPPOSITE">Cut / Opp</option>
+                      <option value="UP">Up</option>
+                      <option value="DOWN">Down</option>
+                    </select>
 
-                {(rel1Action === 'UP' || rel1Action === 'DOWN') && (
-                  <select
-                    value={rel1Step}
-                    onChange={(e) => setRel1Step(parseInt(e.target.value))}
-                    className="bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs"
-                  >
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <option key={n} value={n}>{n} Step</option>
-                    ))}
-                  </select>
+                    {(rel1Action === 'UP' || rel1Action === 'DOWN') && (
+                      <select
+                        value={rel1Step}
+                        onChange={(e) => setRel1Step(parseInt(e.target.value))}
+                        className="bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs shrink-0"
+                      >
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <option key={n} value={n}>{n} Step</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -889,16 +897,20 @@ export const AILearningEngine = () => {
                 <select
                   value={rel2Type}
                   onChange={(e) => setRel2Type(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs flex-1"
+                  className="bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs flex-1 min-w-[120px] max-w-[62%] sm:max-w-none truncate"
                 >
                   <option value="none">None (Single Clause)</option>
                   <option value="close_to_close">Close → Close</option>
                   <option value="open_to_open">Open → Open</option>
                   <option value="open_to_close">Open → Close</option>
                   <option value="close_to_open">Close → Open</option>
+                  <option value="total_to_open_same">Total → Open (Same)</option>
+                  <option value="total_to_open_opposite">Total → Open (Cut/Opp)</option>
+                  <option value="total_to_close_same">Total → Close (Same)</option>
+                  <option value="total_to_close_opposite">Total → Close (Cut/Opp)</option>
                 </select>
 
-                {rel2Type !== 'none' && (
+                {rel2Type !== 'none' && !rel2Type.startsWith('total_to_') && (
                   <>
                     <select
                       value={rel2Action}
