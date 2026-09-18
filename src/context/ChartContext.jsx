@@ -8,6 +8,7 @@ import milanDayyPreset from '../data/milan_dayy_preset.json';
 import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
+import timeBazarPreset from '../data/time_bazar_preset.json';
 
 const ChartContext = createContext();
 
@@ -50,6 +51,7 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
+  "TIME BAZAR": timeBazarPreset,
   "KALYAN": kalyanPreset,
   "MAIN BAZAR": mainBazarPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -59,6 +61,7 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
+  "TIME BAZAR": timeBazarPreset,
   "KALYAN": kalyanPreset,
   "MAIN BAZAR": mainBazarPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -67,7 +70,7 @@ export const DEFAULT_PRESETS = {
   "MILAN NIGHTT": milanNighttPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v7';
+const STORAGE_KEY = 'adminPublishedCharts_v8';
 
 const getInitialCharts = () => {
   try {
@@ -77,6 +80,7 @@ const getInitialCharts = () => {
       if (parsed && typeof parsed === 'object') {
         // Only fill defaults if the chart key is missing completely
         return {
+          "TIME BAZAR": parsed["TIME BAZAR"] || timeBazarPreset,
           "KALYAN": parsed["KALYAN"] || kalyanPreset,
           "MAIN BAZAR": parsed["MAIN BAZAR"] || mainBazarPreset,
           "SRIDEVI NIGHT": parsed["SRIDEVI NIGHT"] || srideviNightPreset,
@@ -89,6 +93,7 @@ const getInitialCharts = () => {
     }
   } catch (e) {}
   return {
+    "TIME BAZAR": timeBazarPreset,
     "KALYAN": kalyanPreset,
     "MAIN BAZAR": mainBazarPreset,
     "SRIDEVI NIGHT": srideviNightPreset,
