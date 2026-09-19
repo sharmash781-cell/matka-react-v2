@@ -24,101 +24,105 @@ export const GITHUB_RAW_MAP = {
   "MILAN NIGHTT": "https://raw.githubusercontent.com/sharmash781-cell/matka-react-v2/main/src/data/milan_nightt_preset.json"
 };
 
+export const parseDpbossHtml = (htmlText, cleanName) => {
+  if (!htmlText || !htmlText.includes('<tr')) return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlText, 'text/html');
+  const trs = Array.from(doc.querySelectorAll('tr'));
+  
+  const parsedGridValues = [];
+  trs.forEach((tr) => {
+    const tds = Array.from(tr.querySelectorAll('td'));
+    if (tds.length === 0) return;
+    const rowVals = tds
+      .map(td => td.textContent.replace(/\s+/g, ' ').trim())
+      .filter(v => v !== '');
+      
+    if (rowVals.length > 0 && rowVals.some(v => /^\d{2}$|^\*\*$/.test(v))) {
+      parsedGridValues.push(rowVals);
+    }
+  });
+
+  if (parsedGridValues.length === 0) return null;
+
+  const cols = Math.max(...parsedGridValues.map(r => r.length));
+  const data = parsedGridValues.map((rowVals, rIdx) => {
+    const row = [];
+    for (let cIdx = 0; cIdx < cols; cIdx++) {
+      const val = rowVals[cIdx] || '';
+      row.push({ r: rIdx, c: cIdx, val });
+    }
+    return row;
+  });
+
+  return {
+    name: cleanName,
+    rows: data.length,
+    cols: cols,
+    updatedAt: new Date().toISOString(),
+    data: data,
+    isLive: true
+  };
+};
+
 export const fetchLiveChartData = async (chartName) => {
   const cleanName = chartName ? chartName.trim().toUpperCase() : 'MAIN BAZAR';
   const targetUrl = DPBOSS_URL_MAP[cleanName] || DPBOSS_URL_MAP['MAIN BAZAR'];
+  const rawUrl = GITHUB_RAW_MAP[cleanName] || GITHUB_RAW_MAP['MAIN BAZAR'];
 
-  let htmlText = null;
-
-  // 1. Try AllOrigins JSON API wrapper
-  try {
+  // Helper fetcher for AllOrigins JSON endpoint
+  const fetchAllOrigins = async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
-      if (data && data.contents && data.contents.includes('<tr')) {
-        htmlText = data.contents;
-      }
+      if (data && data.contents) return data.contents;
     }
-  } catch (e) {}
+    throw new Error('AllOrigins failed');
+  };
 
-  // 2. Try CodeTabs CORS proxy
-  if (!htmlText) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.includes('<tr')) {
-          htmlText = text;
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 3. Try CorsProxy.io
-  if (!htmlText) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.includes('<tr')) {
-          htmlText = text;
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Parse HTML if retrieved successfully
-  if (htmlText) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlText, 'text/html');
-    const trs = Array.from(doc.querySelectorAll('tr'));
-    
-    const parsedGridValues = [];
-    trs.forEach((tr) => {
-      const tds = Array.from(tr.querySelectorAll('td'));
-      if (tds.length === 0) return;
-      const rowVals = tds
-        .map(td => td.textContent.replace(/\s+/g, ' ').trim())
-        .filter(v => v !== '');
-        
-      if (rowVals.length > 0 && rowVals.some(v => /^\d{2}$|^\*\*$/.test(v))) {
-        parsedGridValues.push(rowVals);
-      }
-    });
-
-    if (parsedGridValues.length > 0) {
-      const cols = Math.max(...parsedGridValues.map(r => r.length));
-      const data = parsedGridValues.map((rowVals, rIdx) => {
-        const row = [];
-        for (let cIdx = 0; cIdx < cols; cIdx++) {
-          const val = rowVals[cIdx] || '';
-          row.push({ r: rIdx, c: cIdx, val });
-        }
-        return row;
-      });
-
-      return {
-        name: cleanName,
-        rows: data.length,
-        cols: cols,
-        updatedAt: new Date().toISOString(),
-        data: data,
-        isLive: true
-      };
+  // Helper fetcher for CodeTabs endpoint
+  const fetchCodeTabs = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const text = await res.text();
+      if (text) return text;
     }
+    throw new Error('CodeTabs failed');
+  };
+
+  // Helper fetcher for CorsProxy endpoint
+  const fetchCorsProxy = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const text = await res.text();
+      if (text) return text;
+    }
+    throw new Error('CorsProxy failed');
+  };
+
+  // Try DPBoss proxies in parallel race for fastest response!
+  try {
+    const htmlText = await Promise.any([
+      fetchAllOrigins(),
+      fetchCodeTabs(),
+      fetchCorsProxy()
+    ]);
+    const parsed = parseDpbossHtml(htmlText, cleanName);
+    if (parsed) return parsed;
+  } catch (e) {
+    // Proxies timed out or blocked
   }
 
-  // 4. GitHub Live Raw Feed Fallback (100% reliable, zero CORS restrictions, latest synced numbers)
-  const rawUrl = GITHUB_RAW_MAP[cleanName] || GITHUB_RAW_MAP['MAIN BAZAR'];
+  // GitHub Live Raw Feed (Instant 100ms response, 100% reliable)
   try {
     const res = await fetch(`${rawUrl}?t=${Date.now()}`);
     if (res.ok) {
