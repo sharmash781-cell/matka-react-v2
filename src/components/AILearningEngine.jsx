@@ -58,6 +58,12 @@ export const AILearningEngine = () => {
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
 
+  // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
+  const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
+  const [totOpenToDay, setTotOpenToDay] = useState(3);   // 3 = Thu
+  const [totOpenMode, setTotOpenMode] = useState('total_plus_open'); // total_plus_open, total_plus_close
+  const [totOpenWeekGap, setTotOpenWeekGap] = useState('auto');
+
   // ── AUTONOMOUS CROSS-DAY PATTERN SCANNER STATE ─────────────────────────────
   const [scanFromDay, setScanFromDay] = useState(0); // 0 = Mon
   const [scanToDay, setScanToDay] = useState(1);   // 1 = Tue
@@ -582,6 +588,92 @@ export const AILearningEngine = () => {
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences, commonOutcomes });
   }, [grid, scanFromDay, scanToDay, scanWeekGap, rel1Type, rel1Action, rel1Step, rel2Type, rel2Action, rel2Step, colsInput]);
 
+  // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER FUNCTION ─────────────────────────
+  const runTotalOpenScan = useCallback(() => {
+    if (!grid || grid.length === 0) return;
+
+    const occurrences = [];
+    const fromCol = totOpenFromDay;
+    const toCol = totOpenToDay;
+
+    for (let r = 0; r < grid.length; r++) {
+      const val1 = grid[r]?.[fromCol]?.val || '';
+
+      let r2 = r;
+      if (totOpenWeekGap === 'auto') {
+        r2 = fromCol <= toCol ? r : r + 1;
+      } else if (totOpenWeekGap === 'same_week' || totOpenWeekGap === '0') {
+        r2 = r;
+      } else {
+        const gapNum = parseInt(totOpenWeekGap, 10);
+        r2 = r + (isNaN(gapNum) ? (fromCol <= toCol ? 0 : 1) : gapNum);
+      }
+
+      if (r2 >= grid.length) continue;
+
+      const val2 = grid[r2]?.[toCol]?.val || '';
+      if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
+
+      const o1 = parseInt(val1[0]), c1 = parseInt(val1[1]), tot1 = (o1 + c1) % 10;
+      const targetDigit = totOpenMode === 'total_plus_open' ? parseInt(val2[0]) : parseInt(val2[1]);
+      const targetSum = (tot1 + targetDigit) % 10;
+      const targetCut = (targetSum + 5) % 10;
+
+      const matchingWeekCells = [];
+      for (let c = 0; c < colsInput; c++) {
+        const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+        if (cellVal && /^\d{2}$/.test(cellVal)) {
+          const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
+          if (cellTot === targetSum || cellTot === targetCut) {
+            matchingWeekCells.push({ r: r2, c, badgeVal: `Tot ${cellTot}` });
+          }
+        }
+      }
+
+      if (matchingWeekCells.length > 0) {
+        occurrences.push({
+          row1: r,
+          col1: fromCol,
+          val1,
+          row2: r2,
+          col2: toCol,
+          val2,
+          sum: targetSum,
+          cut: targetCut,
+          extraCells: matchingWeekCells
+        });
+      }
+    }
+
+    if (occurrences.length === 0) {
+      setScanSummary({ count: 0, label: 'No Total + Open matches found on chart.' });
+      return;
+    }
+
+    const primaryPatternCells = [];
+    occurrences.forEach(occ => {
+      primaryPatternCells.push({ r: occ.row1, c: occ.col1, badgeVal: `Tot ${getJodiTotal(occ.val1)}` });
+      primaryPatternCells.push({ r: occ.row2, c: occ.col2, badgeVal: totOpenMode === 'total_plus_open' ? `Op ${occ.val2[0]}` : `Cl ${occ.val2[1]}` });
+      occ.extraCells.forEach(ec => primaryPatternCells.push(ec));
+    });
+
+    const modeLabel = totOpenMode === 'total_plus_open' ? 'Total + Open' : 'Total + Close';
+    const patternTitle = `${modeLabel}: ${COL_HEADERS[fromCol]} → ${COL_HEADERS[toCol]} Same Wk Total`;
+
+    const patternRule = {
+      id: `tot_open_pattern_${Date.now()}`,
+      label: `🟡 ${patternTitle} (${occurrences.length}x)`,
+      color: '#f59e0b',
+      borderColor: '#d97706',
+      bg: 'bg-amber-950',
+      text: 'text-amber-300',
+      cells: primaryPatternCells
+    };
+
+    setActiveRules([patternRule]);
+    setScanSummary({ count: occurrences.length, label: patternTitle, occurrences });
+  }, [grid, totOpenFromDay, totOpenToDay, totOpenMode, totOpenWeekGap, colsInput]);
+
   const removeRule = (ruleId) => {
     setActiveRules(prev => prev.filter(r => r.id !== ruleId));
   };
@@ -848,6 +940,140 @@ export const AILearningEngine = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TOTAL + OPEN / CLOSE DEDICATED SCANNER PANEL (DEFAULT OFF) */}
+        {showTotalOpenMatcher && (
+          <div className="bg-slate-950 border-2 border-amber-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5 animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-tr from-amber-600 to-orange-600 p-1.5 rounded-xl text-white">
+                  <Layers className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300">
+                    TOTAL + OPEN / CLOSE SCANNER (Same Week Total Matcher)
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Day 1 Jodi Total + Day 2 Open/Close = Sum → Highlights matching Jodi Totals in the same week
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={runTotalOpenScan}
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-amber-500/30 transition-all active:scale-95"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>RUN SCAN</span>
+                </button>
+                <button
+                  onClick={() => setShowTotalOpenMatcher(false)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
+                >
+                  Close ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+              {/* FROM DAY -> TO DAY */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">1. Select Days:</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1">
+                    <label className="text-[9px] text-slate-400 block">From Day:</label>
+                    <select
+                      value={totOpenFromDay}
+                      onChange={(e) => setTotOpenFromDay(parseInt(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
+                    >
+                      {DAY_NAMES_FULL.map((d, i) => (
+                        <option key={i} value={i}>{d} ({COL_HEADERS[i]})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <span className="text-amber-400 font-black text-sm mt-3">→</span>
+
+                  <div className="flex-1">
+                    <label className="text-[9px] text-slate-400 block">To Day:</label>
+                    <select
+                      value={totOpenToDay}
+                      onChange={(e) => setTotOpenToDay(parseInt(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
+                    >
+                      {DAY_NAMES_FULL.map((d, i) => (
+                        <option key={i} value={i}>{d} ({COL_HEADERS[i]})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* MODE SELECTOR: Total + Open vs Total + Close */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">2. Scanner Mode:</span>
+                <select
+                  value={totOpenMode}
+                  onChange={(e) => setTotOpenMode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs mt-1"
+                >
+                  <option value="total_plus_open">Total + Open → Same Wk Total (or Cut)</option>
+                  <option value="total_plus_close">Total + Close → Same Wk Total (or Cut)</option>
+                </select>
+              </div>
+
+              {/* WEEK GAP SELECTOR */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider block">3. Row / Week Gap:</span>
+                <div className="flex items-center gap-1 mt-1">
+                  <button
+                    onClick={() => {
+                      const cur = totOpenWeekGap === 'auto'
+                        ? (totOpenFromDay <= totOpenToDay ? 0 : 1)
+                        : (totOpenWeekGap === 'same_week' ? 0 : parseInt(totOpenWeekGap, 10) || 0);
+                      const next = Math.max(0, cur - 1);
+                      setTotOpenWeekGap(next.toString());
+                    }}
+                    className="w-6 h-6 bg-slate-950 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-sm active:scale-95"
+                    title="Decrease Week Gap (-1)"
+                  >
+                    -
+                  </button>
+                  <select
+                    value={totOpenWeekGap}
+                    onChange={(e) => setTotOpenWeekGap(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-purple-300 font-bold p-1 rounded-lg text-xs"
+                  >
+                    <option value="auto">Auto Gap</option>
+                    <option value="0">Same Wk (+0 Row)</option>
+                    <option value="1">+1 Wk (+1 Row)</option>
+                    <option value="2">+2 Wks (+2 Rows)</option>
+                    <option value="3">+3 Wks (+3 Rows)</option>
+                    <option value="4">+4 Wks (+4 Rows)</option>
+                    <option value="5">+5 Wks (+5 Rows)</option>
+                    <option value="6">+6 Wks (+6 Rows)</option>
+                    <option value="7">+7 Wks (+7 Rows)</option>
+                    <option value="8">+8 Wks (+8 Rows)</option>
+                  </select>
+                  <button
+                    onClick={() => {
+                      const cur = totOpenWeekGap === 'auto'
+                        ? (totOpenFromDay <= totOpenToDay ? 0 : 1)
+                        : (totOpenWeekGap === 'same_week' ? 0 : parseInt(totOpenWeekGap, 10) || 0);
+                      const next = cur + 1;
+                      setTotOpenWeekGap(next.toString());
+                    }}
+                    className="w-6 h-6 bg-slate-950 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-sm active:scale-95"
+                    title="Increase Week Gap (+1)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1261,10 +1487,10 @@ export const AILearningEngine = () => {
                               }`}
                             >
                               <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
-                                {/* TOP RIGHT EDGE: Small Common Total / Number Badge */}
+                                {/* TOP RIGHT CORNER FLOATING BADGE: Small Total / Number Badge (Non-overlapping) */}
                                 {scanCellBadge && (
-                                  <div className="absolute top-0 right-0 z-20 pointer-events-none">
-                                    <span className="text-[9px] sm:text-[11px] font-black font-mono text-purple-950 bg-amber-300 border-b border-l border-amber-500 rounded-bl px-1 py-0.2 shadow-sm leading-none inline-block">
+                                  <div className="absolute -top-1.5 -right-1 z-30 pointer-events-none">
+                                    <span className="text-[7px] sm:text-[9px] font-black font-mono text-slate-950 bg-amber-400 border border-amber-600 rounded px-1 py-[1px] shadow-md leading-none inline-block tracking-tighter">
                                       {scanCellBadge}
                                     </span>
                                   </div>
