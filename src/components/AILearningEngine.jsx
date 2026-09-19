@@ -63,6 +63,7 @@ export const AILearningEngine = () => {
   const [totOpenToDay, setTotOpenToDay] = useState(3);   // 3 = Thu
   const [totOpenMode, setTotOpenMode] = useState('total_plus_open'); // total_plus_open, total_plus_close
   const [totOpenWeekGap, setTotOpenWeekGap] = useState('auto');
+  const [totTargetScope, setTotTargetScope] = useState('after_second_jodi'); // after_second_jodi, next_week, after_or_next_week, entire_same_week
 
   // ── AUTONOMOUS CROSS-DAY PATTERN SCANNER STATE ─────────────────────────────
   const [scanFromDay, setScanFromDay] = useState(0); // 0 = Mon
@@ -625,22 +626,48 @@ export const AILearningEngine = () => {
       const targetSum = (tot1 + targetDigit) % 10;
       const targetCut = (targetSum + 5) % 10;
 
-      const matchingWeekCells = [];
-      for (let c = 0; c < colsInput; c++) {
-        // Exclude the pair cells (fromCol and toCol) from matching as target total outcome
-        if (r2 === r && (c === fromCol || c === toCol)) continue;
-        if (r2 !== r && c === toCol) continue;
+      const matchingTotalCells = [];
 
-        const cellVal = grid[r2]?.[c]?.val || '';
+      const checkCellForMatch = (rowIdx, colIdx) => {
+        if (rowIdx >= grid.length) return;
+        if (rowIdx === r && colIdx === fromCol) return;
+        if (rowIdx === r2 && colIdx === toCol) return;
+
+        const cellVal = grid[rowIdx]?.[colIdx]?.val || '';
         if (cellVal && /^\d{2}$/.test(cellVal)) {
           const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
           if (cellTot === targetSum || cellTot === targetCut) {
-            matchingWeekCells.push({ r: r2, c, badgeVal: `Tot ${cellTot}` });
+            matchingTotalCells.push({ r: rowIdx, c: colIdx, badgeVal: `Tot ${cellTot}` });
           }
+        }
+      };
+
+      if (totTargetScope === 'after_second_jodi') {
+        // Check days AFTER toCol in row r2
+        for (let c = toCol + 1; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
+        }
+      } else if (totTargetScope === 'next_week') {
+        // Check all days in row r2 + 1
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2 + 1, c);
+        }
+      } else if (totTargetScope === 'after_or_next_week') {
+        // Check days AFTER toCol in row r2 AND all days in row r2 + 1
+        for (let c = toCol + 1; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
+        }
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2 + 1, c);
+        }
+      } else if (totTargetScope === 'entire_same_week') {
+        // Check all days in row r2 (excluding pair cells)
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
         }
       }
 
-      if (matchingWeekCells.length > 0) {
+      if (matchingTotalCells.length > 0) {
         occurrences.push({
           row1: r,
           col1: fromCol,
@@ -650,7 +677,7 @@ export const AILearningEngine = () => {
           val2,
           sum: targetSum,
           cut: targetCut,
-          extraCells: matchingWeekCells
+          extraCells: matchingTotalCells
         });
       }
     }
@@ -661,7 +688,7 @@ export const AILearningEngine = () => {
     }
 
     const pairJodiCells = [];
-    const matchingTotalCells = [];
+    const totalMatchingCells = [];
 
     occurrences.forEach(occ => {
       // 1. Pair Jodis (First Jodi & Second Jodi) - NO BADGES, Neon Magenta Color
@@ -670,12 +697,12 @@ export const AILearningEngine = () => {
 
       // 2. Same-Week Total Matching Jodis - Electric Cyan Color with Tot Badge
       occ.extraCells.forEach(ec => {
-        matchingTotalCells.push({ r: ec.r, c: ec.c, badgeVal: ec.badgeVal });
+        totalMatchingCells.push({ r: ec.r, c: ec.c, badgeVal: ec.badgeVal });
       });
     });
 
     const modeLabel = totOpenMode === 'total_plus_open' ? 'Total + Open' : 'Total + Close';
-    const patternTitle = `${modeLabel}: ${COL_HEADERS[fromCol]} → ${COL_HEADERS[toCol]} Same Wk Total`;
+    const patternTitle = `${modeLabel}: ${COL_HEADERS[fromCol]} → ${COL_HEADERS[toCol]} Total Matcher`;
 
     const pairRule = {
       id: `pair_jodis_${Date.now()}`,
@@ -689,17 +716,17 @@ export const AILearningEngine = () => {
 
     const totalRule = {
       id: `total_matches_${Date.now()}`,
-      label: `🎯 Same Wk Total Matches (${occurrences.length}x)`,
+      label: `🎯 Target Total Matches (${occurrences.length}x)`,
       color: '#06b6d4',
       borderColor: '#0891b2',
       bg: 'bg-cyan-950',
       text: 'text-cyan-300',
-      cells: matchingTotalCells
+      cells: totalMatchingCells
     };
 
     setActiveRules([pairRule, totalRule]);
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences });
-  }, [grid, totOpenFromDay, totOpenToDay, totOpenMode, totOpenWeekGap, colsInput]);
+  }, [grid, totOpenFromDay, totOpenToDay, totOpenMode, totOpenWeekGap, totTargetScope, colsInput]);
 
   const removeRule = (ruleId) => {
     setActiveRules(prev => prev.filter(r => r.id !== ruleId));
@@ -1004,7 +1031,7 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono">
               {/* FROM DAY -> TO DAY */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
                 <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">1. Select Days:</span>
@@ -1047,14 +1074,14 @@ export const AILearningEngine = () => {
                   onChange={(e) => setTotOpenMode(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs mt-1"
                 >
-                  <option value="total_plus_open">Total + Open → Same Wk Total (or Cut)</option>
-                  <option value="total_plus_close">Total + Close → Same Wk Total (or Cut)</option>
+                  <option value="total_plus_open">Total + Open → Target Total (or Cut)</option>
+                  <option value="total_plus_close">Total + Close → Target Total (or Cut)</option>
                 </select>
               </div>
 
               {/* WEEK GAP SELECTOR */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider block">3. Row / Week Gap:</span>
+                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider block">3. Pair Row Gap:</span>
                 <div className="flex items-center gap-1 mt-1">
                   <button
                     onClick={() => {
@@ -1099,6 +1126,21 @@ export const AILearningEngine = () => {
                     +
                   </button>
                 </div>
+              </div>
+
+              {/* TARGET TOTAL SEARCH LOCATION */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">4. Total Search Location:</span>
+                <select
+                  value={totTargetScope}
+                  onChange={(e) => setTotTargetScope(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs mt-1"
+                >
+                  <option value="after_second_jodi">After Second Jodi (Same Wk)</option>
+                  <option value="next_week">Next Week Row (+1 Wk)</option>
+                  <option value="after_or_next_week">Same Wk (After) or Next Wk</option>
+                  <option value="entire_same_week">Entire Same Week (Any Day)</option>
+                </select>
               </div>
             </div>
           </div>
