@@ -214,14 +214,18 @@ export const ChartProvider = ({ children }) => {
     } catch (e) {}
   }, [customAIPatterns]);
 
-  const saveChart = useCallback((name, rows, cols, data) => {
+  const saveChart = useCallback((name, rows, cols, data, chartType = 'jodi') => {
     const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
+    const isPanaType = chartType === 'pana' || cleanName.includes('PANA') || cleanName.includes('PANEL') ||
+      (data && data.some(row => row && row.some(c => c && c.val && c.val.includes('-'))));
+
     setCharts((prevCharts) => {
       const updated = {
         ...prevCharts,
         [cleanName]: {
           rows: parseInt(rows) || (data ? data.length : 20),
           cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
+          chartType: isPanaType ? 'pana' : 'jodi',
           updatedAt: new Date().toISOString(),
           data: data || []
         }

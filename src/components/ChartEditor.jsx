@@ -13,14 +13,20 @@ export const parseJodiTokens = (input) => {
     const upper = raw.toUpperCase();
     if (raw === '**' || raw === '*' || upper === 'XX' || upper === 'X') {
       finalTokens.push(raw === '*' ? '*' : upper === 'X' ? 'X' : upper === 'XX' ? 'XX' : '**');
+    } else if (raw.includes('-')) {
+      finalTokens.push(raw);
     } else if (/^\d+$/.test(raw)) {
-      for (let i = 0; i < raw.length; i += 2) {
-        let pair = raw.slice(i, i + 2);
-        if (pair.length === 1) pair = '0' + pair;
-        finalTokens.push(pair);
+      if (raw.length === 8) {
+        finalTokens.push(`${raw.slice(0,3)}-${raw.slice(3,5)}-${raw.slice(5,8)}`);
+      } else {
+        for (let i = 0; i < raw.length; i += 2) {
+          let pair = raw.slice(i, i + 2);
+          if (pair.length === 1) pair = '0' + pair;
+          finalTokens.push(pair);
+        }
       }
     } else {
-      finalTokens.push(raw.padStart(2, '0').slice(-2));
+      finalTokens.push(raw);
     }
   }
   return finalTokens;

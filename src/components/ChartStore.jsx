@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { useChart } from '../context/ChartContext';
-import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, RefreshCw, Lock, ShieldCheck, Key } from 'lucide-react';
+import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X } from 'lucide-react';
 
 export const ChartStore = () => {
   const {
     charts = {},
     setActiveChartName,
     deleteChart,
-    resetToDefaultCharts,
     clearAllCharts,
     setActiveTab,
     saveChart,
-    isAdminLoggedIn,
     setShowAdminModal
   } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
