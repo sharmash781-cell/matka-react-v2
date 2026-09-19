@@ -92,21 +92,29 @@ const BottomNav = () => {
 const MainContent = () => {
   const { activeTab } = useChart();
 
+  const isEditor = activeTab === 'editor' || !activeTab;
+  const isStore = activeTab === 'store';
+  const isAI = activeTab === 'ai' || activeTab === 'ai-trainer';
+  const isPredict = activeTab === 'predict' || activeTab === 'predictor';
+  const isFinder = activeTab === 'finder' || activeTab === 'chart-finder';
+
   return (
     <main className="pb-16 min-h-[85vh]">
-      {(activeTab === 'editor' || !activeTab) && <ChartEditor />}
-      {activeTab === 'store' && (
-        <div className="p-2 sm:p-4"><ChartStore /></div>
-      )}
-      {(activeTab === 'ai' || activeTab === 'ai-trainer') && (
-        <div className="p-2 sm:p-4"><AILearningEngine /></div>
-      )}
-      {(activeTab === 'predict' || activeTab === 'predictor') && (
-        <div className="p-2 sm:p-4"><PredictorEngine /></div>
-      )}
-      {(activeTab === 'finder' || activeTab === 'chart-finder') && (
-        <div className="p-2 sm:p-4"><ChartFinder /></div>
-      )}
+      <div className={isEditor ? 'block animate-fadeIn' : 'hidden'}>
+        <ChartEditor />
+      </div>
+      <div className={isStore ? 'block p-2 sm:p-4 animate-fadeIn' : 'hidden'}>
+        <ChartStore />
+      </div>
+      <div className={isAI ? 'block p-2 sm:p-4 animate-fadeIn' : 'hidden'}>
+        <AILearningEngine />
+      </div>
+      <div className={isPredict ? 'block p-2 sm:p-4 animate-fadeIn' : 'hidden'}>
+        <PredictorEngine />
+      </div>
+      <div className={isFinder ? 'block p-2 sm:p-4 animate-fadeIn' : 'hidden'}>
+        <ChartFinder />
+      </div>
     </main>
   );
 };

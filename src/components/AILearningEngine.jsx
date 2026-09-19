@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
 import { findSequenceMatches, MATCH_COLORS, parseSequenceInput } from '../ai/sequenceEngine';
-import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Layers, Settings2, Eye, EyeOff, MapPin, Play, X, RefreshCw, BarChart2 } from 'lucide-react';
+import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Layers, Settings2, Eye, EyeOff, MapPin, Play, Square, X, RefreshCw, BarChart2 } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const DAY_NAMES_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -171,9 +171,9 @@ export const AILearningEngine = () => {
 
   // RUN UNIVERSAL SEQUENCE SCANNING ENGINE
   const sequenceResults = useMemo(() => {
-    if (!showOpenFinder) return { targetSeq: [], totalMatches: 0, matches: [], partialSetups: [], predictions: {} };
+    if (!showOpenFinder || !isOpenFinderActive) return { targetSeq: [], totalMatches: 0, matches: [], partialSetups: [], predictions: {} };
     return findSequenceMatches(grid, sequenceInput);
-  }, [grid, sequenceInput, showOpenFinder]);
+  }, [grid, sequenceInput, showOpenFinder, isOpenFinderActive]);
 
   const visibleMatches = useMemo(() => {
     if (!sequenceResults || !sequenceResults.matches) return [];
@@ -922,12 +922,28 @@ export const AILearningEngine = () => {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowOpenFinder(false)}
-                className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
-              >
-                Close ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsOpenFinderActive(true)}
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-cyan-500/30 transition-all active:scale-95"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>RUN SCAN</span>
+                </button>
+                <button
+                  onClick={() => setIsOpenFinderActive(false)}
+                  className="flex items-center gap-1 bg-rose-950 border border-rose-700 hover:bg-rose-900 text-rose-300 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>STOP / OFF</span>
+                </button>
+                <button
+                  onClick={() => setShowOpenFinder(false)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
+                >
+                  Close ✕
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -949,7 +965,10 @@ export const AILearningEngine = () => {
                 {['5, 8, 0', '1, 2, 3', '0, 5, 0', '7, 8, 9'].map((preset) => (
                   <button
                     key={preset}
-                    onClick={() => setSequenceInput(preset)}
+                    onClick={() => {
+                      setSequenceInput(preset);
+                      setIsOpenFinderActive(true);
+                    }}
                     className={`text-[9px] font-mono font-bold px-2 py-1 rounded-lg border transition ${
                       sequenceInput === preset
                         ? 'bg-cyan-600 text-white border-cyan-400 shadow-md'
@@ -1008,6 +1027,13 @@ export const AILearningEngine = () => {
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>RUN SCAN</span>
+                </button>
+                <button
+                  onClick={clearAllRules}
+                  className="flex items-center gap-1 bg-rose-950 border border-rose-700 hover:bg-rose-900 text-rose-300 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>STOP / OFF</span>
                 </button>
                 <button
                   onClick={() => setShowTotalOpenMatcher(false)}
@@ -1148,13 +1174,22 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <button
-              onClick={runAutonomousPatternScan}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>RUN</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runAutonomousPatternScan}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>RUN</span>
+              </button>
+              <button
+                onClick={clearAllRules}
+                className="flex items-center gap-1 bg-rose-950 border border-rose-700 hover:bg-rose-900 text-rose-300 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+              >
+                <Square className="w-3 h-3 fill-current" />
+                <span>STOP / OFF</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
