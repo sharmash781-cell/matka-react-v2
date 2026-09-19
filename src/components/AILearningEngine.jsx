@@ -825,26 +825,13 @@ export const AILearningEngine = () => {
                   )}
                 </select>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span>AI Pattern Engine | {grid.length} Rows × {colsInput} Cols</span>
-                <span className="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-black text-[9px] border border-emerald-500/30">v2.6 • Clean Engine</span>
-              </div>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
-                onClick={() => {
-                  setShowTotalOpenMatcher(v => {
-                    const next = !v;
-                    if (next) {
-                      setRel1Type('total_plus_open_same_week');
-                      setTimeout(() => runAutonomousPatternScan(), 50);
-                    }
-                    return next;
-                  });
-                }}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
-                  showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                onClick={() => setShowTotalOpenMatcher(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all duration-200 active:scale-95 border ${
+                  showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300 ring-2 ring-amber-500/30' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
