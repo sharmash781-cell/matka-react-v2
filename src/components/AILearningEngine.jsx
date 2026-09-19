@@ -54,6 +54,7 @@ export const AILearningEngine = () => {
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showOpenFinder, setShowOpenFinder] = useState(false);
+  const [showTotalOpenMatcher, setShowTotalOpenMatcher] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
 
@@ -263,11 +264,32 @@ export const AILearningEngine = () => {
       else if (rel1Type === 'total_to_close_same') { d1_rel1 = tot1; d2_rel1 = c2; }
       else if (rel1Type === 'total_to_close_opposite') { d1_rel1 = tot1; d2_rel1 = (c2 + 5) % 10; }
 
-      const passRel1 = rel1Type.startsWith('total_to_')
-        ? (d1_rel1 === d2_rel1)
-        : matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
+      let passRel1 = false;
+      let matchingWeekCellsRel1 = [];
+
+      if (rel1Type === 'total_plus_open_same_week' || rel1Type === 'total_plus_close_same_week') {
+        const targetDigit = rel1Type === 'total_plus_open_same_week' ? o2 : c2;
+        const targetSum = (tot1 + targetDigit) % 10;
+        const targetCut = (targetSum + 5) % 10;
+
+        for (let c = 0; c < colsInput; c++) {
+          const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+          if (cellVal && /^\d{2}$/.test(cellVal)) {
+            const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
+            if (cellTot === targetSum || cellTot === targetCut) {
+              passRel1 = true;
+              matchingWeekCellsRel1.push({ r: r2, c, badgeVal: `Tot ${cellTot}` });
+            }
+          }
+        }
+      } else if (rel1Type.startsWith('total_to_')) {
+        passRel1 = (d1_rel1 === d2_rel1);
+      } else {
+        passRel1 = matchDigitRelation(d1_rel1, d2_rel1, rel1Action, rel1Step);
+      }
 
       let passRel2 = true;
+      let matchingWeekCellsRel2 = [];
       if (rel2Type !== 'none') {
         let d1_rel2, d2_rel2;
         if (rel2Type === 'open_to_open') { d1_rel2 = o1; d2_rel2 = o2; }
@@ -279,9 +301,27 @@ export const AILearningEngine = () => {
         else if (rel2Type === 'total_to_close_same') { d1_rel2 = tot1; d2_rel2 = c2; }
         else if (rel2Type === 'total_to_close_opposite') { d1_rel2 = tot1; d2_rel2 = (c2 + 5) % 10; }
 
-        passRel2 = rel2Type.startsWith('total_to_')
-          ? (d1_rel2 === d2_rel2)
-          : matchDigitRelation(d1_rel2, d2_rel2, rel2Action, rel2Step);
+        if (rel2Type === 'total_plus_open_same_week' || rel2Type === 'total_plus_close_same_week') {
+          const targetDigit = rel2Type === 'total_plus_open_same_week' ? o2 : c2;
+          const targetSum = (tot1 + targetDigit) % 10;
+          const targetCut = (targetSum + 5) % 10;
+
+          passRel2 = false;
+          for (let c = 0; c < colsInput; c++) {
+            const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+            if (cellVal && /^\d{2}$/.test(cellVal)) {
+              const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
+              if (cellTot === targetSum || cellTot === targetCut) {
+                passRel2 = true;
+                matchingWeekCellsRel2.push({ r: r2, c, badgeVal: `Tot ${cellTot}` });
+              }
+            }
+          }
+        } else if (rel2Type.startsWith('total_to_')) {
+          passRel2 = (d1_rel2 === d2_rel2);
+        } else {
+          passRel2 = matchDigitRelation(d1_rel2, d2_rel2, rel2Action, rel2Step);
+        }
       }
 
       if (passRel1 && passRel2) {
@@ -292,6 +332,7 @@ export const AILearningEngine = () => {
           row2: r2,
           col2: toCol,
           val2,
+          extraCells: [...matchingWeekCellsRel1, ...matchingWeekCellsRel2]
         });
       }
     }
@@ -443,6 +484,8 @@ export const AILearningEngine = () => {
       .sort((a, b) => b.count - a.count);
 
     const formatRelLabel = (type, action, step) => {
+      if (type === 'total_plus_open_same_week') return 'Total + Open → Same Wk Total';
+      if (type === 'total_plus_close_same_week') return 'Total + Close → Same Wk Total';
       const tName = type.replace(/_/g, ' ');
       if (action === 'SAME') return `${tName} same`;
       if (action === 'OPPOSITE') return `${tName} cut`;
@@ -466,6 +509,10 @@ export const AILearningEngine = () => {
       // 1. Highlight the pattern occurrence pair cells (val1 and val2)
       primaryPatternCells.push({ r: occ.row1, c: occ.col1 });
       primaryPatternCells.push({ r: occ.row2, c: occ.col2 });
+
+      if (occ.extraCells && occ.extraCells.length > 0) {
+        occ.extraCells.forEach(ec => primaryPatternCells.push(ec));
+      }
 
       // 2. Scan forward cell-by-cell after (row2, col2) for the VERY FIRST / NEAREST exact re-appearance of val2 (e.g. 76)
       const targetVal = occ.val2;
@@ -639,6 +686,25 @@ export const AILearningEngine = () => {
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => {
+                  setShowTotalOpenMatcher(v => {
+                    const next = !v;
+                    if (next) {
+                      setRel1Type('total_plus_open_same_week');
+                      setTimeout(() => runAutonomousPatternScan(), 50);
+                    }
+                    return next;
+                  });
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
+                  showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <span>TOTAL OPEN: {showTotalOpenMatcher ? 'ON' : 'OFF'}</span>
+              </button>
+
               <button
                 onClick={() => setShowOpenFinder(v => !v)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95 border ${
@@ -921,13 +987,15 @@ export const AILearningEngine = () => {
 
             {/* RELATION 1 SELECTOR */}
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1.5">
-              <div className="text-[10px] text-pink-400 font-bold uppercase tracking-wider">2. Relation 1 (e.g. Total → Close Opp)</div>
+              <div className="text-[10px] text-pink-400 font-bold uppercase tracking-wider">2. Relation 1 (e.g. Total + Open → Same Wk Total)</div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <select
                   value={rel1Type}
                   onChange={(e) => setRel1Type(e.target.value)}
                   className="bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs flex-1 min-w-[120px] max-w-[62%] sm:max-w-none truncate"
                 >
+                  <option value="total_plus_open_same_week">Total + Open → Same Wk Total (or Cut)</option>
+                  <option value="total_plus_close_same_week">Total + Close → Same Wk Total (or Cut)</option>
                   <option value="open_to_open">Open → Open</option>
                   <option value="open_to_close">Open → Close</option>
                   <option value="close_to_open">Close → Open</option>
@@ -938,7 +1006,7 @@ export const AILearningEngine = () => {
                   <option value="total_to_close_opposite">Total → Close (Cut/Opp)</option>
                 </select>
 
-                {!rel1Type.startsWith('total_to_') && (
+                {!rel1Type.startsWith('total_') && (
                   <>
                     <select
                       value={rel1Action}
@@ -977,6 +1045,8 @@ export const AILearningEngine = () => {
                   className="bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs flex-1 min-w-[120px] max-w-[62%] sm:max-w-none truncate"
                 >
                   <option value="none">None (Single Clause)</option>
+                  <option value="total_plus_open_same_week">Total + Open → Same Wk Total (or Cut)</option>
+                  <option value="total_plus_close_same_week">Total + Close → Same Wk Total (or Cut)</option>
                   <option value="close_to_close">Close → Close</option>
                   <option value="open_to_open">Open → Open</option>
                   <option value="open_to_close">Open → Close</option>
@@ -987,7 +1057,7 @@ export const AILearningEngine = () => {
                   <option value="total_to_close_opposite">Total → Close (Cut/Opp)</option>
                 </select>
 
-                {rel2Type !== 'none' && !rel2Type.startsWith('total_to_') && (
+                {rel2Type !== 'none' && !rel2Type.startsWith('total_') && (
                   <>
                     <select
                       value={rel2Action}
