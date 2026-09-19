@@ -112,7 +112,7 @@ export const ChartProvider = ({ children }) => {
     return keys.includes("MAIN BAZAR") ? "MAIN BAZAR" : (keys.length > 0 ? keys[0] : "MAIN BAZAR");
   });
 
-  const [activeTab, setActiveTab] = useState('editor');
+  const [activeTab, setActiveTab] = useState('store');
 
   const [learnedModels, setLearnedModels] = useState(() => {
     const saved = localStorage.getItem('matkaLearnedModels');
