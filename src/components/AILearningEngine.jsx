@@ -54,6 +54,7 @@ export const AILearningEngine = () => {
   const [showControls, setShowControls] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showOpenFinder, setShowOpenFinder] = useState(false);
+  const [isOpenFinderActive, setIsOpenFinderActive] = useState(true);
   const [showTotalOpenMatcher, setShowTotalOpenMatcher] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
