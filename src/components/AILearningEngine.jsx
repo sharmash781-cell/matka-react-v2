@@ -650,27 +650,44 @@ export const AILearningEngine = () => {
       return;
     }
 
-    const primaryPatternCells = [];
+    const pairJodiCells = [];
+    const matchingTotalCells = [];
+
     occurrences.forEach(occ => {
-      primaryPatternCells.push({ r: occ.row1, c: occ.col1, badgeVal: `Tot ${getJodiTotal(occ.val1)}` });
-      primaryPatternCells.push({ r: occ.row2, c: occ.col2, badgeVal: totOpenMode === 'total_plus_open' ? `Op ${occ.val2[0]}` : `Cl ${occ.val2[1]}` });
-      occ.extraCells.forEach(ec => primaryPatternCells.push(ec));
+      // 1. Pair Jodis (First Jodi & Second Jodi) - NO BADGES, Neon Magenta Color
+      pairJodiCells.push({ r: occ.row1, c: occ.col1 });
+      pairJodiCells.push({ r: occ.row2, c: occ.col2 });
+
+      // 2. Same-Week Total Matching Jodis - Electric Cyan Color with Tot Badge
+      occ.extraCells.forEach(ec => {
+        matchingTotalCells.push({ r: ec.r, c: ec.c, badgeVal: ec.badgeVal });
+      });
     });
 
     const modeLabel = totOpenMode === 'total_plus_open' ? 'Total + Open' : 'Total + Close';
     const patternTitle = `${modeLabel}: ${COL_HEADERS[fromCol]} → ${COL_HEADERS[toCol]} Same Wk Total`;
 
-    const patternRule = {
-      id: `tot_open_pattern_${Date.now()}`,
-      label: `🟡 ${patternTitle} (${occurrences.length}x)`,
-      color: '#f59e0b',
-      borderColor: '#d97706',
-      bg: 'bg-amber-950',
-      text: 'text-amber-300',
-      cells: primaryPatternCells
+    const pairRule = {
+      id: `pair_jodis_${Date.now()}`,
+      label: `🔮 Base Pair Jodis (${COL_HEADERS[fromCol]} & ${COL_HEADERS[toCol]})`,
+      color: '#d946ef',
+      borderColor: '#c026d3',
+      bg: 'bg-fuchsia-950',
+      text: 'text-fuchsia-300',
+      cells: pairJodiCells
     };
 
-    setActiveRules([patternRule]);
+    const totalRule = {
+      id: `total_matches_${Date.now()}`,
+      label: `🎯 Same Wk Total Matches (${occurrences.length}x)`,
+      color: '#06b6d4',
+      borderColor: '#0891b2',
+      bg: 'bg-cyan-950',
+      text: 'text-cyan-300',
+      cells: matchingTotalCells
+    };
+
+    setActiveRules([pairRule, totalRule]);
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences });
   }, [grid, totOpenFromDay, totOpenToDay, totOpenMode, totOpenWeekGap, colsInput]);
 
