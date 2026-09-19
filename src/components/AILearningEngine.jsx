@@ -279,7 +279,10 @@ export const AILearningEngine = () => {
         const targetCut = (targetSum + 5) % 10;
 
         for (let c = 0; c < colsInput; c++) {
-          const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+          if (r2 === r && (c === fromCol || c === toCol)) continue;
+          if (r2 !== r && c === toCol) continue;
+
+          const cellVal = grid[r2]?.[c]?.val || '';
           if (cellVal && /^\d{2}$/.test(cellVal)) {
             const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
             if (cellTot === targetSum || cellTot === targetCut) {
@@ -314,7 +317,10 @@ export const AILearningEngine = () => {
 
           passRel2 = false;
           for (let c = 0; c < colsInput; c++) {
-            const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+            if (r2 === r && (c === fromCol || c === toCol)) continue;
+            if (r2 !== r && c === toCol) continue;
+
+            const cellVal = grid[r2]?.[c]?.val || '';
             if (cellVal && /^\d{2}$/.test(cellVal)) {
               const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
               if (cellTot === targetSum || cellTot === targetCut) {
@@ -621,7 +627,11 @@ export const AILearningEngine = () => {
 
       const matchingWeekCells = [];
       for (let c = 0; c < colsInput; c++) {
-        const cellVal = grid[r2]?.[c]?.val || grid[r]?.[c]?.val || '';
+        // Exclude the pair cells (fromCol and toCol) from matching as target total outcome
+        if (r2 === r && (c === fromCol || c === toCol)) continue;
+        if (r2 !== r && c === toCol) continue;
+
+        const cellVal = grid[r2]?.[c]?.val || '';
         if (cellVal && /^\d{2}$/.test(cellVal)) {
           const cellTot = (parseInt(cellVal[0]) + parseInt(cellVal[1])) % 10;
           if (cellTot === targetSum || cellTot === targetCut) {
