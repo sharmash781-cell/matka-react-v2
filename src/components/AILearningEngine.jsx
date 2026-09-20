@@ -56,8 +56,16 @@ export const AILearningEngine = () => {
   const [showOpenFinder, setShowOpenFinder] = useState(false);
   const [isOpenFinderActive, setIsOpenFinderActive] = useState(true);
   const [showTotalOpenMatcher, setShowTotalOpenMatcher] = useState(false);
+  const [showDiagonalScanner, setShowDiagonalScanner] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
+
+  // ── DIAGONAL TOTAL + OPEN PATTERN SCANNER STATE ───────────────────────────
+  const [diagFromDay, setDiagFromDay] = useState(1); // 1 = Tue (e.g. 70)
+  const [diagToDay, setDiagToDay] = useState(2);   // 2 = Wed (e.g. 38)
+  const [diagMode, setDiagMode] = useState('total_plus_open'); // total_plus_open, total_plus_close
+  const [diagTargetSum, setDiagTargetSum] = useState('auto'); // 'auto' or '0','1',...'9'
+  const [diagColor, setDiagColor] = useState('#f59e0b'); // Amber / Purple uniform color
 
   // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
   const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
@@ -738,6 +746,96 @@ export const AILearningEngine = () => {
     setScanSummary(null);
   };
 
+  // ── DEDICATED DIAGONAL TOTAL + OPEN SCANNER FUNCTION ────────────────────────
+  const runDiagonalSumScan = useCallback(() => {
+    if (!grid || grid.length === 0) return;
+
+    const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const occurrences = [];
+
+    const fromCol = diagFromDay;
+    const toCol = diagToDay;
+
+    for (let r = 0; r < grid.length; r++) {
+      const cell1Val = grid[r]?.[fromCol]?.val || '';
+      const cell2Val = grid[r]?.[toCol]?.val || '';
+
+      if (!cell1Val || !cell2Val || !/^\d{2}$/.test(cell1Val) || !/^\d{2}$/.test(cell2Val)) continue;
+
+      const tot1 = (parseInt(cell1Val[0]) + parseInt(cell1Val[1])) % 10;
+      const secondDigit = diagMode === 'total_plus_open' ? parseInt(cell2Val[0]) : parseInt(cell2Val[1]);
+
+      if (isNaN(tot1) || isNaN(secondDigit)) continue;
+
+      const sumVal = (tot1 + secondDigit) % 10;
+
+      if (diagTargetSum !== 'auto' && parseInt(diagTargetSum, 10) !== sumVal) continue;
+
+      const cellsToMark = [];
+
+      // 1. First Jodi (e.g. 70 on Tue)
+      cellsToMark.push({ r, c: fromCol, badgeVal: `1st (${cell1Val})` });
+
+      // 2. Second Jodi / Today (e.g. 38 on Wed)
+      cellsToMark.push({ r, c: toCol, badgeVal: `Sum ${sumVal}` });
+
+      // 3. Diagonal Up-Right (e.g. 47 on Fri row - 1)
+      const upRightR = r - 1;
+      const upRightC = toCol + 2;
+      if (upRightR >= 0 && upRightC < colsInput && grid[upRightR]?.[upRightC]?.val) {
+        cellsToMark.push({ r: upRightR, c: upRightC, badgeVal: `Diag Up (${grid[upRightR][upRightC].val})` });
+      }
+
+      // 4. Right Neighbor (e.g. 69 on Thu same week)
+      const rightC = toCol + 1;
+      if (rightC < colsInput && grid[r]?.[rightC]?.val) {
+        cellsToMark.push({ r, c: rightC, badgeVal: `Right (${grid[r][rightC].val})` });
+      }
+
+      // 5. Next Week Follow-up (e.g. 04 on Wed row + 1)
+      const nextWkR = r + 1;
+      if (nextWkR < grid.length && grid[nextWkR]?.[toCol]?.val) {
+        cellsToMark.push({ r: nextWkR, c: toCol, badgeVal: `Next Wk (${grid[nextWkR][toCol].val})` });
+      }
+
+      occurrences.push({
+        r,
+        cell1Val,
+        cell2Val,
+        sumVal,
+        cellsToMark
+      });
+    }
+
+    if (occurrences.length === 0) {
+      setScanSummary({ count: 0, label: 'No Diagonal Total+Open matches found on chart.' });
+      return;
+    }
+
+    const allCells = [];
+    occurrences.forEach(occ => {
+      occ.cellsToMark.forEach(c => allCells.push(c));
+    });
+
+    const modeText = diagMode === 'total_plus_open' ? 'Open' : 'Close';
+
+    const diagRule = {
+      id: `diag_total_open_${Date.now()}`,
+      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${modeText} Matches (${occurrences.length}x)`,
+      color: diagColor,
+      borderColor: diagColor,
+      bg: 'bg-amber-950',
+      text: 'text-amber-300',
+      cells: allCells
+    };
+
+    setActiveRules([diagRule]);
+    setScanSummary({
+      count: occurrences.length,
+      label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${modeText} (${occurrences.length}x Found)`
+    });
+  }, [grid, diagFromDay, diagToDay, diagMode, diagTargetSum, diagColor, colsInput]);
+
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
     activeRules.forEach(rule => {
@@ -830,6 +928,16 @@ export const AILearningEngine = () => {
 
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
+                onClick={() => setShowDiagonalScanner(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all duration-200 active:scale-95 border ${
+                  showDiagonalScanner ? 'bg-purple-950 border-purple-500 text-purple-300 ring-2 ring-purple-500/30' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Brain className="w-3.5 h-3.5 text-purple-400" />
+                <span>DIAGONAL SCAN: {showDiagonalScanner ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <button
                 onClick={() => setShowTotalOpenMatcher(v => !v)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all duration-200 active:scale-95 border ${
                   showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300 ring-2 ring-amber-500/30' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
@@ -885,6 +993,22 @@ export const AILearningEngine = () => {
                 <button onClick={() => setShowControls(false)} className="text-slate-400 hover:text-white">Close ✕</button>
               </div>
               <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+                <button
+                  onClick={() => setShowDiagonalScanner(v => !v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    showDiagonalScanner ? 'bg-purple-950 border-purple-500 text-purple-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  📐 Diagonal Scanner: {showDiagonalScanner ? 'ENABLED' : 'DISABLED'}
+                </button>
+                <button
+                  onClick={() => setShowTotalOpenMatcher(v => !v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  🎯 Total Open Scanner: {showTotalOpenMatcher ? 'ENABLED' : 'DISABLED'}
+                </button>
                 <button
                   onClick={() => setShowOpenFinder(v => !v)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -1154,6 +1278,123 @@ export const AILearningEngine = () => {
                   <option value="next_week">Next Week Row (+1 Wk)</option>
                   <option value="after_or_next_week">Same Wk (After) or Next Wk</option>
                   <option value="entire_same_week">Entire Same Week (Any Day)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DIAGONAL TOTAL + OPEN PATTERN SCANNER PANEL (DEFAULT OFF) */}
+        {showDiagonalScanner && (
+          <div className="bg-slate-950 border-2 border-purple-500/80 text-white rounded-2xl p-3 shadow-2xl space-y-2.5 animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-tr from-purple-600 to-indigo-600 p-1.5 rounded-xl text-white">
+                  <Brain className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-purple-300">
+                    DIAGONAL TOTAL + OPEN SUM SCANNER
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    1st Jodi Total + 2nd Jodi Open = Sum → Highlights Diagonal &amp; Follow-up patterns in uniform color
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={runDiagonalSumScan}
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-purple-500/30 transition-all active:scale-95"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>RUN SCAN</span>
+                </button>
+                <button
+                  onClick={clearAllRules}
+                  className="flex items-center gap-1 bg-rose-950 border border-rose-700 hover:bg-rose-900 text-rose-300 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>STOP / OFF</span>
+                </button>
+                <button
+                  onClick={() => setShowDiagonalScanner(false)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
+                >
+                  Close ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 text-xs font-mono">
+              {/* 1. FROM DAY (FIRST JODI) */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-amber-400 font-bold uppercase">1. First Jodi Day</div>
+                <select
+                  value={diagFromDay}
+                  onChange={(e) => setDiagFromDay(parseInt(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1 rounded-lg text-xs"
+                >
+                  {COL_HEADERS.map((day, idx) => (
+                    <option key={idx} value={idx}>{day} ({idx === 1 ? '70' : `Col ${idx+1}`})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. TO DAY (SECOND JODI / TODAY) */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-purple-400 font-bold uppercase">2. Second Jodi Day</div>
+                <select
+                  value={diagToDay}
+                  onChange={(e) => setDiagToDay(parseInt(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1 rounded-lg text-xs"
+                >
+                  {COL_HEADERS.map((day, idx) => (
+                    <option key={idx} value={idx}>{day} ({idx === 2 ? '38' : `Col ${idx+1}`})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. MODE */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-cyan-400 font-bold uppercase">3. Digit Sum Mode</div>
+                <select
+                  value={diagMode}
+                  onChange={(e) => setDiagMode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="total_plus_open">1st Total + 2nd Open</option>
+                  <option value="total_plus_close">1st Total + 2nd Close</option>
+                </select>
+              </div>
+
+              {/* 4. TARGET SUM FILTER */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-emerald-400 font-bold uppercase">4. Target Sum Filter</div>
+                <select
+                  value={diagTargetSum}
+                  onChange={(e) => setDiagTargetSum(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="auto">AUTO (Any Sum)</option>
+                  {[0,1,2,3,4,5,6,7,8,9].map(num => (
+                    <option key={num} value={num}>Sum = {num}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 5. UNIFORM COLOR SELECTOR */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-pink-400 font-bold uppercase">5. Highlight Color</div>
+                <select
+                  value={diagColor}
+                  onChange={(e) => setDiagColor(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="#f59e0b">Amber Gold (⭐)</option>
+                  <option value="#a855f7">Neon Purple (🔮)</option>
+                  <option value="#10b981">Emerald Green (🟢)</option>
+                  <option value="#ec4899">Hot Pink (💖)</option>
+                  <option value="#06b6d4">Cyan Blue (⚡)</option>
                 </select>
               </div>
             </div>
