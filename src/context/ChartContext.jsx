@@ -98,27 +98,34 @@ export const DEFAULT_PRESETS = {
 
 const STORAGE_KEY = 'adminPublishedCharts_v12';
 
+const POSSIBLE_STORAGE_KEYS = [
+  'adminPublishedCharts_v12',
+  'adminPublishedCharts_v11',
+  'adminPublishedCharts_v10',
+  'userStoreCharts_v3',
+  'chartHistory'
+];
+
 const getInitialCharts = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved !== null) {
-      const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          "SRIDEVI": parsed["SRIDEVI"] || srideviPreset,
-          "TIME BAZAR": parsed["TIME BAZAR"] || timeBazarPreset,
-          "MADHUR DAY": parsed["MADHUR DAY"] || madhurDayPreset,
-          "MILAN DAYY": parsed["MILAN DAYY"] || milanDayyPreset,
-          "KALYAN": parsed["KALYAN"] || kalyanPreset,
-          "SRIDEVI NIGHT": parsed["SRIDEVI NIGHT"] || srideviNightPreset,
-          "MILAN NIGHTT": parsed["MILAN NIGHTT"] || milanNighttPreset,
-          "MAIN BAZAR": parsed["MAIN BAZAR"] || mainBazarPreset,
-          ...parsed
-        };
+  const mergedCustomCharts = {};
+
+  POSSIBLE_STORAGE_KEYS.forEach((key) => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          Object.keys(parsed).forEach((chartName) => {
+            if (!DEFAULT_PRESETS[chartName] && !mergedCustomCharts[chartName]) {
+              mergedCustomCharts[chartName] = parsed[chartName];
+            }
+          });
+        }
       }
-    }
-  } catch (e) {}
-  return {
+    } catch (e) {}
+  });
+
+  const baseCharts = {
     "SRIDEVI": srideviPreset,
     "TIME BAZAR": timeBazarPreset,
     "MADHUR DAY": madhurDayPreset,
@@ -127,6 +134,11 @@ const getInitialCharts = () => {
     "SRIDEVI NIGHT": srideviNightPreset,
     "MILAN NIGHTT": milanNighttPreset,
     "MAIN BAZAR": mainBazarPreset
+  };
+
+  return {
+    ...baseCharts,
+    ...mergedCustomCharts
   };
 };
 
