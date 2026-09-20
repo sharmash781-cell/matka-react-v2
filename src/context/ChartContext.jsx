@@ -9,11 +9,34 @@ import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
 import timeBazarPreset from '../data/time_bazar_preset.json';
+import madhurDayPreset from '../data/madhur_day_preset.json';
 import { fetchLiveChartData } from '../utils/dpbossSync';
 
 const ChartContext = createContext();
 
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
+
+export const MARKET_ORDER = [
+  "SRIDEVI",
+  "TIME BAZAR",
+  "MADHUR DAY",
+  "MILAN DAYY",
+  "KALYAN",
+  "SRIDEVI NIGHT",
+  "MILAN NIGHTT",
+  "MAIN BAZAR"
+];
+
+export const sortChartsByMarketTime = (keys = []) => {
+  return [...keys].sort((a, b) => {
+    const idxA = MARKET_ORDER.indexOf(a);
+    const idxB = MARKET_ORDER.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+};
 
 export const isHoliday = (num) => {
   if (!num) return false;
@@ -52,26 +75,28 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
+  "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
-  "KALYAN": kalyanPreset,
-  "MAIN BAZAR": mainBazarPreset,
-  "SRIDEVI NIGHT": srideviNightPreset,
-  "SRIDEVIIII": srideviiiiPreset,
+  "MADHUR DAY": madhurDayPreset,
   "MILAN DAYY": milanDayyPreset,
-  "MILAN NIGHTT": milanNighttPreset
+  "KALYAN": kalyanPreset,
+  "SRIDEVI NIGHT": srideviNightPreset,
+  "MILAN NIGHTT": milanNighttPreset,
+  "MAIN BAZAR": mainBazarPreset
 };
 
 export const DEFAULT_PRESETS = {
+  "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
-  "KALYAN": kalyanPreset,
-  "MAIN BAZAR": mainBazarPreset,
-  "SRIDEVI NIGHT": srideviNightPreset,
-  "SRIDEVIIII": srideviiiiPreset,
+  "MADHUR DAY": madhurDayPreset,
   "MILAN DAYY": milanDayyPreset,
-  "MILAN NIGHTT": milanNighttPreset
+  "KALYAN": kalyanPreset,
+  "SRIDEVI NIGHT": srideviNightPreset,
+  "MILAN NIGHTT": milanNighttPreset,
+  "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v10';
+const STORAGE_KEY = 'adminPublishedCharts_v12';
 
 const getInitialCharts = () => {
   try {
@@ -79,28 +104,29 @@ const getInitialCharts = () => {
     if (saved !== null) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        // Only fill defaults if the chart key is missing completely
         return {
+          "SRIDEVI": parsed["SRIDEVI"] || srideviPreset,
           "TIME BAZAR": parsed["TIME BAZAR"] || timeBazarPreset,
-          "KALYAN": parsed["KALYAN"] || kalyanPreset,
-          "MAIN BAZAR": parsed["MAIN BAZAR"] || mainBazarPreset,
-          "SRIDEVI NIGHT": parsed["SRIDEVI NIGHT"] || srideviNightPreset,
-          "SRIDEVIIII": parsed["SRIDEVIIII"] || srideviiiiPreset,
+          "MADHUR DAY": parsed["MADHUR DAY"] || madhurDayPreset,
           "MILAN DAYY": parsed["MILAN DAYY"] || milanDayyPreset,
+          "KALYAN": parsed["KALYAN"] || kalyanPreset,
+          "SRIDEVI NIGHT": parsed["SRIDEVI NIGHT"] || srideviNightPreset,
           "MILAN NIGHTT": parsed["MILAN NIGHTT"] || milanNighttPreset,
+          "MAIN BAZAR": parsed["MAIN BAZAR"] || mainBazarPreset,
           ...parsed
         };
       }
     }
   } catch (e) {}
   return {
+    "SRIDEVI": srideviPreset,
     "TIME BAZAR": timeBazarPreset,
-    "KALYAN": kalyanPreset,
-    "MAIN BAZAR": mainBazarPreset,
-    "SRIDEVI NIGHT": srideviNightPreset,
-    "SRIDEVIIII": srideviiiiPreset,
+    "MADHUR DAY": madhurDayPreset,
     "MILAN DAYY": milanDayyPreset,
-    "MILAN NIGHTT": milanNighttPreset
+    "KALYAN": kalyanPreset,
+    "SRIDEVI NIGHT": srideviNightPreset,
+    "MILAN NIGHTT": milanNighttPreset,
+    "MAIN BAZAR": mainBazarPreset
   };
 };
 

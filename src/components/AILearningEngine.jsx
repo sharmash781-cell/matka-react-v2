@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
+import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal, sortChartsByMarketTime } from '../context/ChartContext';
 import { findSequenceMatches, MATCH_COLORS, parseSequenceInput } from '../ai/sequenceEngine';
 import { Brain, Sparkles, Search, ChevronUp, ChevronDown, ArrowDown, Filter, Layers, Settings2, Eye, EyeOff, MapPin, Play, Square, X, RefreshCw, BarChart2 } from 'lucide-react';
 
@@ -44,7 +44,9 @@ const getJodiFamily = (jodiStr) => {
 export const AILearningEngine = () => {
   const { charts = {}, activeChartName, setActiveChartName, setActiveTab, saveChart } = useChart();
 
-  const [selectedChart, setSelectedChart] = useState(activeChartName || Object.keys(charts)[0] || 'SRIDEVI');
+  const chartKeys = useMemo(() => sortChartsByMarketTime(Object.keys(charts)), [charts]);
+
+  const [selectedChart, setSelectedChart] = useState(activeChartName || chartKeys[0] || 'SRIDEVI');
 
   // FORWARD SEQUENCE SEARCH INPUT
   const [sequenceInput, setSequenceInput] = useState('');
@@ -906,7 +908,6 @@ export const AILearningEngine = () => {
     return displayGrid.slice(startRow, endRow);
   }, [displayGrid, startRow, endRow]);
 
-  const chartKeys = Object.keys(charts);
 
   return (
     <div className="min-h-screen bg-[#f7e3c4] text-slate-950 font-poppins selection:bg-pink-500 selection:text-white pb-20">

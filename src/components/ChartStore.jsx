@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useChart } from '../context/ChartContext';
+import { useChart, sortChartsByMarketTime } from '../context/ChartContext';
 import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X } from 'lucide-react';
 
 export const ChartStore = () => {
@@ -18,7 +18,7 @@ export const ChartStore = () => {
   const [newCols, setNewCols] = useState(7);
 
   const safeCharts = charts && typeof charts === 'object' ? charts : {};
-  const chartKeys = Object.keys(safeCharts);
+  const chartKeys = sortChartsByMarketTime(Object.keys(safeCharts));
 
   const handleOpenIn = (chartName, tab) => {
     if (!chartName) return;

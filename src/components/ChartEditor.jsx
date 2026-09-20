@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal } from '../context/ChartContext';
+import { useChart, isRedPair, calculateCN, calculateCloseCond, calculateTotal, calculateDiffTotal, sortChartsByMarketTime } from '../context/ChartContext';
 import { ArrowDown, Trash2, Settings2, Save, Store, PlusCircle, CheckCircle, Maximize2, Minimize2, ExternalLink, RefreshCw } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
@@ -290,7 +290,7 @@ export const ChartEditor = () => {
     }
   };
 
-  const chartKeys = Object.keys(charts);
+  const chartKeys = sortChartsByMarketTime(Object.keys(charts));
   const totalRows = displayGrid.length;
   const visibleHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
 
