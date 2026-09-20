@@ -64,9 +64,6 @@ export const AILearningEngine = () => {
   const [diagFromDay, setDiagFromDay] = useState(1); // 1 = Tue (e.g. 70)
   const [diagToDay, setDiagToDay] = useState(2);   // 2 = Wed (e.g. 38)
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
-  const [diagCondition, setDiagCondition] = useState('all_matches'); // 'all_matches', 'next_week_open', 'next_week_close', 'diag_up_close_plus_open'
-  const [diagTargetSum, setDiagTargetSum] = useState('auto'); // 'auto' or '0','1',...'9'
-  const [diagColor, setDiagColor] = useState('#f59e0b'); // Amber / Purple uniform color
 
   // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
   const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
@@ -768,9 +765,7 @@ export const AILearningEngine = () => {
 
       if (isNaN(tot1) || isNaN(secondDigit)) continue;
 
-      const sumVal = (tot1 + secondDigit) % 10;
-
-      if (diagTargetSum !== 'auto' && parseInt(diagTargetSum, 10) !== sumVal) continue;
+      const targetSum = (tot1 + secondDigit) % 10;
 
       const upRightR = r - 1;
       const upRightC = toCol + 2;
@@ -779,20 +774,17 @@ export const AILearningEngine = () => {
       const nextWkR = r + 1;
       const nextWkVal = (nextWkR < grid.length) ? grid[nextWkR]?.[toCol]?.val : null;
 
-      if (diagCondition === 'next_week_open') {
-        if (!nextWkVal || !/^\d{2}$/.test(nextWkVal)) continue;
-        const nextWkOpen = parseInt(nextWkVal[0]);
-        if (nextWkOpen !== sumVal) continue;
-      } else if (diagCondition === 'next_week_close') {
-        if (!nextWkVal || !/^\d{2}$/.test(nextWkVal)) continue;
-        const nextWkClose = parseInt(nextWkVal[1]);
-        if (nextWkClose !== sumVal) continue;
-      } else if (diagCondition === 'diag_up_close_plus_open') {
-        if (!upRightVal || !/^\d{2}$/.test(upRightVal)) continue;
-        const diagClose = parseInt(upRightVal[1]);
-        const diagSum = (diagClose + secondDigit) % 10;
-        if (diagSum !== sumVal) continue;
+      // Check if diagonal open digit or next-week open matches targetSum
+      let isDiagOpenMatch = false;
+      if (nextWkVal && /^\d{2}$/.test(nextWkVal) && parseInt(nextWkVal[0]) === targetSum) {
+        isDiagOpenMatch = true;
+      } else if (upRightVal && /^\d{2}$/.test(upRightVal) && parseInt(upRightVal[0]) === targetSum) {
+        isDiagOpenMatch = true;
+      } else if (!nextWkVal && !upRightVal) {
+        isDiagOpenMatch = true;
       }
+
+      if (!isDiagOpenMatch && (nextWkVal || upRightVal)) continue;
 
       const cellsToMark = [];
 
@@ -800,20 +792,20 @@ export const AILearningEngine = () => {
       cellsToMark.push({ r, c: fromCol, badgeVal: `1st (${cell1Val})` });
 
       // 2. Second Jodi / Today (e.g. 38 on Wed)
-      cellsToMark.push({ r, c: toCol, badgeVal: `Sum ${sumVal}` });
+      cellsToMark.push({ r, c: toCol, badgeVal: `Sum ${targetSum}` });
 
-      // 3. Diagonal Up-Right (e.g. 47 on Fri row - 1)
+      // 3. Diagonal Up-Right (e.g. 47 on Fri)
       if (upRightVal) {
         cellsToMark.push({ r: upRightR, c: upRightC, badgeVal: `Diag Up (${upRightVal})` });
       }
 
-      // 4. Right Neighbor (e.g. 69 on Thu same week)
+      // 4. Right Neighbor (e.g. 69 on Thu)
       const rightC = toCol + 1;
       if (rightC < colsInput && grid[r]?.[rightC]?.val) {
         cellsToMark.push({ r, c: rightC, badgeVal: `Right (${grid[r][rightC].val})` });
       }
 
-      // 5. Next Week Follow-up (e.g. 04 on Wed row + 1)
+      // 5. Next Week Follow-up (e.g. 04 on Wed)
       if (nextWkVal) {
         cellsToMark.push({ r: nextWkR, c: toCol, badgeVal: `Next Wk (${nextWkVal})` });
       }
@@ -822,13 +814,13 @@ export const AILearningEngine = () => {
         r,
         cell1Val,
         cell2Val,
-        sumVal,
+        targetSum,
         cellsToMark
       });
     }
 
     if (occurrences.length === 0) {
-      setScanSummary({ count: 0, label: 'No Diagonal Total+Open matches found on chart.' });
+      setScanSummary({ count: 0, label: 'No Diagonal Open Sum matches found on chart.' });
       return;
     }
 
@@ -838,12 +830,13 @@ export const AILearningEngine = () => {
     });
 
     const digitText = diagDigitChoice === 'open' ? 'Open' : 'Close';
+    const autoColor = '#f59e0b'; // Fixed clean Amber Gold uniform color
 
     const diagRule = {
       id: `diag_total_open_${Date.now()}`,
-      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} Matches (${occurrences.length}x)`,
-      color: diagColor,
-      borderColor: diagColor,
+      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} = Sum Matches (${occurrences.length}x)`,
+      color: autoColor,
+      borderColor: autoColor,
       bg: 'bg-amber-950',
       text: 'text-amber-300',
       cells: allCells
@@ -854,7 +847,7 @@ export const AILearningEngine = () => {
       count: occurrences.length,
       label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${occurrences.length}x Found)`
     });
-  }, [grid, diagFromDay, diagToDay, diagDigitChoice, diagCondition, diagTargetSum, diagColor, colsInput]);
+  }, [grid, diagFromDay, diagToDay, diagDigitChoice, colsInput]);
 
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
@@ -1345,91 +1338,45 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
               {/* 1. FROM DAY (FIRST JODI) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day</div>
+                <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day (From Day)</div>
                 <select
                   value={diagFromDay}
                   onChange={(e) => setDiagFromDay(parseInt(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1 rounded-lg text-xs"
+                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1.5 rounded-lg text-xs"
                 >
                   {COL_HEADERS.map((day, idx) => (
-                    <option key={idx} value={idx}>{day} ({idx === 1 ? '70' : `Col ${idx+1}`})</option>
+                    <option key={idx} value={idx}>{day} (e.g. {idx === 1 ? '70' : `Col ${idx+1}`})</option>
                   ))}
                 </select>
               </div>
 
               {/* 2. TO DAY (SECOND JODI / TODAY) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-purple-400 font-bold uppercase">2. 2nd Jodi Day</div>
+                <div className="text-[10px] text-purple-400 font-bold uppercase">2. 2nd Jodi Day (To Day)</div>
                 <select
                   value={diagToDay}
                   onChange={(e) => setDiagToDay(parseInt(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1 rounded-lg text-xs"
+                  className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1.5 rounded-lg text-xs"
                 >
                   {COL_HEADERS.map((day, idx) => (
-                    <option key={idx} value={idx}>{day} ({idx === 2 ? '38' : `Col ${idx+1}`})</option>
+                    <option key={idx} value={idx}>{day} (e.g. {idx === 2 ? '38' : `Col ${idx+1}`})</option>
                   ))}
                 </select>
               </div>
 
               {/* 3. 2ND JODI DIGIT */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-cyan-400 font-bold uppercase">3. 2nd Jodi Digit</div>
+                <div className="text-[10px] text-cyan-400 font-bold uppercase">3. 2nd Jodi Digit Select</div>
                 <select
                   value={diagDigitChoice}
                   onChange={(e) => setDiagDigitChoice(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs"
+                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1.5 rounded-lg text-xs"
                 >
                   <option value="open">Open Digit (e.g. 3 of 38)</option>
                   <option value="close">Close Digit (e.g. 8 of 38)</option>
-                </select>
-              </div>
-
-              {/* 4. DIAGONAL MATCH CONDITION */}
-              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-pink-400 font-bold uppercase">4. Diagonal Match Filter</div>
-                <select
-                  value={diagCondition}
-                  onChange={(e) => setDiagCondition(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs"
-                >
-                  <option value="all_matches">All Rows (Highlight Diagonals)</option>
-                  <option value="next_week_open">Next Wk Open = Sum (e.g. 0 of 04)</option>
-                  <option value="next_week_close">Next Wk Close = Sum</option>
-                  <option value="diag_up_close_plus_open">Diag Close + Open = 10 (0 Sum)</option>
-                </select>
-              </div>
-
-              {/* 5. TARGET SUM FILTER */}
-              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-emerald-400 font-bold uppercase">5. Target Sum Filter</div>
-                <select
-                  value={diagTargetSum}
-                  onChange={(e) => setDiagTargetSum(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs"
-                >
-                  <option value="auto">AUTO (Any Sum)</option>
-                  {[0,1,2,3,4,5,6,7,8,9].map(num => (
-                    <option key={num} value={num}>Sum = {num}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 6. UNIFORM COLOR SELECTOR */}
-              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-amber-400 font-bold uppercase">6. Highlight Color</div>
-                <select
-                  value={diagColor}
-                  onChange={(e) => setDiagColor(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
-                >
-                  <option value="#f59e0b">Amber Gold (⭐)</option>
-                  <option value="#a855f7">Neon Purple (🔮)</option>
-                  <option value="#10b981">Emerald Green (🟢)</option>
-                  <option value="#ec4899">Hot Pink (💖)</option>
-                  <option value="#06b6d4">Cyan Blue (⚡)</option>
                 </select>
               </div>
             </div>
