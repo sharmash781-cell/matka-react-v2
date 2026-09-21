@@ -730,6 +730,86 @@ export const PredictorEngine = () => {
       }
     });
 
+    // --- PASS 15: ADJACENT TWO-CELL OPEN/CLOSE VERTICAL SUM TO NEXT-DAY TOTAL & DIGIT PATTERN ---
+    // Evaluates sum of previous two vertical cells' Opens/Closes (e.g., 27 Open 2 + 49 Open 4 = 6 -> Next day Total 6)
+    if (colVal > 0) {
+      const prevCol = colVal - 1;
+      const cell1 = grid[targetRowIdx - 1]?.[prevCol]?.val;
+      const cell2 = grid[targetRowIdx]?.[prevCol]?.val;
+
+      if (cell1 && cell2 && /^\d{2}$/.test(cell1) && /^\d{2}$/.test(cell2)) {
+        const o1 = parseInt(cell1[0]), c1 = parseInt(cell1[1]);
+        const o2 = parseInt(cell2[0]), c2 = parseInt(cell2[1]);
+
+        const openOpenSum = (o1 + o2) % 10;
+        const openOpenCut = getCut(openOpenSum);
+
+        const closeCloseSum = (c1 + c2) % 10;
+        const closeCloseCut = getCut(closeCloseSum);
+
+        const openCloseCrossSum = (o1 + c2) % 10;
+
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+            const candTot = (o + c) % 10;
+
+            // 1. Next Day Total matches Open-Open Vertical Sum (e.g. 2+4=6 -> Total 6)
+            if (candTot === openOpenSum) {
+              addPoints(
+                candJodi,
+                50,
+                activeModel.conditionWeight * 1.3,
+                1.0,
+                `🔗 [VERTICAL TWO-OPEN SUM] Cell ${cell1} Open ${o1} + Cell ${cell2} Open ${o2} = ${openOpenSum} → Projects Next Day Total ${openOpenSum}`
+              );
+            } else if (candTot === openOpenCut) {
+              addPoints(
+                candJodi,
+                30,
+                activeModel.conditionWeight * 1.1,
+                1.0,
+                `🔗 [VERTICAL TWO-OPEN SUM CUT] Cell ${cell1} Open ${o1} + Cell ${cell2} Open ${o2} = ${openOpenSum} → Projects Cut Total ${openOpenCut}`
+              );
+            }
+
+            // 2. Next Day Open matches Open-Open Vertical Sum
+            if (o === openOpenSum || o === openOpenCut) {
+              addPoints(
+                candJodi,
+                35,
+                activeModel.conditionWeight * 1.1,
+                1.0,
+                `🔗 [VERTICAL TWO-OPEN SUM TO OPEN] Cell ${cell1} Open ${o1} + Cell ${cell2} Open ${o2} = ${openOpenSum} → Projects Open ${o}`
+              );
+            }
+
+            // 3. Next Day Total matches Close-Close Vertical Sum
+            if (candTot === closeCloseSum || candTot === closeCloseCut) {
+              addPoints(
+                candJodi,
+                40,
+                activeModel.conditionWeight * 1.2,
+                1.0,
+                `🔗 [VERTICAL TWO-CLOSE SUM] Cell ${cell1} Close ${c1} + Cell ${cell2} Close ${c2} = ${closeCloseSum} → Projects Next Day Total ${candTot}`
+              );
+            }
+
+            // 4. Next Day Total matches Open-Close Cross Sum
+            if (candTot === openCloseCrossSum) {
+              addPoints(
+                candJodi,
+                35,
+                activeModel.conditionWeight * 1.1,
+                1.0,
+                `🔗 [VERTICAL OPEN-CLOSE CROSS SUM] Cell ${cell1} Open ${o1} + Cell ${cell2} Close ${c2} = ${openCloseCrossSum} → Projects Next Day Total ${openCloseCrossSum}`
+              );
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
