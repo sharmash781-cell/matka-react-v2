@@ -881,6 +881,7 @@ export const AILearningEngine = () => {
     if (diagPatternFilter === 'periodic' && occurrences.length >= 2) {
       const matchedOccIndices = new Set();
       
+      // 1. Find all arithmetic progression chains of length >= 3 (e.g. Occ #1 at 394, Occ #2 at 398, Occ #3 at 402 with gap 4)
       for (let i = 0; i < occurrences.length; i++) {
         for (let j = i + 1; j < occurrences.length; j++) {
           const gap = occurrences[j].row1 - occurrences[i].row1;
@@ -896,13 +897,33 @@ export const AILearningEngine = () => {
             }
           }
           
-          // Require equal row step chain
-          if (chain.length >= 2) {
+          // Require at least 3 occurrences (2 equal gap steps)
+          if (chain.length >= 3) {
             chain.forEach(idx => matchedOccIndices.add(idx));
           }
         }
       }
-      
+
+      // 2. Find repeating gap intervals (same gap G appears between at least 2 distinct occurrence pairs)
+      const gapMap = {};
+      for (let i = 0; i < occurrences.length; i++) {
+        for (let j = i + 1; j < occurrences.length; j++) {
+          const gap = occurrences[j].row1 - occurrences[i].row1;
+          if (gap <= 0) continue;
+          if (!gapMap[gap]) gapMap[gap] = [];
+          gapMap[gap].push([i, j]);
+        }
+      }
+
+      Object.values(gapMap).forEach(pairs => {
+        if (pairs.length >= 2) {
+          pairs.forEach(([i, j]) => {
+            matchedOccIndices.add(i);
+            matchedOccIndices.add(j);
+          });
+        }
+      });
+
       occurrences = occurrences.filter((_, idx) => matchedOccIndices.has(idx));
     }
 
@@ -950,11 +971,16 @@ export const AILearningEngine = () => {
     setScanSummary({
       count: occurrences.length,
       label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${checkText}) (${occurrences.length}x Found)`,
-      occurrences: occurrences.map((occ, idx) => ({
-        ...occ,
-        occIdx: idx,
-        palette: DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length]
-      }))
+      occurrences: occurrences.map((occ, idx) => {
+        const prevOcc = occurrences[idx - 1];
+        const gapFromPrev = prevOcc ? occ.row1 - prevOcc.row1 : null;
+        return {
+          ...occ,
+          occIdx: idx,
+          gapFromPrev,
+          palette: DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length]
+        };
+      })
     });
 
     // Auto focus and scroll to the LAST (most recent) occurrence!
@@ -964,6 +990,12 @@ export const AILearningEngine = () => {
       scrollToRowIndex(occurrences[lastOccIdx].row1);
     }
   }, [grid, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, diagPatternFilter, colsInput, scrollToRowIndex]);
+
+  useEffect(() => {
+    if (showDiagonalScanner) {
+      runDiagonalSumScan();
+    }
+  }, [showDiagonalScanner, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, diagPatternFilter, runDiagonalSumScan]);
 
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
@@ -1874,8 +1906,13 @@ export const AILearningEngine = () => {
                         <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-black font-mono shadow-md border ${palette.badge}`}>
                           {idx + 1}
                         </span>
-                        <span className="font-mono">
-                          Row #{occ.rowNum || occ.row1 + 1}: {COL_HEADERS[diagFromDay]} ({occ.cell1Val}) + {COL_HEADERS[diagToDay]} ({occ.cell2Val}) → Target {occ.targetSum}
+                        <span className="font-mono flex items-center gap-1.5">
+                          <span>Row #{occ.rowNum || occ.row1 + 1}: {COL_HEADERS[diagFromDay]} ({occ.cell1Val}) + {COL_HEADERS[diagToDay]} ({occ.cell2Val}) → Target {occ.targetSum}</span>
+                          {occ.gapFromPrev !== null && (
+                            <span className="text-[10px] font-black text-pink-300 bg-pink-950/90 border border-pink-600/90 px-1.5 py-0.5 rounded-md shadow-xs">
+                              ⚡ Gap: +{occ.gapFromPrev} Wk{occ.gapFromPrev > 1 ? 's' : ''}
+                            </span>
+                          )}
                         </span>
                       </button>
                     );
