@@ -456,6 +456,246 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     return { matches, summary, matchMap };
   }
 
+  // --- 1. LADDER STEP PATTERN ---
+  if (q.includes('ladder step') || q.includes('ladder')) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+    let pCount = 1;
+    for (let c = 0; c < colsCount; c++) {
+      for (let r = 0; r < grid.length - 1; r++) {
+        const val1 = grid[r]?.[c]?.val;
+        const val2 = grid[r + 1]?.[c]?.val;
+        if (val1 && /^\d{2}$/.test(val1) && val2 && /^\d{2}$/.test(val2)) {
+          const o1 = parseInt(val1[0], 10);
+          const o2 = parseInt(val2[0], 10);
+          if ((o1 + 1) % 10 === o2) {
+            const projO = (o2 + 1) % 10;
+            const projCutO = (projO + 5) % 10;
+            const pId = `LS${pCount++}`;
+            const targetR = r + 2;
+
+            const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1, color: '#10b981', border: '#059669', reason: `🪜 [#1 LADDER START] Open ${o1}` };
+            const m2 = { r: r + 1, c, day: DAY_NAMES[c], rowNum: r + 2, val: val2, pairId: pId, stepIndex: 2, color: '#10b981', border: '#059669', reason: `🪜 [#2 LADDER STEP +1] Open ${o2}` };
+            
+            const isFilled3 = targetR < grid.length && grid[targetR]?.[c]?.val && /^\d{2}$/.test(grid[targetR][c].val);
+            const m3 = {
+              r: targetR, c, day: DAY_NAMES[c], rowNum: targetR + 1,
+              val: isFilled3 ? grid[targetR][c].val : `${projO}/${projCutO} (open)`,
+              isTarget: !isFilled3, targetTotals: [projO, projCutO, projO, projCutO],
+              pairId: pId, stepIndex: 3, color: '#10b981', border: '#059669',
+              reason: `🎯 [#3 LADDER TARGET] Projected Open = ${projO} or Cut ${projCutO}`
+            };
+
+            if (!matchMap[`${r}_${c}`]) { matches.push(m1); matchMap[`${r}_${c}`] = m1; }
+            if (!matchMap[`${r + 1}_${c}`]) { matches.push(m2); matchMap[`${r + 1}_${c}`] = m2; }
+            if (!matchMap[`${targetR}_${c}`]) { matches.push(m3); matchMap[`${targetR}_${c}`] = m3; }
+          }
+        }
+      }
+    }
+    return { matches, summary: `🪜 FOUND ${pCount - 1} LADDER STEP (+1 OPEN) PATTERNS!`, matchMap };
+  }
+
+  // --- 3. CROSS WAVE PATTERN ---
+  if (q.includes('cross wave') || q.includes('wave')) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+    let pCount = 1;
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+      const monVal = grid[r][0]?.val;
+      if (monVal && /^\d{2}$/.test(monVal)) {
+        const monOpen = parseInt(monVal[0], 10);
+        const wedCloseTarget = (monOpen + 1) % 10;
+        const wedCloseTargetCut = (wedCloseTarget + 5) % 10;
+
+        const wedVal = grid[r][2]?.val;
+        if (wedVal && /^\d{2}$/.test(wedVal)) {
+          const wedClose = parseInt(wedVal[1], 10);
+          if (wedClose === wedCloseTarget || wedClose === wedCloseTargetCut) {
+            const friTotTarget = (wedClose + 1) % 10;
+            const friTotTargetCut = (friTotTarget + 5) % 10;
+            const pId = `CW${pCount++}`;
+
+            const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: monVal, pairId: pId, stepIndex: 1, color: '#f59e0b', border: '#d97706', reason: `🌊 [#1 MON OPEN] ${monOpen}` };
+            const m2 = { r, c: 2, day: 'Wed', rowNum: r + 1, val: wedVal, pairId: pId, stepIndex: 2, color: '#f59e0b', border: '#d97706', reason: `🌊 [#2 WED CLOSE +1] ${wedClose}` };
+
+            const isFilled3 = grid[r]?.[4]?.val && /^\d{2}$/.test(grid[r][4].val);
+            const m3 = {
+              r, c: 4, day: 'Fri', rowNum: r + 1,
+              val: isFilled3 ? grid[r][4].val : `${friTotTarget}/${friTotTargetCut} (tot)`,
+              isTarget: !isFilled3, targetTotals: [friTotTarget, friTotTargetCut, friTotTarget, friTotTargetCut],
+              pairId: pId, stepIndex: 3, color: '#f59e0b', border: '#d97706',
+              reason: `🎯 [#3 FRI TARGET] Projected Total = ${friTotTarget} or Cut ${friTotTargetCut}`
+            };
+
+            if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+            if (!matchMap[`${r}_2`]) { matches.push(m2); matchMap[`${r}_2`] = m2; }
+            if (!matchMap[`${r}_4`]) { matches.push(m3); matchMap[`${r}_4`] = m3; }
+          }
+        }
+      }
+    }
+    return { matches, summary: `🌊 FOUND ${pCount - 1} CROSS WAVE PATTERNS!`, matchMap };
+  }
+
+  // --- 4. FARAK MIRROR PATTERN ---
+  if (q.includes('farak mirror') || q.includes('farak')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 1; r++) {
+      const mon1 = grid[r]?.[0]?.val;
+      const mon2 = grid[r + 1]?.[0]?.val;
+      if (mon1 && /^\d{2}$/.test(mon1) && mon2 && /^\d{2}$/.test(mon2)) {
+        const f1 = Math.abs(parseInt(mon1[0], 10) - parseInt(mon1[1], 10)) % 10;
+        const f2 = Math.abs(parseInt(mon2[0], 10) - parseInt(mon2[1], 10)) % 10;
+        if (f1 === f2) {
+          const cutF = (f1 + 5) % 10;
+          const pId = `FM${pCount++}`;
+          const targetR = r + 1;
+
+          const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: mon1, pairId: pId, stepIndex: 1, color: '#a855f7', border: '#7e22ce', reason: `🪞 [#1 FARAK 1] Farak ${f1}` };
+          const m2 = { r: r + 1, c: 0, day: 'Mo', rowNum: r + 2, val: mon2, pairId: pId, stepIndex: 2, color: '#a855f7', border: '#7e22ce', reason: `🪞 [#2 FARAK 2] Farak ${f2}` };
+
+          const isFilled3 = grid[targetR]?.[2]?.val && /^\d{2}$/.test(grid[targetR][2].val);
+          const m3 = {
+            r: targetR, c: 2, day: 'Wed', rowNum: targetR + 1,
+            val: isFilled3 ? grid[targetR][2].val : `${f1}/${cutF} (tot)`,
+            isTarget: !isFilled3, targetTotals: [f1, cutF, f1, cutF],
+            pairId: pId, stepIndex: 3, color: '#a855f7', border: '#7e22ce',
+            reason: `🎯 [#3 WED FARAK TARGET] Projected Total = ${f1} or Cut ${cutF}`
+          };
+
+          if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+          if (!matchMap[`${r + 1}_0`]) { matches.push(m2); matchMap[`${r + 1}_0`] = m2; }
+          if (!matchMap[`${targetR}_2`]) { matches.push(m3); matchMap[`${targetR}_2`] = m3; }
+        }
+      }
+    }
+    return { matches, summary: `🪞 FOUND ${pCount - 1} FARAK MIRROR PATTERNS!`, matchMap };
+  }
+
+  // --- 5. MAGIC TRIANGLE PATTERN ---
+  if (q.includes('magic triangle') || q.includes('triangle')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+      const v0 = grid[r][0]?.val, v1 = grid[r][1]?.val, v2 = grid[r][2]?.val;
+      if (v0 && /^\d{2}$/.test(v0) && v1 && /^\d{2}$/.test(v1) && v2 && /^\d{2}$/.test(v2)) {
+        const o0 = parseInt(v0[0], 10), o1 = parseInt(v1[0], 10), o2 = parseInt(v2[0], 10);
+        const projOpen = (o0 + o1 + o2) % 10;
+        const projCutOpen = (projOpen + 5) % 10;
+        const pId = `MT${pCount++}`;
+
+        const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: v0, pairId: pId, stepIndex: 1, color: '#ec4899', border: '#be185d', reason: `🔺 [#1 MON] Open ${o0}` };
+        const m2 = { r, c: 1, day: 'Tue', rowNum: r + 1, val: v1, pairId: pId, stepIndex: 2, color: '#ec4899', border: '#be185d', reason: `🔺 [#2 TUE] Open ${o1}` };
+        const m3 = { r, c: 2, day: 'Wed', rowNum: r + 1, val: v2, pairId: pId, stepIndex: 3, color: '#ec4899', border: '#be185d', reason: `🔺 [#3 WED] Open ${o2}` };
+
+        const isFilled4 = grid[r]?.[3]?.val && /^\d{2}$/.test(grid[r][3].val);
+        const m4 = {
+          r, c: 3, day: 'Thu', rowNum: r + 1,
+          val: isFilled4 ? grid[r][3].val : `${projOpen}/${projCutOpen} (open)`,
+          isTarget: !isFilled4, targetTotals: [projOpen, projCutOpen, projOpen, projCutOpen],
+          pairId: pId, stepIndex: 4, color: '#ec4899', border: '#be185d',
+          reason: `🎯 [#4 THU TARGET] Projected Open = ${projOpen} or Cut ${projCutOpen}`
+        };
+
+        if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+        if (!matchMap[`${r}_1`]) { matches.push(m2); matchMap[`${r}_1`] = m2; }
+        if (!matchMap[`${r}_2`]) { matches.push(m3); matchMap[`${r}_2`] = m3; }
+        if (!matchMap[`${r}_3`]) { matches.push(m4); matchMap[`${r}_3`] = m4; }
+      }
+    }
+    return { matches, summary: `🔺 FOUND ${pCount - 1} MAGIC TRIANGLE PATTERNS!`, matchMap };
+  }
+
+  // --- 6. GRAND HARMONIC TRIANGLE CHAIN (BIG MASTER PATTERN) ---
+  if (q.includes('grand harmonic') || q.includes('big pattern') || q.includes('master pattern')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 2; r++) {
+      const mon1 = grid[r]?.[0]?.val; // Week 1 Monday
+      const wed2 = grid[r + 1]?.[2]?.val; // Week 2 Wednesday
+      const fri3 = grid[r + 2]?.[4]?.val; // Week 3 Friday
+
+      if (mon1 && /^\d{2}$/.test(mon1) && wed2 && /^\d{2}$/.test(wed2)) {
+        const tot1 = (parseInt(mon1[0], 10) + parseInt(mon1[1], 10)) % 10;
+        const tot2 = (parseInt(wed2[0], 10) + parseInt(wed2[1], 10)) % 10;
+
+        if (tot1 === tot2 || (tot1 + 5) % 10 === tot2) {
+          const c2 = parseInt(wed2[1], 10);
+          const pId = `GH${pCount++}`;
+
+          const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: mon1, pairId: pId, stepIndex: 1, color: '#10b981', border: '#059669', reason: `👑 [#1 WEEK 1 MON] Total ${tot1}` };
+          const m2 = { r: r + 1, c: 2, day: 'Wed', rowNum: r + 2, val: wed2, pairId: pId, stepIndex: 2, color: '#3b82f6', border: '#1d4ed8', reason: `👑 [#2 WEEK 2 WED] Total ${tot2} (Close ${c2})` };
+
+          if (fri3 && /^\d{2}$/.test(fri3)) {
+            const farak3 = Math.abs(parseInt(fri3[0], 10) - parseInt(fri3[1], 10)) % 10;
+            if (farak3 === c2 || (farak3 + 5) % 10 === c2) {
+              const c3 = parseInt(fri3[1], 10);
+              const targetO = c3;
+              const targetCutO = (c3 + 5) % 10;
+              const targetTot = (c3 * 2) % 10;
+              const targetCutTot = (targetTot + 5) % 10;
+
+              const m3 = { r: r + 2, c: 4, day: 'Fri', rowNum: r + 3, val: fri3, pairId: pId, stepIndex: 3, color: '#a855f7', border: '#7e22ce', reason: `👑 [#3 WEEK 3 FRI] Farak ${farak3}` };
+
+              const targetR = r + 3;
+              const isFilled4 = targetR < grid.length && grid[targetR]?.[0]?.val && /^\d{2}$/.test(grid[targetR][0].val);
+              const m4 = {
+                r: targetR, c: 0, day: 'Mo', rowNum: targetR + 1,
+                val: isFilled4 ? grid[targetR][0].val : `${targetO}/${targetTot} (tot)`,
+                isTarget: !isFilled4, targetTotals: [targetTot, targetCutTot, targetO, targetCutO],
+                pairId: pId, stepIndex: 4, color: '#ec4899', border: '#be185d',
+                reason: `🎯 [#4 MASTER TARGET] Projected Open = ${targetO}, Projected Total = ${targetTot}`
+              };
+
+              if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+              if (!matchMap[`${r + 1}_2`]) { matches.push(m2); matchMap[`${r + 1}_2`] = m2; }
+              if (!matchMap[`${r + 2}_4`]) { matches.push(m3); matchMap[`${r + 2}_4`] = m3; }
+              if (!matchMap[`${targetR}_0`]) { matches.push(m4); matchMap[`${targetR}_0`] = m4; }
+            }
+          }
+        }
+      }
+    }
+    return { matches, summary: `👑 FOUND ${pCount - 1} GRAND HARMONIC MASTER TRIANGLE CHAINS!`, matchMap };
+  }
+  if (q.includes('twin total') || q.includes('twin')) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+    let pCount = 1;
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+      for (let c = 0; c < colsCount - 1; c++) {
+        const val1 = grid[r][c]?.val;
+        const val2 = grid[r][c + 1]?.val;
+        if (val1 && /^\d{2}$/.test(val1) && val2 && /^\d{2}$/.test(val2)) {
+          const tot1 = (parseInt(val1[0], 10) + parseInt(val1[1], 10)) % 10;
+          const tot2 = (parseInt(val2[0], 10) + parseInt(val2[1], 10)) % 10;
+          if (tot1 === tot2) {
+            const cutTot = (tot1 + 5) % 10;
+            const pId = `TT${pCount++}`;
+            const targetR = r + Math.floor((c + 2) / colsCount);
+            const targetC = (c + 2) % colsCount;
+
+            const m1 = { r, c, day: DAY_NAMES[c], rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1, color: '#3b82f6', border: '#1d4ed8', reason: `👯‍♂️ [#1 TWIN 1] Total ${tot1}` };
+            const m2 = { r, c: c + 1, day: DAY_NAMES[c + 1], rowNum: r + 1, val: val2, pairId: pId, stepIndex: 2, color: '#3b82f6', border: '#1d4ed8', reason: `👯‍♂️ [#2 TWIN 2] Total ${tot2}` };
+
+            const isFilled3 = targetR < grid.length && grid[targetR]?.[targetC]?.val && /^\d{2}$/.test(grid[targetR][targetC].val);
+            const m3 = {
+              r: targetR, c: targetC, day: DAY_NAMES[targetC], rowNum: targetR + 1,
+              val: isFilled3 ? grid[targetR][targetC].val : `${tot1}/${cutTot} (tot)`,
+              isTarget: !isFilled3, targetTotals: [tot1, cutTot, tot1, cutTot],
+              pairId: pId, stepIndex: 3, color: '#3b82f6', border: '#1d4ed8',
+              reason: `🎯 [#3 TWIN TARGET] Projected Total = ${tot1} or Cut ${cutTot}`
+            };
+
+            if (!matchMap[`${r}_${c}`]) { matches.push(m1); matchMap[`${r}_${c}`] = m1; }
+            if (!matchMap[`${r}_${c + 1}`]) { matches.push(m2); matchMap[`${r}_${c + 1}`] = m2; }
+            if (!matchMap[`${targetR}_${targetC}`]) { matches.push(m3); matchMap[`${targetR}_${targetC}`] = m3; }
+          }
+        }
+      }
+    }
+    return { matches, summary: `👯‍♂️ FOUND ${pCount - 1} TWIN TOTAL PATTERNS!`, matchMap };
+  }
+
   // Global default row range for entire chart
   const globalRowRange = parseRowRange(q, grid.length);
 
