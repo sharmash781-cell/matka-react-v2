@@ -296,6 +296,69 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     return { matches, summary, matchMap };
   }
 
+  // --- SPECIAL HANDLER FOR "close double" / "close total double" ---
+  if (q.includes('close double') || q.includes('close total double') || q.includes('close total doudle') || q.includes('close doudle')) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+    const PART_COLORS = [
+      { color: '#10b981', border: '#059669', dot: '🟢' },
+      { color: '#06b6d4', border: '#0891b2', dot: '🔵' },
+      { color: '#a855f7', border: '#7e22ce', dot: '🟣' },
+      { color: '#ec4899', border: '#be185d', dot: '🩷' },
+      { color: '#f59e0b', border: '#d97706', dot: '🟡' }
+    ];
+
+    let pCount = 1;
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+
+      const searchCols = globalDays.length > 0 ? globalDays : Array.from({ length: colsCount }, (_, i) => i);
+
+      searchCols.forEach((c1) => {
+        const val1 = grid[r][c1]?.val;
+        if (!val1 || !/^\d{2}$/.test(val1)) return;
+
+        const close1 = parseInt(val1[1], 10);
+        const doubleTotal = (close1 * 2) % 10;
+        const cutDoubleTotal = (doubleTotal + 5) % 10;
+
+        for (let c2 = 0; c2 < colsCount; c2++) {
+          if (c1 === c2) continue;
+          const val2 = grid[r][c2]?.val;
+          if (!val2 || !/^\d{2}$/.test(val2)) continue;
+
+          const o2 = parseInt(val2[0], 10);
+          const c2Digit = parseInt(val2[1], 10);
+          const tot2 = (o2 + c2Digit) % 10;
+
+          if (tot2 === doubleTotal || tot2 === cutDoubleTotal) {
+            const palette = PART_COLORS[(pCount - 1) % PART_COLORS.length];
+            const pId = `CD${pCount++}`;
+
+            const m1 = {
+              r, c: c1, day: DAY_NAMES[c1] || `Col ${c1 + 1}`, rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1,
+              reason: `🔁 [CLOSE DOUBLE ORIGIN] ${DAY_NAMES[c1] || 'Col ' + (c1+1)} Row #${r + 1} (${val1}) Close ${close1} doubled = Total ${doubleTotal} / Cut ${cutDoubleTotal}`,
+              color: palette.color, border: palette.border, dot: '🟢'
+            };
+            const m2 = {
+              r, c: c2, day: DAY_NAMES[c2] || `Col ${c2 + 1}`, rowNum: r + 1, val: val2, pairId: pId, stepIndex: 2,
+              reason: `🔁 [CLOSE DOUBLE MATCH] ${DAY_NAMES[c2] || 'Col ' + (c2+1)} Row #${r + 1} (${val2}) Total ${tot2} matches doubled Close ${close1} of ${val1}`,
+              color: palette.color, border: palette.border, dot: '🟡'
+            };
+
+            if (!matchMap[`${r}_${c1}`]) { matches.push(m1); matchMap[`${r}_${c1}`] = m1; }
+            if (!matchMap[`${r}_${c2}`]) { matches.push(m2); matchMap[`${r}_${c2}`] = m2; }
+          }
+        }
+      });
+    }
+
+    const summary = matches.length > 0
+      ? `🔁 FOUND ${matches.length / 2} CLOSE DOUBLE MATCHES! Cells where doubled Close digit equals same-week Jodi Total.`
+      : `No Close Double matches found in current view.`;
+
+    return { matches, summary, matchMap };
+  }
+
   // Global default row range for entire chart
   const globalRowRange = parseRowRange(q, grid.length);
 

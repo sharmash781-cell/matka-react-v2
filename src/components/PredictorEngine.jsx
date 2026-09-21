@@ -1092,6 +1092,44 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 21: CLOSE DOUBLE TO WEEKLY TOTAL CONFLUENCE ENGINE ---
+    // Evaluates preceding horizontal cells in the same week: doubles Close digit (C * 2) % 10 and projects target Total
+    if (colVal > 0) {
+      for (let cPrev = 0; cPrev < colVal; cPrev++) {
+        const valPrev = grid[targetRowIdx]?.[cPrev]?.val;
+        if (valPrev && /^\d{2}$/.test(valPrev)) {
+          const cDigit = parseInt(valPrev[1]);
+          const dTot = (cDigit * 2) % 10;
+          const dCutTot = getCut(dTot);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+              const candTot = (o + c) % 10;
+
+              if (candTot === dTot) {
+                addPoints(
+                  candJodi,
+                  48,
+                  activeModel.conditionWeight * 1.3,
+                  1.0,
+                  `🔁 [CLOSE DOUBLE TOTAL] Same week cell "${valPrev}" Close ${cDigit} x2 = Total ${dTot} → Projects Target Total ${candTot}`
+                );
+              } else if (candTot === dCutTot) {
+                addPoints(
+                  candJodi,
+                  36,
+                  activeModel.conditionWeight * 1.1,
+                  1.0,
+                  `🔁 [CLOSE DOUBLE CUT TOTAL] Same week cell "${valPrev}" Close ${cDigit} x2 = Total ${dTot} → Projects Cut Total ${dCutTot}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {

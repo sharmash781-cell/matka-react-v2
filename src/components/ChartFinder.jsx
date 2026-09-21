@@ -184,6 +184,7 @@ export const ChartFinder = () => {
 
   const presetQueries = [
     'master game',
+    'close double',
     '03 family',
     '56 falti',
     'open to open same and close to close one down between 1 to 4 row',
