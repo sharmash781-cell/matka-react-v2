@@ -68,6 +68,7 @@ export const AILearningEngine = () => {
   const [diagWeekGap, setDiagWeekGap] = useState(0); // 0 = Same Wk, 1 = +1 Wk, 2 = +2 Wks
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
   const [diagCheckDigit, setDiagCheckDigit] = useState('open'); // 'open' or 'close' (Sum of Opens vs Sum of Closes)
+  const [diagPatternFilter, setDiagPatternFilter] = useState('all'); // 'all' or 'periodic' (equal gap chain filter)
   const [hoveredOccIdx, setHoveredOccIdx] = useState(null); // Hover/Focus active occurrence index
   const [dismissedPreds, setDismissedPreds] = useState({}); // Map of dismissed prediction cells
 
@@ -876,8 +877,37 @@ export const AILearningEngine = () => {
       });
     }
 
+    // IF 'periodic' Pattern Filter is selected, keep ONLY occurrences that repeat at equal week/row gaps (2+ repetitions)!
+    if (diagPatternFilter === 'periodic' && occurrences.length >= 2) {
+      const matchedOccIndices = new Set();
+      
+      for (let i = 0; i < occurrences.length; i++) {
+        for (let j = i + 1; j < occurrences.length; j++) {
+          const gap = occurrences[j].row1 - occurrences[i].row1;
+          if (gap <= 0) continue;
+          
+          const chain = [i, j];
+          let lastRow = occurrences[j].row1;
+          
+          for (let k = j + 1; k < occurrences.length; k++) {
+            if (occurrences[k].row1 - lastRow === gap) {
+              chain.push(k);
+              lastRow = occurrences[k].row1;
+            }
+          }
+          
+          // Require equal row step chain
+          if (chain.length >= 2) {
+            chain.forEach(idx => matchedOccIndices.add(idx));
+          }
+        }
+      }
+      
+      occurrences = occurrences.filter((_, idx) => matchedOccIndices.has(idx));
+    }
+
     if (occurrences.length === 0) {
-      setScanSummary({ count: 0, label: 'No Diagonal Sum matches found on chart.' });
+      setScanSummary({ count: 0, label: 'No Repeating Diagonal Pattern matches found on chart.' });
       return;
     }
 
@@ -933,7 +963,7 @@ export const AILearningEngine = () => {
     if (occurrences[lastOccIdx]) {
       scrollToRowIndex(occurrences[lastOccIdx].row1);
     }
-  }, [grid, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, colsInput, scrollToRowIndex]);
+  }, [grid, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, diagPatternFilter, colsInput, scrollToRowIndex]);
 
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
@@ -1424,7 +1454,7 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 text-xs font-mono">
               {/* 1. FROM DAY (FIRST JODI) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
                 <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day</div>
@@ -1505,6 +1535,22 @@ export const AILearningEngine = () => {
                 >
                   <option value="open">Sum of Opens (Open Digit Match)</option>
                   <option value="close">Sum of Closes (Close Digit Match)</option>
+                </select>
+              </div>
+
+              {/* 5. PATTERN REPEAT FILTER */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-pink-400 font-bold uppercase flex items-center justify-between">
+                  <span>5. Pattern Filter</span>
+                  <span className="text-slate-400 font-normal text-[8px]">(Equal Gap)</span>
+                </div>
+                <select
+                  value={diagPatternFilter}
+                  onChange={(e) => setDiagPatternFilter(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1.5 rounded-lg text-xs"
+                >
+                  <option value="all">All Matches (Show All)</option>
+                  <option value="periodic">⚡ Pattern Only (Equal Gap Chains)</option>
                 </select>
               </div>
             </div>
