@@ -373,18 +373,18 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           // Search 3rd-day target cell (+2 steps in linear sequence from cell2)
           if (cell2Obj) {
             const target3Idx = cell2Obj.idx + 2;
+            const c2ValDigit = parseInt(firstMatchVal[1], 10);
+            const targetTotOptA = c2ValDigit;
+            const targetTotOptACut = (c2ValDigit + 5) % 10;
+            const targetTotOptB = (c2ValDigit * 2) % 10;
+            const targetTotOptBCut = (targetTotOptB + 5) % 10;
+
             if (target3Idx < flatCells.length) {
               const cell3Obj = flatCells[target3Idx];
               const val3 = cell3Obj.val;
               const o3 = parseInt(val3[0], 10);
               const c3Digit = parseInt(val3[1], 10);
               const tot3 = (o3 + c3Digit) % 10;
-
-              const c2ValDigit = parseInt(firstMatchVal[1], 10);
-              const targetTotOptA = c2ValDigit;
-              const targetTotOptACut = (c2ValDigit + 5) % 10;
-              const targetTotOptB = (c2ValDigit * 2) % 10;
-              const targetTotOptBCut = (targetTotOptB + 5) % 10;
 
               // ONLY IF 3RD DAY TARGET TOTAL MATCHES: Register full 3-step Triad!
               if (tot3 === targetTotOptA || tot3 === targetTotOptACut || tot3 === targetTotOptB || tot3 === targetTotOptBCut) {
@@ -411,6 +411,38 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
                 if (!matchMap[`${r}_${firstMatchCol}`]) { matches.push(m2); matchMap[`${r}_${firstMatchCol}`] = m2; }
                 if (!matchMap[`${cell3Obj.r}_${cell3Obj.c}`]) { matches.push(m3); matchMap[`${cell3Obj.r}_${cell3Obj.c}`] = m3; }
               }
+            } else {
+              // Target 3rd day is an UPCOMING / EMPTY UNPLAYED CELL!
+              const targetR = r + Math.floor((firstMatchCol + 2) / colsCount);
+              const targetC = (firstMatchCol + 2) % colsCount;
+              const targetDay = DAY_NAMES[targetC] || `Col ${targetC + 1}`;
+
+              const palette = PART_COLORS[(pCount - 1) % PART_COLORS.length];
+              const pId = `CD${pCount++}`;
+
+              const m1 = {
+                r, c: c1, day: DAY_NAMES[c1] || `Col ${c1 + 1}`, rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1,
+                reason: `🔁 [#1 CLOSE DOUBLE ORIGIN] ${DAY_NAMES[c1] || 'Col ' + (c1+1)} Row #${r + 1} (${val1}) Close ${close1} doubled = Total ${doubleTotal}/${cutDoubleTotal}`,
+                color: palette.color, border: palette.border, dot: '🟢'
+              };
+              const m2 = {
+                r, c: firstMatchCol, day: DAY_NAMES[firstMatchCol] || `Col ${firstMatchCol + 1}`, rowNum: r + 1, val: firstMatchVal, pairId: pId, stepIndex: 2,
+                reason: `🔁 [#2 FIRST MATCH IN WEEK] ${DAY_NAMES[firstMatchCol] || 'Col ' + (firstMatchCol+1)} Row #${r + 1} (${firstMatchVal}) Total ${firstMatchTotal} matches doubled Close ${close1} of ${val1}`,
+                color: palette.color, border: palette.border, dot: '🟡'
+              };
+              const m3 = {
+                r: targetR, c: targetC, day: targetDay, rowNum: targetR + 1,
+                val: `🎯 ${targetTotOptA}/${targetTotOptB}`,
+                isTarget: true,
+                targetTotals: [targetTotOptA, targetTotOptACut, targetTotOptB, targetTotOptBCut],
+                pairId: pId, stepIndex: 3,
+                reason: `🎯 [#3 PENDING 3RD-DAY TARGET] ${targetDay} Row #${targetR + 1} Projected Target Totals: ${targetTotOptA} or ${targetTotOptB} (tot)`,
+                color: palette.color, border: palette.border, dot: '🎯'
+              };
+
+              if (!matchMap[`${r}_${c1}`]) { matches.push(m1); matchMap[`${r}_${c1}`] = m1; }
+              if (!matchMap[`${r}_${firstMatchCol}`]) { matches.push(m2); matchMap[`${r}_${firstMatchCol}`] = m2; }
+              if (!matchMap[`${targetR}_${targetC}`]) { matches.push(m3); matchMap[`${targetR}_${targetC}`] = m3; }
             }
           }
         }

@@ -341,7 +341,11 @@ export const ChartFinder = () => {
         <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono pt-1">
           <div className="flex items-center gap-2">
             <span className="font-bold text-pink-300">
-              Found <strong className="text-pink-400 text-sm">{matches.length}</strong> matching cell(s)
+              Found <strong className="text-pink-400 text-sm">
+                {matches.some(m => m.pairId)
+                  ? new Set(matches.map(m => m.pairId)).size
+                  : matches.length}
+              </strong> matching {matches.some(m => m.pairId) ? 'occurrence(s)' : 'cell(s)'}
             </span>
             {isRelational && (
               <span className="bg-purple-900/80 text-purple-200 border border-purple-500/80 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
@@ -357,51 +361,68 @@ export const ChartFinder = () => {
         {matches.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto py-1">
             <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">Matches:</span>
-            {isRelational && relationalGroups.length > 0 ? (
-              relationalGroups.map((group) => {
-                const isHovered = group.id === hoveredPairId;
-                return (
-                  <div
-                    key={group.id}
-                    onMouseEnter={() => setHoveredPairId(group.id)}
-                    onMouseLeave={() => setHoveredPairId(null)}
-                    onClick={() => scrollToRowIndex(group.m1.r)}
-                    style={{
-                      borderColor: group.color,
-                      backgroundColor: isHovered ? `${group.color}40` : 'rgba(15, 23, 42, 0.9)'
-                    }}
-                    className="flex items-center gap-1.5 border-2 px-2.5 py-1 rounded-xl cursor-pointer hover:scale-105 transition shadow-md shrink-0"
+            {(() => {
+              // Group matches by pairId if present
+              const hasPairIds = matches.some(m => m.pairId);
+              if (hasPairIds) {
+                const groupMap = {};
+                const groupOrder = [];
+                matches.forEach((m) => {
+                  const gId = m.pairId || `${m.r}_${m.c}`;
+                  if (!groupMap[gId]) {
+                    groupMap[gId] = { id: gId, color: m.color, border: m.border, items: [] };
+                    groupOrder.push(gId);
+                  }
+                  groupMap[gId].items.push(m);
+                });
+
+                return groupOrder.map((gId, gIdx) => {
+                  const group = groupMap[gId];
+                  const isHovered = group.id === hoveredPairId;
+                  const chainText = group.items.map(item => item.val).join(' - ');
+                  const daysText = group.items.map(item => item.day).join(' - ');
+                  const firstRow = group.items[0]?.rowNum || 1;
+
+                  return (
+                    <button
+                      key={group.id}
+                      onMouseEnter={() => setHoveredPairId(group.id)}
+                      onMouseLeave={() => setHoveredPairId(null)}
+                      onClick={() => scrollToRowIndex(group.items[0]?.r)}
+                      style={{
+                        borderColor: isHovered ? '#000000' : group.color,
+                        backgroundColor: isHovered ? `${group.color}60` : `${group.color}25`
+                      }}
+                      className={`flex items-center gap-1.5 border-2 px-3 py-1 rounded-xl cursor-pointer transition shadow-md shrink-0 text-white ${
+                        isHovered ? 'ring-2 ring-black font-black scale-105' : ''
+                      }`}
+                    >
+                      <span className="text-[10px] font-black text-amber-300 font-mono">
+                        #{gIdx + 1} (R#{firstRow})
+                      </span>
+                      <span className="text-xs font-black font-mono tracking-wider text-emerald-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700">
+                        {chainText}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-300 font-mono">
+                        ({daysText})
+                      </span>
+                    </button>
+                  );
+                });
+              } else {
+                return matches.map((m, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => scrollToRowIndex(m.r)}
+                    style={{ backgroundColor: m.color, color: '#020617' }}
+                    className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
                   >
-                    <span className="text-[10px] font-black text-amber-300">
-                      Pair #{group.id} (R{group.m1.r + 1} → R{group.m2.r + 1})
-                    </span>
-                    {group.items.map((m, idx) => (
-                      <React.Fragment key={idx}>
-                        <span
-                          style={{ backgroundColor: group.color, color: '#020617' }}
-                          className="text-[9px] font-black font-mono px-1.5 py-0.2 rounded"
-                        >
-                          {m.day}: {m.val}
-                        </span>
-                        {idx < group.items.length - 1 && <span className="text-slate-400 text-[10px] font-bold">→</span>}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                );
-              })
-            ) : (
-              matches.map((m, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => scrollToRowIndex(m.r)}
-                  style={{ backgroundColor: m.color, color: '#020617' }}
-                  className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
-                >
-                  <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
-                  <ArrowRight className="w-2.5 h-2.5" />
-                </button>
-              ))
-            )}
+                    <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                ));
+              }
+            })()}
           </div>
         )}
       </div>
@@ -468,10 +489,10 @@ export const ChartFinder = () => {
 
                         let cellBg, cellBorderColor, cellBorderWidth, cellShadow;
                         if (matchItem) {
-                          cellBg = isHoveredPair ? `${pColor}90` : `${pColor}45`;
+                          cellBg = isHoveredPair ? `${pColor}cc` : `${pColor}70`;
                           cellBorderColor = isHoveredPair ? '#020617' : pColor;
-                          cellBorderWidth = isHoveredPair ? '4px' : '3.5px';
-                          cellShadow = isHoveredPair ? `0 0 18px ${pColor} inset` : `0 0 12px ${pColor}90 inset`;
+                          cellBorderWidth = isHoveredPair ? '3.5px' : '3px';
+                          cellShadow = isHoveredPair ? `0 0 16px ${pColor} inset` : `0 0 10px ${pColor}80 inset`;
                         } else if (isFamilyHighlight) {
                           const fColor = familyInfo.isExact ? familyInfo.colorObj.exact : familyInfo.colorObj.member;
                           cellBg = familyInfo.isExact ? `${fColor}55` : `${fColor}28`;
@@ -538,13 +559,24 @@ export const ChartFinder = () => {
                               </div>
                             )}
 
-                            <span
-                              className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter ${
-                                red ? 'red-pair-text' : 'normal-jodi-text'
-                              }`}
-                            >
-                              {val || ''}
-                            </span>
+                            {matchItem && matchItem.isTarget ? (
+                              <div className="flex flex-col items-center justify-center py-0.5 px-1 rounded-lg bg-slate-950 border-2 border-pink-500/80 shadow-lg">
+                                <span className="text-[9px] font-black text-amber-300 tracking-wider flex items-center gap-0.5">
+                                  🎯 TARGET
+                                </span>
+                                <span className="text-xs sm:text-sm font-black text-pink-300 font-mono">
+                                  {matchItem.targetTotals[0]}/{matchItem.targetTotals[2]} (tot)
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter ${
+                                  red ? 'red-pair-text' : 'normal-jodi-text'
+                                }`}
+                              >
+                                {val || ''}
+                              </span>
+                            )}
                           </td>
                         );
                       })}
