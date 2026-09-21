@@ -46,7 +46,7 @@ export const AILearningEngine = () => {
 
   const chartKeys = useMemo(() => sortChartsByMarketTime(Object.keys(charts)), [charts]);
 
-  const [selectedChart, setSelectedChart] = useState(activeChartName || chartKeys[0] || 'SRIDEVI');
+  const [selectedChart, setSelectedChart] = useState(activeChartName || chartKeys[0] || 'MAIN BAZAR');
 
   // FORWARD SEQUENCE SEARCH INPUT
   const [sequenceInput, setSequenceInput] = useState('');

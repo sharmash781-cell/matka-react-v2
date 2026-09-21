@@ -17,8 +17,6 @@ const ChartContext = createContext();
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
 
 export const MARKET_ORDER = [
-  "SRIDEVI",
-  "TIME BAZAR",
   "MILAN DAYY",
   "KALYAN",
   "SRIDEVI NIGHT",
@@ -74,8 +72,6 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
-  "SRIDEVI": srideviiiiPreset,
-  "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -84,8 +80,6 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
-  "SRIDEVI": srideviiiiPreset,
-  "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -103,12 +97,10 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVI", "SRIDEVIIII", "TIME BAZAR", "TIME"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
-    "SRIDEVI": srideviiiiPreset,
-    "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
     "SRIDEVI NIGHT": srideviNightPreset,
@@ -124,14 +116,21 @@ const getInitialCharts = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
+          let dirty = false;
           Object.keys(parsed).forEach((chartName) => {
             const cleanName = chartName.trim().toUpperCase();
-            if (!REMOVED_CHARTS.has(cleanName)) {
+            if (REMOVED_CHARTS.has(cleanName)) {
+              delete parsed[chartName];
+              dirty = true;
+            } else {
               if (!loadedFromStorage[cleanName] && parsed[chartName] && parsed[chartName].data) {
                 loadedFromStorage[cleanName] = parsed[chartName];
               }
             }
           });
+          if (dirty) {
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
         }
       }
     } catch (e) {}
