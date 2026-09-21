@@ -3,13 +3,11 @@ import publishedChartsData from '../data/published_charts.json';
 import srideviPreset from '../data/sridevi_preset.json';
 
 import mainBazarPreset from '../data/main_bazar_preset.json';
-import srideviiiiPreset from '../data/srideviiii_preset.json';
 import milanDayyPreset from '../data/milan_dayy_preset.json';
 import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
 import timeBazarPreset from '../data/time_bazar_preset.json';
-import madhurDayPreset from '../data/madhur_day_preset.json';
 import { fetchLiveChartData } from '../utils/dpbossSync';
 
 const ChartContext = createContext();
@@ -74,7 +72,7 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
-  "SRIDEVI": srideviiiiPreset,
+  "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
@@ -84,7 +82,7 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
-  "SRIDEVI": srideviiiiPreset,
+  "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
@@ -103,11 +101,11 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
-    "SRIDEVI": srideviiiiPreset,
+    "SRIDEVI": srideviPreset,
     "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
