@@ -303,6 +303,131 @@ export const PredictorEngine = () => {
       });
     }
 
+    // --- PASS 9: CLOSE DOUBLE TRIAD HARMONIC PREDICTOR ---
+    if (grid && grid.length > 0) {
+      const colsCount = activeChart.cols || 7;
+      const flatCells = [];
+      const cellPosMap = {};
+
+      for (let r = 0; r < grid.length; r++) {
+        if (!grid[r]) continue;
+        for (let c = 0; c < colsCount; c++) {
+          const val = grid[r][c]?.val;
+          if (val && /^\d{2}$/.test(val)) {
+            const idx = flatCells.length;
+            const cellObj = { r, c, val, day: COL_HEADERS[c] || `Col ${c + 1}`, rowNum: r + 1, idx };
+            flatCells.push(cellObj);
+            cellPosMap[`${r}_${c}`] = cellObj;
+          }
+        }
+      }
+
+      // Check recent rows for Close Double Origin
+      const searchStartR = Math.max(0, targetRowIdx - 10);
+      for (let r = searchStartR; r <= Math.min(grid.length - 1, targetRowIdx); r++) {
+        if (!grid[r]) continue;
+        for (let c1 = 0; c1 < colsCount; c1++) {
+          const val1 = grid[r][c1]?.val;
+          if (!val1 || !/^\d{2}$/.test(val1)) continue;
+
+          const close1 = parseInt(val1[1], 10);
+          const doubleTotal = (close1 * 2) % 10;
+          const cutDoubleTotal = (doubleTotal + 5) % 10;
+
+          // Find first match in same week
+          let firstMatchCol = -1;
+          let firstMatchVal = null;
+
+          for (let c2 = c1 + 1; c2 < colsCount; c2++) {
+            const val2 = grid[r][c2]?.val;
+            if (!val2 || !/^\d{2}$/.test(val2)) continue;
+            const tot2 = (parseInt(val2[0], 10) + parseInt(val2[1], 10)) % 10;
+            if (tot2 === doubleTotal || tot2 === cutDoubleTotal) {
+              firstMatchCol = c2;
+              firstMatchVal = val2;
+              break;
+            }
+          }
+
+          if (firstMatchCol !== -1 && firstMatchVal) {
+            const cell2Obj = cellPosMap[`${r}_${firstMatchCol}`];
+            if (cell2Obj) {
+              const target3Idx = cell2Obj.idx + 2;
+              const targetR = r + Math.floor((firstMatchCol + 2) / colsCount);
+              const targetC = (firstMatchCol + 2) % colsCount;
+
+              // Check if current target prediction cell matches 3rd-day target cell position!
+              if (targetR === targetRowIdx && targetC === colVal) {
+                const c2ValDigit = parseInt(firstMatchVal[1], 10);
+                const optA = c2ValDigit;
+                const optACut = (c2ValDigit + 5) % 10;
+                const optB = (c2ValDigit * 2) % 10;
+                const optBCut = (optB + 5) % 10;
+                const validTotals = [optA, optACut, optB, optBCut];
+
+                for (let o = 0; o <= 9; o++) {
+                  for (let c = 0; c <= 9; c++) {
+                    const candJodi = `${o}${c}`;
+                    const candTot = (o + c) % 10;
+                    if (validTotals.includes(candTot)) {
+                      addPoints(
+                        candJodi,
+                        70,
+                        activeModel.conditionWeight,
+                        1.0,
+                        `🎯 [CLOSE DOUBLE 3RD-DAY TARGET] Matches projected target Total ${candTot} from Origin ${val1} (Row #${r+1}) -> Match ${firstMatchVal}`
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 10: ONE-UP (+1 SHIFT) & HARMONIC DIGIT STEPPER ---
+    const recentSampleCells = [];
+    if (targetRowIdx >= 0 && colVal >= 1 && grid[targetRowIdx] && grid[targetRowIdx][colVal - 1]?.val) {
+      recentSampleCells.push(grid[targetRowIdx][colVal - 1].val); // Yesterday
+    }
+    if (targetRowIdx >= 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal]?.val) {
+      recentSampleCells.push(grid[targetRowIdx - 1][colVal].val); // Same day last week
+    }
+
+    recentSampleCells.forEach(sVal => {
+      if (/^\d{2}$/.test(sVal)) {
+        const sO = parseInt(sVal[0], 10);
+        const sC = parseInt(sVal[1], 10);
+        const sTot = (sO + sC) % 10;
+
+        const oneUpTot = (sTot + 1) % 10;
+        const oneUpTotCut = (oneUpTot + 5) % 10;
+        const oneUpClose = (sC + 1) % 10;
+        const oneUpCloseCut = (oneUpClose + 5) % 10;
+        const oneUpOpen = (sO + 1) % 10;
+        const oneUpOpenCut = (oneUpOpen + 5) % 10;
+
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+            const candTot = (o + c) % 10;
+
+            if (candTot === oneUpTot || candTot === oneUpTotCut) {
+              addPoints(candJodi, 36, activeModel.rowWeight, 1.0, `📈 [ONE-UP (+1) TOTAL SHIFT] Total ${candTot} derived from +1 shift of recent Total ${sTot} (from ${sVal})`);
+            }
+            if (c === oneUpClose || c === oneUpCloseCut) {
+              addPoints(candJodi, 32, activeModel.rowWeight, 0.95, `📈 [ONE-UP (+1) CLOSE SHIFT] Close ${c} derived from +1 shift of recent Close ${sC} (from ${sVal})`);
+            }
+            if (o === oneUpOpen || o === oneUpOpenCut) {
+              addPoints(candJodi, 28, activeModel.rowWeight, 0.9, `📈 [ONE-UP (+1) OPEN SHIFT] Open ${o} derived from +1 shift of recent Open ${sO} (from ${sVal})`);
+            }
+          }
+        }
+      }
+    });
+
     // --- PASS 6: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
     for (let r = startRowIdx; r < targetRowIdx; r++) {
       const rowDistance = targetRowIdx - r;
