@@ -588,6 +588,79 @@ export const PredictorEngine = () => {
       });
     }
 
+    // --- PASS 13: DIAGONAL TOTAL + OPEN / CLOSE PATTERN MATRIX RECOGNITION ---
+    // Evaluates cross-day 1st Jodi Total + 2nd Jodi Open/Close diagonal sum patterns across recent weeks
+    let diagonalSumScansApplied = 0;
+    for (let gap = 0; gap <= 6; gap++) {
+      for (let fromC = 0; fromC < activeChart.cols; fromC++) {
+        for (let toC = 0; toC < activeChart.cols; toC++) {
+          if (fromC === toC && gap === 0) continue;
+
+          for (let r = 0; r < targetRowIdx; r++) {
+            const r2 = r + gap;
+            if (r2 >= targetRowIdx) continue;
+
+            const val1 = grid[r]?.[fromC]?.val;
+            const val2 = grid[r2]?.[toC]?.val;
+
+            if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
+
+            // 1st Jodi Total (Sum of digits % 10)
+            const tot1 = (parseInt(val1[0]) + parseInt(val1[1])) % 10;
+            // 2nd Jodi Open or Close
+            const open2 = parseInt(val2[0]);
+            const close2 = parseInt(val2[1]);
+
+            const targetSumOpen = (tot1 + open2) % 10;
+            const targetSumClose = (tot1 + close2) % 10;
+
+            const rDiff = targetRowIdx - r2;
+            const cDiff = colVal - toC;
+
+            // If target cell aligns diagonally with this pattern sequence:
+            if (Math.abs(cDiff) <= 2 && rDiff <= 8) {
+              const recencyFactor = Math.pow(0.97, rDiff);
+              
+              const projOpen = targetSumOpen;
+              const projCutOpen = getCut(projOpen);
+
+              const projClose = targetSumClose;
+
+              diagonalSumScansApplied++;
+
+              for (let d = 0; d <= 9; d++) {
+                // Open prediction
+                addPoints(
+                  `${projOpen}${d}`,
+                  55,
+                  activeModel.conditionWeight * 1.3,
+                  recencyFactor,
+                  `📐 [DIAGONAL TOTAL+OPEN PATTERN] 1st Jodi (${val1}) Total ${tot1} + 2nd Jodi (${val2}) Open ${open2} = Target ${targetSumOpen} → Projects Open ${projOpen}`
+                );
+
+                addPoints(
+                  `${projCutOpen}${d}`,
+                  30,
+                  activeModel.conditionWeight * 1.1,
+                  recencyFactor,
+                  `📐 [DIAGONAL PATTERN CUT-OPEN] Cut-Open ${projCutOpen} derived from Target Diagonal Sum ${targetSumOpen}`
+                );
+
+                // Close prediction
+                addPoints(
+                  `${d}${projClose}`,
+                  45,
+                  activeModel.conditionWeight * 1.2,
+                  recencyFactor,
+                  `📐 [DIAGONAL TOTAL+CLOSE PATTERN] 1st Jodi (${val1}) Total ${tot1} + 2nd Jodi (${val2}) Close ${close2} = Target ${targetSumClose} → Projects Close ${projClose}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
@@ -653,6 +726,7 @@ export const PredictorEngine = () => {
       lookbackRows: Math.min(targetRowIdx, LOOKBACK_WINDOW),
       customVisualRulesApplied,
       openToOpenHarmonicScansApplied,
+      diagonalSumScansApplied,
       topOpens,
       topCloses,
       topTotals,
@@ -759,6 +833,11 @@ export const PredictorEngine = () => {
                   {predictionResult.openToOpenHarmonicScansApplied > 0 && (
                     <span className="bg-blue-950 border border-blue-500/50 text-blue-300 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
                       <Link2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> Open-to-Open Delta Boosted
+                    </span>
+                  )}
+                  {predictionResult.diagonalSumScansApplied > 0 && (
+                    <span className="bg-purple-950 border border-purple-500/50 text-purple-300 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <Brain className="w-3.5 h-3.5 text-pink-400 animate-pulse" /> Diagonal Pattern Matrix Boosted ({predictionResult.diagonalSumScansApplied} vectors)
                     </span>
                   )}
                 </div>
