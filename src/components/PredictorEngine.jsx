@@ -372,10 +372,10 @@ export const PredictorEngine = () => {
                     if (validTotals.includes(candTot)) {
                       addPoints(
                         candJodi,
-                        70,
-                        activeModel.conditionWeight,
+                        140,
+                        activeModel.conditionWeight * 1.5,
                         1.0,
-                        `🎯 [CLOSE DOUBLE 3RD-DAY TARGET] Matches projected target Total ${candTot} from Origin ${val1} (Row #${r+1}) -> Match ${firstMatchVal}`
+                        `👑 [MASTER CLOSE DOUBLE TRIAD TARGET] High-Priority projected Total ${candTot} from Origin ${val1} (Row #${r+1}) -> Match ${firstMatchVal}`
                       );
                     }
                   }
@@ -1285,10 +1285,10 @@ export const PredictorEngine = () => {
             originFamily.forEach(famJodi => {
               addPoints(
                 famJodi,
-                55 + (intervalMatchCount * 12),
-                activeModel.conditionWeight * 1.35,
+                150 + (intervalMatchCount * 25),
+                activeModel.conditionWeight * 1.8,
                 recency,
-                `🏠 [INTER-WEEK FAMILY INTERVAL] Row #${originRowIdx + 1} (${COL_HEADERS[originCol] || 'Col ' + (originCol + 1)}) Jodi "${originVal}" projects Family Jodi "${famJodi}" across ${gapK}-week interval gap (Matched ${intervalMatchCount} historical cycles)`
+                `👑 [MASTER INTER-WEEK FAMILY INTERVAL] Row #${originRowIdx + 1} (${COL_HEADERS[originCol] || 'Col ' + (originCol + 1)}) Jodi "${originVal}" projects Family Jodi "${famJodi}" across ${gapK}-week interval gap (Matched ${intervalMatchCount} historical cycles)`
               );
             });
 
@@ -1298,10 +1298,116 @@ export const PredictorEngine = () => {
                 if ((o + c) % 10 === originTot || (o + c) % 10 === getCut(originTot)) {
                   addPoints(
                     candJodi,
-                    35,
-                    activeModel.conditionWeight * 1.1,
+                    90,
+                    activeModel.conditionWeight * 1.4,
                     recency,
                     `🎯 [INTER-WEEK TOTAL INTERVAL] Row #${originRowIdx + 1} Total ${originTot} projects Target Total ${(o + c) % 10} across ${gapK}-week interval gap`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 23: GRAND HARMONIC 3-WEEK MASTER TRIANGLE CHAIN (+160 PTS HIGH PRIORITY) ---
+    for (let r = 0; r < targetRowIdx - 1; r++) {
+      const mon1 = grid[r]?.[0]?.val;
+      const wed2 = grid[r + 1]?.[2]?.val;
+      if (mon1 && /^\d{2}$/.test(mon1) && wed2 && /^\d{2}$/.test(wed2)) {
+        const tot1 = (parseInt(mon1[0], 10) + parseInt(mon1[1], 10)) % 10;
+        const tot2 = (parseInt(wed2[0], 10) + parseInt(wed2[1], 10)) % 10;
+        if (tot1 === tot2 || (tot1 + 5) % 10 === tot2) {
+          const c2 = parseInt(wed2[1], 10);
+          const targetR = r + 3;
+          if (targetR === targetRowIdx && colVal === 0) {
+            const targetO = c2;
+            const targetCutO = (c2 + 5) % 10;
+            const targetTot = (c2 * 2) % 10;
+            const targetCutTot = (targetTot + 5) % 10;
+            for (let o = 0; o <= 9; o++) {
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${o}${c}`;
+                const candTot = (o + c) % 10;
+                if ((o === targetO || o === targetCutO) && (candTot === targetTot || candTot === targetCutTot)) {
+                  addPoints(
+                    candJodi,
+                    160,
+                    activeModel.conditionWeight * 2.0,
+                    1.0,
+                    `👑 [GRAND HARMONIC MASTER TARGET] 3-Week Master Chain (Mon ${mon1} -> Wed ${wed2}) projects Target Open ${o} & Total ${candTot}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 24: QUANTUM 4-WEEK QUAD-ANGLE LOOP (+170 PTS HIGH PRIORITY) ---
+    for (let r = 0; r < targetRowIdx - 2; r++) {
+      const j1 = grid[r]?.[0]?.val;
+      const j2 = grid[r + 1]?.[2]?.val;
+      const j3 = grid[r + 2]?.[4]?.val;
+      if (j1 && /^\d{2}$/.test(j1) && j2 && /^\d{2}$/.test(j2) && j3 && /^\d{2}$/.test(j3)) {
+        const o1 = parseInt(j1[0], 10), c1 = parseInt(j1[1], 10);
+        const o2 = parseInt(j2[0], 10), c2 = parseInt(j2[1], 10);
+        const o3 = parseInt(j3[0], 10), c3 = parseInt(j3[1], 10);
+        const t1 = (o1 + c1) % 10, f1 = Math.abs(o1 - c1) % 10;
+        if ((o2 === t1 || (o2 + 5) % 10 === t1) && (c2 === f1 || (c2 + 5) % 10 === f1)) {
+          const targetR = r + 3;
+          if (targetR === targetRowIdx && colVal === 3) {
+            const projO = (o1 + o2 + o3) % 10;
+            const projCutO = (projO + 5) % 10;
+            const projTot = (t1 + ((o3 + c3) % 10)) % 10;
+            const projCutTot = (projTot + 5) % 10;
+            for (let o = 0; o <= 9; o++) {
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${o}${c}`;
+                const candTot = (o + c) % 10;
+                if ((o === projO || o === projCutO) && (candTot === projTot || candTot === projCutTot)) {
+                  addPoints(
+                    candJodi,
+                    170,
+                    activeModel.conditionWeight * 2.2,
+                    1.0,
+                    `🧠 [QUANTUM QUAD-ANGLE LOOP MASTER TARGET] 4-Week Quad Loop (Mon ${j1} -> Wed ${j2} -> Fri ${j3}) projects Target Open ${o} & Total ${candTot}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 25: GOLDEN DIAGONAL 5-CELL SPIRAL (+150 PTS HIGH PRIORITY) ---
+    for (let r = 0; r < targetRowIdx - 3; r++) {
+      const cell1 = grid[r]?.[0]?.val;
+      const cell2 = grid[r + 1]?.[1]?.val;
+      const cell3 = grid[r + 2]?.[2]?.val;
+      const cell4 = grid[r + 3]?.[3]?.val;
+      if (cell1 && /^\d{2}$/.test(cell1) && cell2 && /^\d{2}$/.test(cell2) && cell3 && /^\d{2}$/.test(cell3) && cell4 && /^\d{2}$/.test(cell4)) {
+        const o1 = parseInt(cell1[0], 10), o2 = parseInt(cell2[0], 10), o3 = parseInt(cell3[0], 10), o4 = parseInt(cell4[0], 10);
+        const d1 = (o2 - o1 + 10) % 10, d2 = (o3 - o2 + 10) % 10, d3 = (o4 - o3 + 10) % 10;
+        if (d3 === (d1 + d2) % 10) {
+          const targetR = r + 4;
+          if (targetR === targetRowIdx && colVal === 4) {
+            const nextStep = (d2 + d3) % 10;
+            const projOpen = (o4 + nextStep) % 10;
+            const projCutOpen = (projOpen + 5) % 10;
+            for (let o = 0; o <= 9; o++) {
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${o}${c}`;
+                if (o === projOpen || o === projCutOpen) {
+                  addPoints(
+                    candJodi,
+                    150,
+                    activeModel.conditionWeight * 1.9,
+                    1.0,
+                    `🌀 [GOLDEN DIAGONAL SPIRAL MASTER TARGET] 5-Cell Spiral Vector (Mon ${cell1} -> Tue ${cell2} -> Wed ${cell3} -> Thu ${cell4}) projects Target Open ${o}`
                   );
                 }
               }
