@@ -657,6 +657,85 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
     return { matches, summary: `👑 FOUND ${pCount - 1} GRAND HARMONIC MASTER TRIANGLE CHAINS!`, matchMap };
   }
+
+  // --- 7. 4-CORNER BOX LOCK PATTERN ---
+  if (q.includes('box lock') || q.includes('4 corner') || q.includes('box')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 1; r++) {
+      const c1 = grid[r]?.[0]?.val; // Top-Left
+      const c2 = grid[r]?.[2]?.val; // Top-Right
+      const c3 = grid[r + 1]?.[0]?.val; // Bottom-Left
+
+      if (c1 && /^\d{2}$/.test(c1) && c2 && /^\d{2}$/.test(c2) && c3 && /^\d{2}$/.test(c3)) {
+        const tot1 = (parseInt(c1[0], 10) + parseInt(c1[1], 10)) % 10;
+        const tot2 = (parseInt(c2[0], 10) + parseInt(c2[1], 10)) % 10;
+        const pId = `BL${pCount++}`;
+
+        const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: c1, pairId: pId, stepIndex: 1, color: '#06b6d4', border: '#0891b2', reason: `🔲 [#1 CORNER 1] Total ${tot1}` };
+        const m2 = { r, c: 2, day: 'Wed', rowNum: r + 1, val: c2, pairId: pId, stepIndex: 2, color: '#06b6d4', border: '#0891b2', reason: `🔲 [#2 CORNER 2] Total ${tot2}` };
+        const m3 = { r: r + 1, c: 0, day: 'Mo', rowNum: r + 2, val: c3, pairId: pId, stepIndex: 3, color: '#06b6d4', border: '#0891b2', reason: `🔲 [#3 CORNER 3] Top-Right Mirror` };
+
+        const targetR = r + 1;
+        const isFilled4 = grid[targetR]?.[2]?.val && /^\d{2}$/.test(grid[targetR][2].val);
+        const m4 = {
+          r: targetR, c: 2, day: 'Wed', rowNum: targetR + 1,
+          val: isFilled4 ? grid[targetR][2].val : `${tot1}/${(tot1 + 5) % 10} (tot)`,
+          isTarget: !isFilled4, targetTotals: [tot1, (tot1 + 5) % 10, tot1, (tot1 + 5) % 10],
+          pairId: pId, stepIndex: 4, color: '#f43f5e', border: '#be123c',
+          reason: `🎯 [#4 CORNER 4 TARGET] Projected Total = ${tot1} or Cut ${(tot1 + 5) % 10}`
+        };
+
+        if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+        if (!matchMap[`${r}_2`]) { matches.push(m2); matchMap[`${r}_2`] = m2; }
+        if (!matchMap[`${r + 1}_0`]) { matches.push(m3); matchMap[`${r + 1}_0`] = m3; }
+        if (!matchMap[`${targetR}_2`]) { matches.push(m4); matchMap[`${targetR}_2`] = m4; }
+      }
+    }
+    return { matches, summary: `🔲 FOUND ${pCount - 1} 4-CORNER BOX LOCK PATTERNS!`, matchMap };
+  }
+
+  // --- 8. 5-STAR DIAMOND CHAIN PATTERN ---
+  if (q.includes('diamond') || q.includes('5 star') || q.includes('star')) {
+    let pCount = 1;
+    for (let r = 1; r < grid.length - 1; r++) {
+      const topP = grid[r - 1]?.[1]?.val; // Top (Row -1, Tue)
+      const leftP = grid[r]?.[0]?.val;  // Left (Row 0, Mon)
+      const rightP = grid[r]?.[2]?.val; // Right (Row 0, Wed)
+      const botP = grid[r + 1]?.[1]?.val; // Bottom (Row +1, Tue)
+
+      if (topP && /^\d{2}$/.test(topP) && leftP && /^\d{2}$/.test(leftP) && rightP && /^\d{2}$/.test(rightP) && botP && /^\d{2}$/.test(botP)) {
+        const t1 = (parseInt(topP[0], 10) + parseInt(topP[1], 10)) % 10;
+        const t2 = (parseInt(leftP[0], 10) + parseInt(leftP[1], 10)) % 10;
+        const t3 = (parseInt(rightP[0], 10) + parseInt(rightP[1], 10)) % 10;
+        const t4 = (parseInt(botP[0], 10) + parseInt(botP[1], 10)) % 10;
+
+        const centerTot = (t1 + t2 + t3 + t4) % 10;
+        const centerCutTot = (centerTot + 5) % 10;
+        const pId = `DM${pCount++}`;
+
+        const m1 = { r: r - 1, c: 1, day: 'Tue', rowNum: r, val: topP, pairId: pId, stepIndex: 1, color: '#eab308', border: '#ca8a04', reason: `💎 [#1 TOP POINT]` };
+        const m2 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: leftP, pairId: pId, stepIndex: 2, color: '#eab308', border: '#ca8a04', reason: `💎 [#2 LEFT POINT]` };
+        const m3 = { r, c: 2, day: 'Wed', rowNum: r + 1, val: rightP, pairId: pId, stepIndex: 3, color: '#eab308', border: '#ca8a04', reason: `💎 [#3 RIGHT POINT]` };
+        const m4 = { r: r + 1, c: 1, day: 'Tue', rowNum: r + 2, val: botP, pairId: pId, stepIndex: 4, color: '#eab308', border: '#ca8a04', reason: `💎 [#4 BOTTOM POINT]` };
+
+        const isFilledCenter = grid[r]?.[1]?.val && /^\d{2}$/.test(grid[r][1].val);
+        const m5 = {
+          r, c: 1, day: 'Tue', rowNum: r + 1,
+          val: isFilledCenter ? grid[r][1].val : `${centerTot}/${centerCutTot} (tot)`,
+          isTarget: !isFilledCenter, targetTotals: [centerTot, centerCutTot, centerTot, centerCutTot],
+          pairId: pId, stepIndex: 5, color: '#ec4899', border: '#be185d',
+          reason: `🎯 [#5 DIAMOND CENTER TARGET] Projected Total = ${centerTot} or Cut ${centerCutTot}`
+        };
+
+        if (!matchMap[`${r - 1}_1`]) { matches.push(m1); matchMap[`${r - 1}_1`] = m1; }
+        if (!matchMap[`${r}_0`]) { matches.push(m2); matchMap[`${r}_0`] = m2; }
+        if (!matchMap[`${r}_2`]) { matches.push(m3); matchMap[`${r}_2`] = m3; }
+        if (!matchMap[`${r + 1}_1`]) { matches.push(m4); matchMap[`${r + 1}_1`] = m4; }
+        if (!matchMap[`${r}_1`]) { matches.push(m5); matchMap[`${r}_1`] = m5; }
+      }
+    }
+    return { matches, summary: `💎 FOUND ${pCount - 1} 5-STAR DIAMOND CHAIN PATTERNS!`, matchMap };
+  }
   if (q.includes('twin total') || q.includes('twin')) {
     const colsCount = grid[0] ? grid[0].length : 7;
     let pCount = 1;
