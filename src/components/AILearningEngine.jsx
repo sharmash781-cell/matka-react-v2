@@ -66,6 +66,7 @@ export const AILearningEngine = () => {
   const [diagFromDay, setDiagFromDay] = useState(1); // 1 = Tue (e.g. 70)
   const [diagToDay, setDiagToDay] = useState(2);   // 2 = Wed (e.g. 38)
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
+  const [diagCheckDigit, setDiagCheckDigit] = useState('open'); // 'open' or 'close' (Sum of Opens vs Sum of Closes)
 
   // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
   const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
@@ -755,6 +756,7 @@ export const AILearningEngine = () => {
 
     const fromCol = diagFromDay;
     const toCol = diagToDay;
+    const checkDigitIdx = diagCheckDigit === 'close' ? 1 : 0; // 0 for Open, 1 for Close
 
     for (let r = 0; r < grid.length; r++) {
       const cell1Val = grid[r]?.[fromCol]?.val || '';
@@ -776,53 +778,59 @@ export const AILearningEngine = () => {
       const nextWkR = r + 1;
       const nextWkVal = (nextWkR < grid.length) ? grid[nextWkR]?.[toCol]?.val : null;
 
-      // Check if diagonal open digit or next-week open matches targetSum
-      let isDiagOpenMatch = false;
-      if (nextWkVal && /^\d{2}$/.test(nextWkVal) && parseInt(nextWkVal[0]) === targetSum) {
-        isDiagOpenMatch = true;
-      } else if (upRightVal && /^\d{2}$/.test(upRightVal) && parseInt(upRightVal[0]) === targetSum) {
-        isDiagOpenMatch = true;
+      // Check if diagonal check digit (Open or Close) matches targetSum
+      let isDiagMatch = false;
+      let matchedVal = '';
+
+      if (nextWkVal && /^\d{2}$/.test(nextWkVal) && parseInt(nextWkVal[checkDigitIdx]) === targetSum) {
+        isDiagMatch = true;
+        matchedVal = nextWkVal;
+      } else if (upRightVal && /^\d{2}$/.test(upRightVal) && parseInt(upRightVal[checkDigitIdx]) === targetSum) {
+        isDiagMatch = true;
+        matchedVal = upRightVal;
       } else if (!nextWkVal && !upRightVal) {
-        isDiagOpenMatch = true;
+        isDiagMatch = true;
       }
 
-      if (!isDiagOpenMatch && (nextWkVal || upRightVal)) continue;
+      if (!isDiagMatch && (nextWkVal || upRightVal)) continue;
 
       const cellsToMark = [];
 
-      // 1. First Jodi (e.g. 70 on Tue)
-      cellsToMark.push({ r, c: fromCol, badgeVal: `1st (${cell1Val})` });
+      // 1. First Jodi
+      cellsToMark.push({ r, c: fromCol });
 
-      // 2. Second Jodi / Today (e.g. 38 on Wed)
-      cellsToMark.push({ r, c: toCol, badgeVal: `Sum ${targetSum}` });
+      // 2. Second Jodi
+      cellsToMark.push({ r, c: toCol });
 
-      // 3. Diagonal Up-Right (e.g. 47 on Fri)
+      // 3. Diagonal Up-Right
       if (upRightVal) {
-        cellsToMark.push({ r: upRightR, c: upRightC, badgeVal: `Diag Up (${upRightVal})` });
+        cellsToMark.push({ r: upRightR, c: upRightC });
       }
 
-      // 4. Right Neighbor (e.g. 69 on Thu)
+      // 4. Right Neighbor
       const rightC = toCol + 1;
       if (rightC < colsInput && grid[r]?.[rightC]?.val) {
-        cellsToMark.push({ r, c: rightC, badgeVal: `Right (${grid[r][rightC].val})` });
+        cellsToMark.push({ r, c: rightC });
       }
 
-      // 5. Next Week Follow-up (e.g. 04 on Wed)
+      // 5. Next Week Follow-up
       if (nextWkVal) {
-        cellsToMark.push({ r: nextWkR, c: toCol, badgeVal: `Next Wk (${nextWkVal})` });
+        cellsToMark.push({ r: nextWkR, c: toCol });
       }
 
       occurrences.push({
-        r,
+        row1: r,
+        rowNum: r + 1,
         cell1Val,
         cell2Val,
         targetSum,
+        matchedVal,
         cellsToMark
       });
     }
 
     if (occurrences.length === 0) {
-      setScanSummary({ count: 0, label: 'No Diagonal Open Sum matches found on chart.' });
+      setScanSummary({ count: 0, label: 'No Diagonal Sum matches found on chart.' });
       return;
     }
 
@@ -832,11 +840,12 @@ export const AILearningEngine = () => {
     });
 
     const digitText = diagDigitChoice === 'open' ? 'Open' : 'Close';
-    const autoColor = '#f59e0b'; // Fixed clean Amber Gold uniform color
+    const checkText = diagCheckDigit === 'open' ? 'Sum of Opens' : 'Sum of Closes';
+    const autoColor = '#f59e0b'; // Clean Amber Gold uniform color
 
     const diagRule = {
       id: `diag_total_open_${Date.now()}`,
-      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} = Sum Matches (${occurrences.length}x)`,
+      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} = Target (${checkText}) (${occurrences.length}x)`,
       color: autoColor,
       borderColor: autoColor,
       bg: 'bg-amber-950',
@@ -847,9 +856,10 @@ export const AILearningEngine = () => {
     setActiveRules([diagRule]);
     setScanSummary({
       count: occurrences.length,
-      label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${occurrences.length}x Found)`
+      label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${checkText}) (${occurrences.length}x Found)`,
+      occurrences
     });
-  }, [grid, diagFromDay, diagToDay, diagDigitChoice, colsInput]);
+  }, [grid, diagFromDay, diagToDay, diagDigitChoice, diagCheckDigit, colsInput]);
 
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
@@ -1339,45 +1349,58 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs font-mono">
               {/* 1. FROM DAY (FIRST JODI) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day (From Day)</div>
+                <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day</div>
                 <select
                   value={diagFromDay}
                   onChange={(e) => setDiagFromDay(parseInt(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1.5 rounded-lg text-xs"
                 >
                   {COL_HEADERS.map((day, idx) => (
-                    <option key={idx} value={idx}>{day} (e.g. {idx === 1 ? '70' : `Col ${idx+1}`})</option>
+                    <option key={idx} value={idx}>{day} ({idx === 1 ? 'Tue' : `Day ${idx+1}`})</option>
                   ))}
                 </select>
               </div>
 
-              {/* 2. TO DAY (SECOND JODI / TODAY) */}
+              {/* 2. TO DAY (SECOND JODI) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-purple-400 font-bold uppercase">2. 2nd Jodi Day (To Day)</div>
+                <div className="text-[10px] text-purple-400 font-bold uppercase">2. 2nd Jodi Day</div>
                 <select
                   value={diagToDay}
                   onChange={(e) => setDiagToDay(parseInt(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-700 text-white font-bold p-1.5 rounded-lg text-xs"
                 >
                   {COL_HEADERS.map((day, idx) => (
-                    <option key={idx} value={idx}>{day} (e.g. {idx === 2 ? '38' : `Col ${idx+1}`})</option>
+                    <option key={idx} value={idx}>{day} ({idx === 2 ? 'Wed' : `Day ${idx+1}`})</option>
                   ))}
                 </select>
               </div>
 
               {/* 3. 2ND JODI DIGIT */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
-                <div className="text-[10px] text-cyan-400 font-bold uppercase">3. 2nd Jodi Digit Select</div>
+                <div className="text-[10px] text-cyan-400 font-bold uppercase">3. 2nd Jodi Digit</div>
                 <select
                   value={diagDigitChoice}
                   onChange={(e) => setDiagDigitChoice(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1.5 rounded-lg text-xs"
                 >
-                  <option value="open">Open Digit (e.g. 3 of 38)</option>
-                  <option value="close">Close Digit (e.g. 8 of 38)</option>
+                  <option value="open">Open Digit (1st Jodi Total + Open)</option>
+                  <option value="close">Close Digit (1st Jodi Total + Close)</option>
+                </select>
+              </div>
+
+              {/* 4. DIAGONAL CHECK DIGIT (SUM OF OPENS / CLOSES) */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-emerald-400 font-bold uppercase">4. Diagonal Match Type</div>
+                <select
+                  value={diagCheckDigit}
+                  onChange={(e) => setDiagCheckDigit(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1.5 rounded-lg text-xs"
+                >
+                  <option value="open">Sum of Opens (Open Digit Match)</option>
+                  <option value="close">Sum of Closes (Close Digit Match)</option>
                 </select>
               </div>
             </div>
@@ -1803,15 +1826,6 @@ export const AILearningEngine = () => {
                               }`}
                             >
                               <div className={`flex flex-col justify-between items-center h-full w-full ${showStats ? 'py-0.5 px-0.5' : 'justify-center'}`}>
-                                {/* TOP RIGHT CORNER FLOATING BADGE: Small Total / Number Badge (Non-overlapping) */}
-                                {scanCellBadge && (
-                                  <div className="absolute -top-1.5 -right-1 z-30 pointer-events-none">
-                                    <span className="text-[7px] sm:text-[9px] font-black font-mono text-slate-950 bg-amber-400 border border-amber-600 rounded px-1 py-[1px] shadow-md leading-none inline-block tracking-tighter">
-                                      {scanCellBadge}
-                                    </span>
-                                  </div>
-                                )}
-
                                 {/* TOP: Total (emerald left) + Diff Total (red right) */}
                                 {showStats && (
                                   <div className="flex justify-between items-center w-full px-1 leading-none pt-0.5 pointer-events-none">
