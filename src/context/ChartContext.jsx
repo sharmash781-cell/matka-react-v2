@@ -101,7 +101,7 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "SRIDEVI PANEL"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
