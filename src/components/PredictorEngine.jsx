@@ -1255,6 +1255,62 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 22: INTER-WEEK FAMILY INTERVAL ENGINE (FAMILY ECHOES, TOTALS, & RED PAIRS) ---
+    // Detects periodic row interval gaps (e.g. +20 weeks gap between Row 10 Monday and Row 30 Tuesday).
+    // Applies the Family set, Common Totals, and Red Pair rules to project the Target Cell!
+    for (let gapK = 1; gapK <= 35; gapK++) {
+      const originRowIdx = targetRowIdx - gapK;
+      if (originRowIdx < 0) break;
+
+      for (let originCol = 0; originCol < activeChart.cols; originCol++) {
+        const originVal = grid[originRowIdx]?.[originCol]?.val;
+        if (originVal && /^\d{2}$/.test(originVal)) {
+          const originO = parseInt(originVal[0]), originC = parseInt(originVal[1]);
+          const originTot = (originO + originC) % 10;
+          const originFamily = getFamilySet(originO, originC);
+
+          let intervalMatchCount = 0;
+          for (let histR = gapK; histR < targetRowIdx; histR += gapK) {
+            const histPrev = grid[histR - gapK]?.[originCol]?.val;
+            const histCur = grid[histR]?.[colVal]?.val;
+            if (histPrev && /^\d{2}$/.test(histPrev) && histCur && /^\d{2}$/.test(histCur)) {
+              const hPO = parseInt(histPrev[0]), hPC = parseInt(histPrev[1]);
+              const hFam = getFamilySet(hPO, hPC);
+              if (hFam.has(histCur)) intervalMatchCount++;
+            }
+          }
+
+          if (intervalMatchCount > 0) {
+            const recency = Math.max(0.6, 1.0 - (gapK * 0.015));
+            originFamily.forEach(famJodi => {
+              addPoints(
+                famJodi,
+                55 + (intervalMatchCount * 12),
+                activeModel.conditionWeight * 1.35,
+                recency,
+                `🏠 [INTER-WEEK FAMILY INTERVAL] Row #${originRowIdx + 1} (${COL_HEADERS[originCol] || 'Col ' + (originCol + 1)}) Jodi "${originVal}" projects Family Jodi "${famJodi}" across ${gapK}-week interval gap (Matched ${intervalMatchCount} historical cycles)`
+              );
+            });
+
+            for (let o = 0; o <= 9; o++) {
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${o}${c}`;
+                if ((o + c) % 10 === originTot || (o + c) % 10 === getCut(originTot)) {
+                  addPoints(
+                    candJodi,
+                    35,
+                    activeModel.conditionWeight * 1.1,
+                    recency,
+                    `🎯 [INTER-WEEK TOTAL INTERVAL] Row #${originRowIdx + 1} Total ${originTot} projects Target Total ${(o + c) % 10} across ${gapK}-week interval gap`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {

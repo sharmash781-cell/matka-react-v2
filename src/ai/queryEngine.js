@@ -830,6 +830,41 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
     return { matches, summary: `🌀 FOUND ${pCount - 1} GOLDEN DIAGONAL SPIRAL PATTERNS!`, matchMap };
   }
+
+  // --- 11. INTER-WEEK FAMILY INTERVAL PATTERN ---
+  if (q.includes('family interval') || q.includes('family echo') || q.includes('family cycle')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 20; r++) {
+      const v1 = grid[r]?.[0]?.val; // Monday Row R
+      if (v1 && /^\d{2}$/.test(v1)) {
+        const o1 = parseInt(v1[0], 10), c1 = parseInt(v1[1], 10);
+        const cutO1 = (o1 + 5) % 10, cutC1 = (c1 + 5) % 10;
+        const familySet = new Set([
+          `${o1}${c1}`, `${o1}${cutC1}`, `${cutO1}${c1}`, `${cutO1}${cutC1}`,
+          `${c1}${o1}`, `${c1}${cutO1}`, `${cutC1}${o1}`, `${cutC1}${cutO1}`
+        ]);
+
+        const targetR = r + 20;
+        const v2 = grid[targetR]?.[1]?.val; // Tuesday Row R+20
+
+        const pId = `FI${pCount++}`;
+        const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: v1, pairId: pId, stepIndex: 1, color: '#eab308', border: '#ca8a04', reason: `🏠 [#1 ORIGIN FAMILY] ${v1} (Row #${r + 1})` };
+
+        const isFilled2 = v2 && /^\d{2}$/.test(v2);
+        const m2 = {
+          r: targetR, c: 1, day: 'Tue', rowNum: targetR + 1,
+          val: isFilled2 ? v2 : `Family of ${v1}`,
+          isTarget: !isFilled2, targetTotals: [ (o1+c1)%10, ((o1+c1)+5)%10, (o1+c1)%10, ((o1+c1)+5)%10 ],
+          pairId: pId, stepIndex: 2, color: '#eab308', border: '#ca8a04',
+          reason: `🎯 [#2 FAMILY INTERVAL TARGET] Projected Family of ${v1} across 20-week interval`
+        };
+
+        if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+        if (!matchMap[`${targetR}_1`]) { matches.push(m2); matchMap[`${targetR}_1`] = m2; }
+      }
+    }
+    return { matches, summary: `🏠 FOUND ${pCount - 1} INTER-WEEK FAMILY INTERVAL PATTERNS!`, matchMap };
+  }
   if (q.includes('twin total') || q.includes('twin')) {
     const colsCount = grid[0] ? grid[0].length : 7;
     let pCount = 1;
