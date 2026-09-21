@@ -18,7 +18,6 @@ export const Navbar = () => {
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
               Number-Cal <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">React v2.0</span>
             </h1>
-            <p className="text-[9px] text-slate-400 font-mono tracking-widest uppercase hidden sm:block">AI Matka Engine</p>
           </div>
         </div>
 

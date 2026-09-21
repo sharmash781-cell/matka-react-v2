@@ -229,36 +229,29 @@ export const ChartFinder = () => {
     <div className="max-w-7xl mx-auto space-y-3 p-1.5 sm:p-4 text-slate-100 font-poppins">
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-          <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-tr from-pink-600 to-purple-600 p-2 rounded-xl text-white shadow-md">
-              <Search className="w-5 h-5 animate-pulse" />
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="bg-gradient-to-tr from-pink-600 to-purple-600 p-2 sm:p-2.5 rounded-xl text-white shadow-md shrink-0">
+              <Search className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                Chart Natural Language Search &amp; Finder
-              </h2>
-              <p className="text-[10px] text-slate-400">
-                Ask in English or Telugu · <span className="text-cyan-400 font-bold">Hold any number 1s for multi-family highlight</span>
-              </p>
+            <div className="flex-1 sm:flex-initial">
+              <label className="text-[10px] text-pink-400 font-black uppercase tracking-widest block mb-0.5">
+                Active Chart
+              </label>
+              <select
+                value={selectedChart}
+                onChange={(e) => {
+                  setSelectedChart(e.target.value);
+                  if (setActiveChartName) setActiveChartName(e.target.value);
+                }}
+                className="w-full sm:w-auto bg-slate-900 border-2 border-pink-500/80 text-pink-300 text-base sm:text-xl font-black font-mono px-3.5 py-1.5 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 shadow-lg cursor-pointer transition hover:border-pink-400"
+              >
+                {Object.keys(charts).map((chartKey) => (
+                  <option key={chartKey} value={chartKey} className="bg-slate-950 text-white font-bold text-sm">
+                    {chartKey} ({charts[chartKey]?.data?.length || 0} rows)
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:block">Select Chart:</label>
-            <select
-              value={selectedChart}
-              onChange={(e) => {
-                setSelectedChart(e.target.value);
-                if (setActiveChartName) setActiveChartName(e.target.value);
-              }}
-              className="bg-slate-900 border border-pink-500/80 text-pink-300 text-xs font-bold font-mono px-3 py-1.5 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 shadow-inner cursor-pointer"
-            >
-              {Object.keys(charts).map((chartKey) => (
-                <option key={chartKey} value={chartKey}>
-                  {chartKey} ({charts[chartKey]?.data?.length || 0} rows)
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
