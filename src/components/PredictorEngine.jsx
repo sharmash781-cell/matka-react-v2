@@ -807,7 +807,6 @@ export const PredictorEngine = () => {
       customVisualRulesApplied,
       openToOpenHarmonicScansApplied,
       diagonalSumScansApplied,
-      redPairActionConfluences,
       topOpens,
       topCloses,
       topTotals,
@@ -829,7 +828,6 @@ export const PredictorEngine = () => {
             </div>
             <div>
               <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
-              <p className="text-xs text-slate-400">Dynamic Recency Weighting & Open-to-Open Full Chart Matrix Pattern Recognition</p>
             </div>
           </div>
 
