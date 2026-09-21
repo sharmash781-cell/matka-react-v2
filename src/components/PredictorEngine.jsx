@@ -1418,6 +1418,50 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 26: UNIVERSAL CLOSE-TO-OPEN TOUCH & CUT-OPEN HARMONIC ENGINE (WORKS ON ANY CHART) ---
+    // Evaluates preceding vertical and horizontal cells to project Universal Open & Cut-Open Digits
+    const projectedUniversalOpens = new Set();
+
+    // 1. Vertical Column Lookback (Same day last 4 weeks)
+    for (let rOffset = 1; rOffset <= 4; rOffset++) {
+      const pR = targetRowIdx - rOffset;
+      if (pR >= 0 && grid[pR] && grid[pR][colVal]?.val) {
+        const pVal = grid[pR][colVal].val;
+        if (/^\d{2}$/.test(pVal)) {
+          const pO = parseInt(pVal[0], 10);
+          const pC = parseInt(pVal[1], 10);
+          projectedUniversalOpens.add(pO);
+          projectedUniversalOpens.add(getCut(pO));
+          projectedUniversalOpens.add(pC);
+          projectedUniversalOpens.add(getCut(pC));
+        }
+      }
+    }
+
+    // 2. Yesterday's Horizontal Cell Lookback (Same week)
+    if (colVal > 0 && grid[targetRowIdx] && grid[targetRowIdx][colVal - 1]?.val) {
+      const yVal = grid[targetRowIdx][colVal - 1].val;
+      if (/^\d{2}$/.test(yVal)) {
+        const yC = parseInt(yVal[1], 10);
+        projectedUniversalOpens.add(yC);
+        projectedUniversalOpens.add(getCut(yC));
+      }
+    }
+
+    // Apply +180 PTS Master Priority to all candidate Jodis starting with these projected Universal Opens
+    projectedUniversalOpens.forEach(projO => {
+      for (let c = 0; c <= 9; c++) {
+        const candJodi = `${projO}${c}`;
+        addPoints(
+          candJodi,
+          180,
+          activeModel.conditionWeight * 2.3,
+          1.0,
+          `👑 [UNIVERSAL OPEN TOUCH & CUT HARMONIC] High-Priority projected Open ${projO} (Direct/Cut/Touch digit from historical matrix)`
+        );
+      }
+    });
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
