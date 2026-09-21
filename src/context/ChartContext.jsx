@@ -19,7 +19,6 @@ export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3,
 export const MARKET_ORDER = [
   "SRIDEVI",
   "TIME BAZAR",
-  "MADHUR DAY",
   "MILAN DAYY",
   "KALYAN",
   "SRIDEVI NIGHT",
@@ -75,9 +74,8 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
-  "SRIDEVI": srideviPreset,
+  "SRIDEVI": srideviiiiPreset,
   "TIME BAZAR": timeBazarPreset,
-  "MADHUR DAY": madhurDayPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -86,9 +84,8 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
-  "SRIDEVI": srideviPreset,
+  "SRIDEVI": srideviiiiPreset,
   "TIME BAZAR": timeBazarPreset,
-  "MADHUR DAY": madhurDayPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -106,8 +103,20 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
+const REMOVED_CHARTS = new Set(["MADHUR DAY"]);
+
 const getInitialCharts = () => {
-  const mergedCustomCharts = {};
+  const baseCharts = {
+    "SRIDEVI": srideviiiiPreset,
+    "TIME BAZAR": timeBazarPreset,
+    "MILAN DAYY": milanDayyPreset,
+    "KALYAN": kalyanPreset,
+    "SRIDEVI NIGHT": srideviNightPreset,
+    "MILAN NIGHTT": milanNighttPreset,
+    "MAIN BAZAR": mainBazarPreset
+  };
+
+  const loadedFromStorage = {};
 
   POSSIBLE_STORAGE_KEYS.forEach((key) => {
     try {
@@ -116,8 +125,11 @@ const getInitialCharts = () => {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
           Object.keys(parsed).forEach((chartName) => {
-            if (!DEFAULT_PRESETS[chartName] && !mergedCustomCharts[chartName]) {
-              mergedCustomCharts[chartName] = parsed[chartName];
+            const cleanName = chartName.trim().toUpperCase();
+            if (!REMOVED_CHARTS.has(cleanName)) {
+              if (!loadedFromStorage[cleanName] && parsed[chartName] && parsed[chartName].data) {
+                loadedFromStorage[cleanName] = parsed[chartName];
+              }
             }
           });
         }
@@ -125,21 +137,16 @@ const getInitialCharts = () => {
     } catch (e) {}
   });
 
-  const baseCharts = {
-    "SRIDEVI": srideviPreset,
-    "TIME BAZAR": timeBazarPreset,
-    "MADHUR DAY": madhurDayPreset,
-    "MILAN DAYY": milanDayyPreset,
-    "KALYAN": kalyanPreset,
-    "SRIDEVI NIGHT": srideviNightPreset,
-    "MILAN NIGHTT": milanNighttPreset,
-    "MAIN BAZAR": mainBazarPreset
+  const finalCharts = {
+    ...baseCharts,
+    ...loadedFromStorage
   };
 
-  return {
-    ...baseCharts,
-    ...mergedCustomCharts
-  };
+  REMOVED_CHARTS.forEach((removedName) => {
+    delete finalCharts[removedName];
+  });
+
+  return finalCharts;
 };
 
 export const ChartProvider = ({ children }) => {
