@@ -1448,16 +1448,16 @@ export const PredictorEngine = () => {
       }
     }
 
-    // Apply +180 PTS Master Priority to all candidate Jodis starting with these projected Universal Opens
+    // Apply balanced harmonic points to candidate Jodis matching matrix touch & cut digits
     projectedUniversalOpens.forEach(projO => {
       for (let c = 0; c <= 9; c++) {
         const candJodi = `${projO}${c}`;
         addPoints(
           candJodi,
-          180,
-          activeModel.conditionWeight * 2.3,
+          90,
+          activeModel.conditionWeight * 1.2,
           1.0,
-          `👑 [UNIVERSAL OPEN TOUCH & CUT HARMONIC] High-Priority projected Open ${projO} (Direct/Cut/Touch digit from historical matrix)`
+          `🎵 [UNIVERSAL MATRIX TOUCH & CUT DIGIT] Open ${projO} derived from matrix touch & cut harmonics`
         );
       }
     });
