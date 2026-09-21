@@ -1000,6 +1000,98 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 20: DUAL-CELL HARMONIC CLOSE/OPEN/TOTAL PAIR CONTINUATION ENGINE ---
+    // Evaluates horizontal pairs across preceding weeks (e.g. 50-70 Same Close 0, 19-99 Same Close 9 -> 93 projects 68 with Close 3 or Cut Close 8)
+    if (colVal > 0) {
+      const pCol = colVal - 1;
+      const curLeftVal = grid[targetRowIdx]?.[pCol]?.val;
+
+      if (curLeftVal && /^\d{2}$/.test(curLeftVal)) {
+        const leftO = parseInt(curLeftVal[0]), leftC = parseInt(curLeftVal[1]);
+        const leftCutC = getCut(leftC), leftCutO = getCut(leftO);
+        const leftTot = (leftO + leftC) % 10;
+        const leftCutTot = getCut(leftTot);
+
+        // Check if preceding weeks exhibited Same/Cut Close Pair Harmony
+        let sameCloseHarmonicCount = 0;
+        let sameOpenHarmonicCount = 0;
+        let sameTotalHarmonicCount = 0;
+
+        for (let rBack = 1; rBack <= 5; rBack++) {
+          const rPrev = targetRowIdx - rBack;
+          if (rPrev >= 0) {
+            const vLeft = grid[rPrev]?.[pCol]?.val;
+            const vRight = grid[rPrev]?.[colVal]?.val;
+
+            if (vLeft && vRight && /^\d{2}$/.test(vLeft) && /^\d{2}$/.test(vRight)) {
+              const cL = parseInt(vLeft[1]), cR = parseInt(vRight[1]);
+              const oL = parseInt(vLeft[0]), oR = parseInt(vRight[0]);
+              const totL = (oL + cL) % 10, totR = (oR + cR) % 10;
+
+              if (cL === cR || cR === getCut(cL)) sameCloseHarmonicCount++;
+              if (oL === oR || oR === getCut(oL)) sameOpenHarmonicCount++;
+              if (totL === totR || totR === getCut(totL)) sameTotalHarmonicCount++;
+            }
+          }
+        }
+
+        // Apply Pair Harmony Projections to Target Cell
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+            const candTot = (o + c) % 10;
+
+            // 1. Close Pair Continuation (e.g. 93 Close 3 -> Target Close 3 or Cut 8)
+            if (c === leftC) {
+              const bonus = 45 + (sameCloseHarmonicCount * 10);
+              addPoints(
+                candJodi,
+                bonus,
+                activeModel.conditionWeight * 1.3,
+                1.0,
+                `🎵 [DUAL-CELL HARMONIC SAME CLOSE] Left cell "${curLeftVal}" Close ${leftC} projects target Same Close ${c} (Harmonic streak: ${sameCloseHarmonicCount})`
+              );
+            } else if (c === leftCutC) {
+              const bonus = 35 + (sameCloseHarmonicCount * 8);
+              addPoints(
+                candJodi,
+                bonus,
+                activeModel.conditionWeight * 1.1,
+                1.0,
+                `🎵 [DUAL-CELL HARMONIC CUT CLOSE] Left cell "${curLeftVal}" Close ${leftC} projects target Cut Close ${c} (Harmonic streak: ${sameCloseHarmonicCount})`
+              );
+            }
+
+            // 2. Open Pair Continuation
+            if (o === leftO || o === leftCutO) {
+              const isSame = o === leftO;
+              const bonus = (isSame ? 38 : 30) + (sameOpenHarmonicCount * 8);
+              addPoints(
+                candJodi,
+                bonus,
+                activeModel.conditionWeight * 1.1,
+                1.0,
+                `🎵 [DUAL-CELL HARMONIC OPEN PAIR] Left cell "${curLeftVal}" Open ${leftO} projects target ${isSame ? 'Same' : 'Cut'} Open ${o}`
+              );
+            }
+
+            // 3. Total Pair Continuation
+            if (candTot === leftTot || candTot === leftCutTot) {
+              const isSame = candTot === leftTot;
+              const bonus = (isSame ? 40 : 30) + (sameTotalHarmonicCount * 8);
+              addPoints(
+                candJodi,
+                bonus,
+                activeModel.conditionWeight * 1.2,
+                1.0,
+                `🎵 [DUAL-CELL HARMONIC TOTAL PAIR] Left cell "${curLeftVal}" Total ${leftTot} projects target ${isSame ? 'Same' : 'Cut'} Total ${candTot}`
+              );
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
