@@ -67,6 +67,7 @@ export const AILearningEngine = () => {
   const [diagToDay, setDiagToDay] = useState(2);   // 2 = Wed (e.g. 38)
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
   const [diagCheckDigit, setDiagCheckDigit] = useState('open'); // 'open' or 'close' (Sum of Opens vs Sum of Closes)
+  const [hoveredOccIdx, setHoveredOccIdx] = useState(null); // Hover/Focus active occurrence index
 
   // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
   const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
@@ -834,30 +835,46 @@ export const AILearningEngine = () => {
       return;
     }
 
-    const allCells = [];
-    occurrences.forEach(occ => {
-      occ.cellsToMark.forEach(c => allCells.push(c));
-    });
+    const DISTINCT_PALETTE = [
+      { color: '#f59e0b', border: '#f59e0b', bg: 'bg-amber-950', text: 'text-amber-300', badge: 'bg-amber-500 text-slate-950 border-amber-300' }, // #1: Amber Yellow
+      { color: '#06b6d4', border: '#06b6d4', bg: 'bg-cyan-950', text: 'text-cyan-300', badge: 'bg-cyan-500 text-slate-950 border-cyan-300' },    // #2: Cyan Blue
+      { color: '#a855f7', border: '#a855f7', bg: 'bg-purple-950', text: 'text-purple-300', badge: 'bg-purple-500 text-white border-purple-300' }, // #3: Purple
+      { color: '#10b981', border: '#10b981', bg: 'bg-emerald-950', text: 'text-emerald-300', badge: 'bg-emerald-500 text-slate-950 border-emerald-300' }, // #4: Emerald Green
+      { color: '#ec4899', border: '#ec4899', bg: 'bg-pink-950', text: 'text-pink-300', badge: 'bg-pink-500 text-white border-pink-300' },    // #5: Pink Rose
+      { color: '#6366f1', border: '#6366f1', bg: 'bg-indigo-950', text: 'text-indigo-300', badge: 'bg-indigo-500 text-white border-indigo-300' }, // #6: Indigo
+      { color: '#f97316', border: '#f97316', bg: 'bg-orange-950', text: 'text-orange-300', badge: 'bg-orange-500 text-slate-950 border-orange-300' }, // #7: Orange
+      { color: '#14b8a6', border: '#14b8a6', bg: 'bg-teal-950', text: 'text-teal-300', badge: 'bg-teal-500 text-slate-950 border-teal-300' },    // #8: Teal
+      { color: '#eab308', border: '#eab308', bg: 'bg-yellow-950', text: 'text-yellow-300', badge: 'bg-yellow-500 text-slate-950 border-yellow-300' }, // #9: Yellow
+      { color: '#8b5cf6', border: '#8b5cf6', bg: 'bg-violet-950', text: 'text-violet-300', badge: 'bg-violet-500 text-white border-violet-300' }  // #10: Violet
+    ];
 
     const digitText = diagDigitChoice === 'open' ? 'Open' : 'Close';
     const checkText = diagCheckDigit === 'open' ? 'Sum of Opens' : 'Sum of Closes';
-    const autoColor = '#f59e0b'; // Clean Amber Gold uniform color
 
-    const diagRule = {
-      id: `diag_total_open_${Date.now()}`,
-      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} = Target (${checkText}) (${occurrences.length}x)`,
-      color: autoColor,
-      borderColor: autoColor,
-      bg: 'bg-amber-950',
-      text: 'text-amber-300',
-      cells: allCells
-    };
+    const occurrenceRules = occurrences.map((occ, idx) => {
+      const p = DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length];
+      return {
+        id: `diag_occ_${idx}_${Date.now()}`,
+        occIdx: idx,
+        color: p.color,
+        borderColor: p.border,
+        bg: p.bg,
+        text: p.text,
+        badgeClass: p.badge,
+        label: `Row #${occ.rowNum}: ${DAY_LABELS[fromCol]} (${occ.cell1Val}) + ${DAY_LABELS[toCol]} (${occ.cell2Val}) → Target ${occ.targetSum}`,
+        cells: occ.cellsToMark.map(c => ({ ...c, occIdx: idx, color: p.color }))
+      };
+    });
 
-    setActiveRules([diagRule]);
+    setActiveRules(occurrenceRules);
     setScanSummary({
       count: occurrences.length,
       label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${checkText}) (${occurrences.length}x Found)`,
-      occurrences
+      occurrences: occurrences.map((occ, idx) => ({
+        ...occ,
+        occIdx: idx,
+        palette: DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length]
+      }))
     });
   }, [grid, diagFromDay, diagToDay, diagDigitChoice, diagCheckDigit, colsInput]);
 
@@ -867,7 +884,7 @@ export const AILearningEngine = () => {
       rule.cells.forEach(cell => {
         const key = `${cell.r}_${cell.c}`;
         if (!map[key]) {
-          map[key] = { rule, badgeVal: cell.badgeVal || null };
+          map[key] = { rule, occIdx: rule.occIdx ?? cell.occIdx ?? null, color: cell.color || rule.color };
         }
       });
     });
@@ -1698,27 +1715,34 @@ export const AILearningEngine = () => {
               {scanSummary.occurrences && scanSummary.occurrences.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto py-1">
                   {scanSummary.occurrences.map((occ, idx) => {
-                    const BADGE_COLORS = [
-                      'bg-cyan-500 text-slate-950 border-cyan-300',
-                      'bg-purple-500 text-white border-purple-300',
-                      'bg-emerald-500 text-slate-950 border-emerald-300',
-                      'bg-amber-500 text-slate-950 border-amber-300',
-                      'bg-pink-500 text-white border-pink-300',
-                      'bg-indigo-500 text-white border-indigo-300'
-                    ];
-                    const badgeClass = BADGE_COLORS[idx % BADGE_COLORS.length];
+                    const palette = occ.palette || {
+                      color: '#f59e0b',
+                      badge: 'bg-amber-500 text-slate-950 border-amber-300'
+                    };
+                    const isHovered = hoveredOccIdx === idx;
 
                     return (
                       <button
                         key={idx}
-                        onClick={() => scrollToRowIndex(occ.row1)}
-                        className="flex items-center gap-1.5 bg-slate-950 border border-slate-700/80 hover:border-pink-500/60 text-purple-200 text-xs font-bold px-2.5 py-1 rounded-xl shrink-0 transition hover:scale-105 shadow-sm"
+                        onMouseEnter={() => setHoveredOccIdx(idx)}
+                        onMouseLeave={() => setHoveredOccIdx(null)}
+                        onClick={() => {
+                          scrollToRowIndex(occ.row1);
+                          setHoveredOccIdx(idx);
+                        }}
+                        style={{
+                          borderColor: isHovered ? palette.color : '#334155',
+                          boxShadow: isHovered ? `0 0 12px ${palette.color}` : 'none'
+                        }}
+                        className={`flex items-center gap-1.5 bg-slate-950 border text-xs font-bold px-2.5 py-1 rounded-xl shrink-0 transition-all duration-150 ${
+                          isHovered ? 'scale-105 border-2 text-white bg-slate-900' : 'text-slate-200 hover:border-slate-500'
+                        }`}
                       >
-                        <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-black font-mono shadow-md border ${badgeClass}`}>
+                        <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-black font-mono shadow-md border ${palette.badge}`}>
                           {idx + 1}
                         </span>
-                        <span className="font-mono text-slate-200">
-                          #{occ.row1 + 1} ({occ.val1}) → #{occ.row2 + 1} ({occ.val2})
+                        <span className="font-mono">
+                          Row #{occ.rowNum || occ.row1 + 1}: {COL_HEADERS[diagFromDay]} ({occ.cell1Val}) + {COL_HEADERS[diagToDay]} ({occ.cell2Val}) → Target {occ.targetSum}
                         </span>
                       </button>
                     );
@@ -1788,7 +1812,11 @@ export const AILearningEngine = () => {
 
                           const scanHighlightData = scanCellHighlightMap[`${rIdx}_${cIdx}`] || null;
                           const scanHighlightRule = scanHighlightData ? scanHighlightData.rule : null;
-                          const scanCellBadge = scanHighlightData ? scanHighlightData.badgeVal : null;
+                          const cellOccIdx = scanHighlightData ? scanHighlightData.occIdx : null;
+                          const cellColor = scanHighlightData ? (scanHighlightData.color || scanHighlightRule?.color) : null;
+
+                          const isCellHovered = cellOccIdx !== null && cellOccIdx === hoveredOccIdx;
+                          const isAnyOccHovered = hoveredOccIdx !== null;
 
                           let bgStyle = 'white';
                           let borderStyle = '#020617';
@@ -1800,11 +1828,26 @@ export const AILearningEngine = () => {
                             borderStyle = primaryMatch.color;
                             borderWidthStyle = '3.5px';
                             shadowStyle = `0 0 12px ${primaryMatch.color}90 inset`;
-                          } else if (scanHighlightRule) {
-                            bgStyle = `${scanHighlightRule.color}40`;
-                            borderStyle = scanHighlightRule.color;
-                            borderWidthStyle = '3px';
-                            shadowStyle = `0 0 10px ${scanHighlightRule.color}bb inset`;
+                          } else if (scanHighlightData && cellColor) {
+                            if (isCellHovered) {
+                              // BRIGHT GLOWING NEON WHEN HOVERED OR CLICKED!
+                              bgStyle = `${cellColor}70`;
+                              borderStyle = cellColor;
+                              borderWidthStyle = '4px';
+                              shadowStyle = `0 0 18px ${cellColor}, 0 0 12px ${cellColor} inset`;
+                            } else if (isAnyOccHovered) {
+                              // Dim non-hovered occurrences slightly so active one pops out
+                              bgStyle = `${cellColor}20`;
+                              borderStyle = `${cellColor}90`;
+                              borderWidthStyle = '2px';
+                              shadowStyle = 'none';
+                            } else {
+                              // Standard distinct vibrant color per occurrence!
+                              bgStyle = `${cellColor}40`;
+                              borderStyle = cellColor;
+                              borderWidthStyle = '3px';
+                              shadowStyle = `0 0 10px ${cellColor}bb inset`;
+                            }
                           } else if (primaryEmptyPred) {
                             bgStyle = '#fce7f3';
                             borderStyle = '#ec4899';
