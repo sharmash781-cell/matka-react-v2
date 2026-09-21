@@ -1313,7 +1313,7 @@ export const PredictorEngine = () => {
         prob: ((score / sumTotal) * 100).toFixed(1)
       }))
       .sort((a, b) => b.prob - a.prob)
-      .slice(0, 3);
+      .slice(0, 2);
 
     const executionTime = (performance.now() - startTime).toFixed(2);
     const sorted = Object.entries(candidateScores).sort((a, b) => b[1] - a[1]);
@@ -1565,12 +1565,12 @@ export const PredictorEngine = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> TOTAL</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> TOTAL (TOP 2)</span>
               </span>
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 {predictionResult.topTotals.map((item, i) => (
-                  <div key={i} className="bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-amber-300">{item.digit}</span>
+                  <div key={i} className="bg-slate-900/90 border border-amber-500/40 p-2.5 rounded-xl text-center">
+                    <span className="block text-3xl font-black text-amber-300">{item.digit}</span>
                   </div>
                 ))}
               </div>

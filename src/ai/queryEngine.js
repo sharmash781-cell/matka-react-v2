@@ -736,6 +736,100 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     }
     return { matches, summary: `💎 FOUND ${pCount - 1} 5-STAR DIAMOND CHAIN PATTERNS!`, matchMap };
   }
+
+  // --- 9. QUANTUM 4-WEEK QUAD-ANGLE LOOP (HARD PATTERN 1) ---
+  if (q.includes('quantum') || q.includes('quad loop') || q.includes('hard pattern')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 3; r++) {
+      const j1 = grid[r]?.[0]?.val;      // Week 1 Monday
+      const j2 = grid[r + 1]?.[2]?.val;  // Week 2 Wednesday
+      const j3 = grid[r + 2]?.[4]?.val;  // Week 3 Friday
+
+      if (j1 && /^\d{2}$/.test(j1) && j2 && /^\d{2}$/.test(j2) && j3 && /^\d{2}$/.test(j3)) {
+        const o1 = parseInt(j1[0], 10), c1 = parseInt(j1[1], 10);
+        const o2 = parseInt(j2[0], 10), c2 = parseInt(j2[1], 10);
+        const o3 = parseInt(j3[0], 10), c3 = parseInt(j3[1], 10);
+
+        const t1 = (o1 + c1) % 10;
+        const f1 = Math.abs(o1 - c1) % 10;
+
+        if ((o2 === t1 || (o2 + 5) % 10 === t1) && (c2 === f1 || (c2 + 5) % 10 === f1)) {
+          const targetO = (o1 + o2 + o3) % 10;
+          const targetCutO = (targetO + 5) % 10;
+          const targetTot = (t1 + ((o3 + c3) % 10)) % 10;
+          const targetCutTot = (targetTot + 5) % 10;
+          const pId = `QL${pCount++}`;
+
+          const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: j1, pairId: pId, stepIndex: 1, color: '#0284c7', border: '#0369a1', reason: `🧠 [#1 W1 MON] T=${t1}, F=${f1}` };
+          const m2 = { r: r + 1, c: 2, day: 'Wed', rowNum: r + 2, val: j2, pairId: pId, stepIndex: 2, color: '#0d9488', border: '#0f766e', reason: `🧠 [#2 W2 WED INTERLOCK] O=${o2}, C=${c2}` };
+          const m3 = { r: r + 2, c: 4, day: 'Fri', rowNum: r + 3, val: j3, pairId: pId, stepIndex: 3, color: '#7c3aed', border: '#6d28d9', reason: `🧠 [#3 W3 FRI COUNTER-BALANCE]` };
+
+          const targetR = r + 3;
+          const isFilled4 = grid[targetR]?.[3]?.val && /^\d{2}$/.test(grid[targetR][3].val);
+          const m4 = {
+            r: targetR, c: 3, day: 'Thu', rowNum: targetR + 1,
+            val: isFilled4 ? grid[targetR][3].val : `${targetO}/${targetTot} (tot)`,
+            isTarget: !isFilled4, targetTotals: [targetTot, targetCutTot, targetO, targetCutO],
+            pairId: pId, stepIndex: 4, color: '#f43f5e', border: '#be123c',
+            reason: `🎯 [#4 QUAD TARGET THU] Projected Open = ${targetO}, Projected Total = ${targetTot}`
+          };
+
+          if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+          if (!matchMap[`${r + 1}_2`]) { matches.push(m2); matchMap[`${r + 1}_2`] = m2; }
+          if (!matchMap[`${r + 2}_4`]) { matches.push(m3); matchMap[`${r + 2}_4`] = m3; }
+          if (!matchMap[`${targetR}_3`]) { matches.push(m4); matchMap[`${targetR}_3`] = m4; }
+        }
+      }
+    }
+    return { matches, summary: `🧠 FOUND ${pCount - 1} QUANTUM QUAD-ANGLE LOOP PATTERNS!`, matchMap };
+  }
+
+  // --- 10. GOLDEN DIAGONAL SPIRAL (HARD PATTERN 2) ---
+  if (q.includes('spiral') || q.includes('golden diagonal') || q.includes('diagonal spiral')) {
+    let pCount = 1;
+    for (let r = 0; r < grid.length - 4; r++) {
+      const cell1 = grid[r]?.[0]?.val;     // Mon
+      const cell2 = grid[r + 1]?.[1]?.val; // Tue
+      const cell3 = grid[r + 2]?.[2]?.val; // Wed
+      const cell4 = grid[r + 3]?.[3]?.val; // Thu
+
+      if (cell1 && /^\d{2}$/.test(cell1) && cell2 && /^\d{2}$/.test(cell2) && cell3 && /^\d{2}$/.test(cell3) && cell4 && /^\d{2}$/.test(cell4)) {
+        const o1 = parseInt(cell1[0], 10), o2 = parseInt(cell2[0], 10), o3 = parseInt(cell3[0], 10), o4 = parseInt(cell4[0], 10);
+        const d1 = (o2 - o1 + 10) % 10;
+        const d2 = (o3 - o2 + 10) % 10;
+        const d3 = (o4 - o3 + 10) % 10;
+
+        if (d3 === (d1 + d2) % 10) {
+          const nextStep = (d2 + d3) % 10;
+          const projOpen = (o4 + nextStep) % 10;
+          const projCutOpen = (projOpen + 5) % 10;
+          const pId = `DS${pCount++}`;
+
+          const m1 = { r, c: 0, day: 'Mo', rowNum: r + 1, val: cell1, pairId: pId, stepIndex: 1, color: '#d97706', border: '#b45309', reason: `🌀 [#1 MON SPIRAL] Open ${o1}` };
+          const m2 = { r: r + 1, c: 1, day: 'Tue', rowNum: r + 2, val: cell2, pairId: pId, stepIndex: 2, color: '#d97706', border: '#b45309', reason: `🌀 [#2 TUE SPIRAL] Open ${o2} (Δ=${d1})` };
+          const m3 = { r: r + 2, c: 2, day: 'Wed', rowNum: r + 3, val: cell3, pairId: pId, stepIndex: 3, color: '#d97706', border: '#b45309', reason: `🌀 [#3 WED SPIRAL] Open ${o3} (Δ=${d2})` };
+          const m4 = { r: r + 3, c: 3, day: 'Thu', rowNum: r + 4, val: cell4, pairId: pId, stepIndex: 4, color: '#d97706', border: '#b45309', reason: `🌀 [#4 THU SPIRAL] Open ${o4} (Δ=${d3})` };
+
+          const targetR = r + 4;
+          const isFilled5 = grid[targetR]?.[4]?.val && /^\d{2}$/.test(grid[targetR][4].val);
+          const m5 = {
+            r: targetR, c: 4, day: 'Fri', rowNum: targetR + 1,
+            val: isFilled5 ? grid[targetR][4].val : `${projOpen}/${projCutOpen} (open)`,
+            isTarget: !isFilled5, targetTotals: [projOpen, projCutOpen, projOpen, projCutOpen],
+            pairId: pId, stepIndex: 5, color: '#ec4899', border: '#be185d',
+            reason: `🎯 [#5 FRI SPIRAL TARGET] Projected Open = ${projOpen} or Cut ${projCutOpen}`
+          };
+
+          if (!matchMap[`${r}_0`]) { matches.push(m1); matchMap[`${r}_0`] = m1; }
+          if (!matchMap[`${r + 1}_1`]) { matches.push(m2); matchMap[`${r + 1}_1`] = m2; }
+          if (!matchMap[`${r + 2}_2`]) { matches.push(m3); matchMap[`${r + 2}_2`] = m3; }
+          if (!matchMap[`${r + 3}_3`]) { matches.push(m4); matchMap[`${r + 3}_3`] = m4; }
+          if (!matchMap[`${targetR}_4`]) { matches.push(m5); matchMap[`${targetR}_4`] = m5; }
+        }
+      }
+    }
+    return { matches, summary: `🌀 FOUND ${pCount - 1} GOLDEN DIAGONAL SPIRAL PATTERNS!`, matchMap };
+  }
   if (q.includes('twin total') || q.includes('twin')) {
     const colsCount = grid[0] ? grid[0].length : 7;
     let pCount = 1;
