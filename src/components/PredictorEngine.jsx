@@ -588,78 +588,147 @@ export const PredictorEngine = () => {
       });
     }
 
-    // --- PASS 13: DIAGONAL TOTAL + OPEN / CLOSE PATTERN MATRIX RECOGNITION ---
-    // Evaluates cross-day 1st Jodi Total + 2nd Jodi Open/Close diagonal sum patterns across recent weeks
+    // --- PASS 13: DIAGONAL TOTAL + OPEN / CLOSE PATTERN MATRIX RECOGNITION (HIGH PERFORMANCE) ---
+    // Scans direct diagonal vectors leading to target cell within rolling lookback window
     let diagonalSumScansApplied = 0;
-    for (let gap = 0; gap <= 6; gap++) {
-      for (let fromC = 0; fromC < activeChart.cols; fromC++) {
-        for (let toC = 0; toC < activeChart.cols; toC++) {
-          if (fromC === toC && gap === 0) continue;
+    const diagStartR = Math.max(0, targetRowIdx - 30);
+    
+    for (let r = diagStartR; r < targetRowIdx; r++) {
+      const rDiff = targetRowIdx - r;
+      for (let cOffset = -2; cOffset <= 2; cOffset++) {
+        const fromC = colVal + cOffset;
+        if (fromC < 0 || fromC >= activeChart.cols) continue;
 
-          for (let r = 0; r < targetRowIdx; r++) {
-            const r2 = r + gap;
-            if (r2 >= targetRowIdx) continue;
+        const val1 = grid[r]?.[fromC]?.val;
+        if (!val1 || !/^\d{2}$/.test(val1)) continue;
 
-            const val1 = grid[r]?.[fromC]?.val;
-            const val2 = grid[r2]?.[toC]?.val;
+        const tot1 = (parseInt(val1[0]) + parseInt(val1[1])) % 10;
+        const r2 = r + 1;
 
-            if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
-
-            // 1st Jodi Total (Sum of digits % 10)
-            const tot1 = (parseInt(val1[0]) + parseInt(val1[1])) % 10;
-            // 2nd Jodi Open or Close
+        if (r2 < targetRowIdx) {
+          const val2 = grid[r2]?.[colVal]?.val;
+          if (val2 && /^\d{2}$/.test(val2)) {
             const open2 = parseInt(val2[0]);
             const close2 = parseInt(val2[1]);
 
             const targetSumOpen = (tot1 + open2) % 10;
             const targetSumClose = (tot1 + close2) % 10;
+            const recencyFactor = Math.pow(0.97, rDiff);
+            const projCutOpen = getCut(targetSumOpen);
 
-            const rDiff = targetRowIdx - r2;
-            const cDiff = colVal - toC;
+            diagonalSumScansApplied++;
 
-            // If target cell aligns diagonally with this pattern sequence:
-            if (Math.abs(cDiff) <= 2 && rDiff <= 8) {
-              const recencyFactor = Math.pow(0.97, rDiff);
-              
-              const projOpen = targetSumOpen;
-              const projCutOpen = getCut(projOpen);
-
-              const projClose = targetSumClose;
-
-              diagonalSumScansApplied++;
-
-              for (let d = 0; d <= 9; d++) {
-                // Open prediction
-                addPoints(
-                  `${projOpen}${d}`,
-                  55,
-                  activeModel.conditionWeight * 1.3,
-                  recencyFactor,
-                  `📐 [DIAGONAL TOTAL+OPEN PATTERN] 1st Jodi (${val1}) Total ${tot1} + 2nd Jodi (${val2}) Open ${open2} = Target ${targetSumOpen} → Projects Open ${projOpen}`
-                );
-
-                addPoints(
-                  `${projCutOpen}${d}`,
-                  30,
-                  activeModel.conditionWeight * 1.1,
-                  recencyFactor,
-                  `📐 [DIAGONAL PATTERN CUT-OPEN] Cut-Open ${projCutOpen} derived from Target Diagonal Sum ${targetSumOpen}`
-                );
-
-                // Close prediction
-                addPoints(
-                  `${d}${projClose}`,
-                  45,
-                  activeModel.conditionWeight * 1.2,
-                  recencyFactor,
-                  `📐 [DIAGONAL TOTAL+CLOSE PATTERN] 1st Jodi (${val1}) Total ${tot1} + 2nd Jodi (${val2}) Close ${close2} = Target ${targetSumClose} → Projects Close ${projClose}`
-                );
-              }
+            for (let d = 0; d <= 9; d++) {
+              addPoints(`${targetSumOpen}${d}`, 40, activeModel.conditionWeight, recencyFactor, `📐 [DIAGONAL TOTAL+OPEN PATTERN] Jodi ${val1} Total ${tot1} + Jodi ${val2} Open ${open2} = Target ${targetSumOpen}`);
+              addPoints(`${projCutOpen}${d}`, 20, activeModel.conditionWeight, recencyFactor, `📐 [DIAGONAL PATTERN CUT-OPEN] Cut Open ${projCutOpen} from Target ${targetSumOpen}`);
+              addPoints(`${d}${targetSumClose}`, 30, activeModel.conditionWeight, recencyFactor, `📐 [DIAGONAL TOTAL+CLOSE PATTERN] Jodi ${val1} Total ${tot1} + Jodi ${val2} Close ${close2} = Target ${targetSumClose}`);
             }
           }
         }
       }
     }
+
+    // --- PASS 14: CUT-FAMILY MARKOV TRANSITION & CHART HOT-DIGIT FREQUENCY ENGINE (HIGH PERFORMANCE) ---
+    const chartDigitFreq = Array(10).fill(0);
+    let totalChartDigitsScanned = 0;
+    const hotStartR = Math.max(0, targetRowIdx - 80);
+
+    for (let r = hotStartR; r < targetRowIdx; r++) {
+      if (grid[r]) {
+        for (let c = 0; c < activeChart.cols; c++) {
+          const val = grid[r][c]?.val;
+          if (val && /^\d{2}$/.test(val)) {
+            const o = parseInt(val[0]), cVal = parseInt(val[1]);
+            chartDigitFreq[o]++;
+            chartDigitFreq[cVal]++;
+            totalChartDigitsScanned += 2;
+          }
+        }
+      }
+    }
+
+    if (totalChartDigitsScanned > 0) {
+      for (let o = 0; o <= 9; o++) {
+        for (let c = 0; c <= 9; c++) {
+          const candJodi = `${o}${c}`;
+          const openShare = chartDigitFreq[o] / totalChartDigitsScanned;
+          const closeShare = chartDigitFreq[c] / totalChartDigitsScanned;
+
+          if (openShare >= 0.12) {
+            addPoints(
+              candJodi,
+              Math.round(openShare * 60),
+              activeModel.columnWeight,
+              1.0,
+              `🔥 [CHART HOT DIGIT FREQUENCY] Open ${o} is a dominant hot digit in ${activeChartName} (${(openShare * 100).toFixed(1)}% share)`
+            );
+          }
+          if (closeShare >= 0.12) {
+            addPoints(
+              candJodi,
+              Math.round(closeShare * 50),
+              activeModel.columnWeight,
+              1.0,
+              `🔥 [CHART HOT DIGIT FREQUENCY] Close ${c} is a dominant hot digit in ${activeChartName} (${(closeShare * 100).toFixed(1)}% share)`
+            );
+          }
+        }
+      }
+    }
+
+    // Preceding Cell Cut-Family Markov Transition Matrix
+    const recentPrevCells = [];
+    if (colVal > 0 && grid[targetRowIdx]?.[colVal - 1]?.val) {
+      recentPrevCells.push(grid[targetRowIdx][colVal - 1].val);
+    }
+    if (targetRowIdx > 0 && grid[targetRowIdx - 1]?.[colVal]?.val) {
+      recentPrevCells.push(grid[targetRowIdx - 1][colVal].val);
+    }
+
+    recentPrevCells.forEach(prevVal => {
+      if (/^\d{2}$/.test(prevVal)) {
+        const pO = parseInt(prevVal[0]), pC = parseInt(prevVal[1]);
+        const openFam = pO % 5;
+        const closeFam = pC % 5;
+        const nextFamOpen = (openFam + 1) % 5;
+
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+
+            if (o % 5 === openFam) {
+              addPoints(
+                candJodi,
+                30,
+                activeModel.conditionWeight,
+                1.0,
+                `🔄 [CUT-FAMILY REPEAT TRANSITION] Preceding Jodi "${prevVal}" Open ${pO} (Cut Family ${openFam}) projects repeat/cut family Open ${o}`
+              );
+            }
+
+            if (o % 5 === nextFamOpen) {
+              addPoints(
+                candJodi,
+                25,
+                activeModel.conditionWeight,
+                0.95,
+                `➡️ [CUT-FAMILY ADJACENT STEP TRANSITION] Preceding Jodi "${prevVal}" Open ${pO} (Cut Family ${openFam}) transitions to adjacent cut family Open ${o}`
+              );
+            }
+
+            if (c % 5 === closeFam) {
+              addPoints(
+                candJodi,
+                25,
+                activeModel.conditionWeight,
+                1.0,
+                `🔄 [CUT-FAMILY REPEAT TRANSITION] Preceding Jodi "${prevVal}" Close ${pC} (Cut Family ${closeFam}) projects repeat/cut family Close ${c}`
+              );
+            }
+          }
+        }
+      }
+    });
 
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
