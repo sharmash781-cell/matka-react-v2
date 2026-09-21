@@ -108,6 +108,16 @@ export const AILearningEngine = () => {
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
   const rowHeight = showStats ? 54 : 38;
 
+  const scrollToRowIndex = useCallback((rIdx) => {
+    if (containerRef.current) {
+      const targetScroll = Math.max(0, rIdx * rowHeight - 60);
+      containerRef.current.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
+    }
+  }, [rowHeight]);
+
   const displayGrid = useMemo(() => {
     if (!grid) return [];
     
@@ -950,15 +960,7 @@ export const AILearningEngine = () => {
     return Math.max(0, grid.length - 1);
   }, [grid]);
 
-  const scrollToRowIndex = (rIdx) => {
-    if (containerRef.current) {
-      const targetScroll = Math.max(0, rIdx * rowHeight - 60);
-      containerRef.current.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
-    }
-  };
+
 
   const totalRows = displayGrid.length;
 
