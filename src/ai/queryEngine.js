@@ -432,7 +432,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
               };
               const m3 = {
                 r: targetR, c: targetC, day: targetDay, rowNum: targetR + 1,
-                val: `🎯 ${targetTotOptA}/${targetTotOptB}`,
+                val: `${targetTotOptA}/${targetTotOptB} (tot)`,
                 isTarget: true,
                 targetTotals: [targetTotOptA, targetTotOptACut, targetTotOptB, targetTotOptBCut],
                 pairId: pId, stepIndex: 3,

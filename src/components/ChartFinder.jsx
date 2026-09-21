@@ -560,14 +560,9 @@ export const ChartFinder = () => {
                             )}
 
                             {matchItem && matchItem.isTarget ? (
-                              <div className="flex flex-col items-center justify-center py-0.5 px-1 rounded-lg bg-slate-950 border-2 border-pink-500/80 shadow-lg">
-                                <span className="text-[9px] font-black text-amber-300 tracking-wider flex items-center gap-0.5">
-                                  🎯 TARGET
-                                </span>
-                                <span className="text-xs sm:text-sm font-black text-pink-300 font-mono">
-                                  {matchItem.targetTotals[0]}/{matchItem.targetTotals[2]} (tot)
-                                </span>
-                              </div>
+                              <span className="text-xs xs:text-sm sm:text-base font-black font-mono tracking-tight text-slate-950 drop-shadow-sm">
+                                {matchItem.targetTotals[0]}/{matchItem.targetTotals[2]} (tot)
+                              </span>
                             ) : (
                               <span
                                 className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter ${
