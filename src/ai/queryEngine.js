@@ -311,7 +311,14 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     for (let r = 0; r < grid.length; r++) {
       if (!grid[r]) continue;
 
-      const searchCols = globalDays.length > 0 ? globalDays : Array.from({ length: colsCount }, (_, i) => i);
+      const localDays = [];
+      q.split(/\s+/).forEach(w => {
+        const cw = w.replace(/[^a-z]/g, '');
+        if (DAY_MAP[cw] !== undefined && !localDays.includes(DAY_MAP[cw])) {
+          localDays.push(DAY_MAP[cw]);
+        }
+      });
+      const searchCols = localDays.length > 0 ? localDays : Array.from({ length: colsCount }, (_, i) => i);
 
       searchCols.forEach((c1) => {
         const val1 = grid[r][c1]?.val;

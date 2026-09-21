@@ -1414,14 +1414,12 @@ export const PredictorEngine = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Open Digits</span>
-                <span className="text-[10px] text-slate-400 font-mono">Cut in ()</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> OPEN</span>
               </span>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topOpens.map((item, i) => (
                   <div key={i} className="bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-xl font-black text-emerald-300">{item.digit} <span className="text-[10px] text-pink-400 font-bold">({item.cutDigit})</span></span>
-                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
+                    <span className="block text-2xl font-black text-emerald-300">{item.digit}</span>
                   </div>
                 ))}
               </div>
@@ -1429,14 +1427,12 @@ export const PredictorEngine = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Close Digits</span>
-                <span className="text-[10px] text-slate-400 font-mono">Cut in ()</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> CLOSE</span>
               </span>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topCloses.map((item, i) => (
                   <div key={i} className="bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-xl font-black text-blue-300">{item.digit} <span className="text-[10px] text-pink-400 font-bold">({item.cutDigit})</span></span>
-                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
+                    <span className="block text-2xl font-black text-blue-300">{item.digit}</span>
                   </div>
                 ))}
               </div>
@@ -1444,14 +1440,12 @@ export const PredictorEngine = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Total Sums</span>
-                <span className="text-[10px] text-slate-400 font-mono">% Share</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> TOTAL</span>
               </span>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topTotals.map((item, i) => (
                   <div key={i} className="bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-xl font-black text-amber-300">{item.digit}</span>
-                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
+                    <span className="block text-2xl font-black text-amber-300">{item.digit}</span>
                   </div>
                 ))}
               </div>
