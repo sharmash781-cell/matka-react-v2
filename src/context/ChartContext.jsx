@@ -17,6 +17,8 @@ const ChartContext = createContext();
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
 
 export const MARKET_ORDER = [
+  "SRIDEVI",
+  "TIME BAZAR",
   "MILAN DAYY",
   "KALYAN",
   "SRIDEVI NIGHT",
@@ -72,6 +74,8 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
+  "SRIDEVI": srideviiiiPreset,
+  "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -80,6 +84,8 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
+  "SRIDEVI": srideviiiiPreset,
+  "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
@@ -97,10 +103,12 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVI", "SRIDEVIIII", "TIME BAZAR", "TIME"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
+    "SRIDEVI": srideviiiiPreset,
+    "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
     "SRIDEVI NIGHT": srideviNightPreset,
@@ -258,24 +266,39 @@ export const ChartProvider = ({ children }) => {
     } catch (e) {}
   }, [customAIPatterns]);
 
+  useEffect(() => {
+    if (charts && Object.keys(charts).length > 0) {
+      try {
+        POSSIBLE_STORAGE_KEYS.forEach((key) => {
+          localStorage.setItem(key, JSON.stringify(charts));
+        });
+      } catch (e) {}
+    }
+  }, [charts]);
+
   const saveChart = useCallback((name, rows, cols, data, chartType = 'jodi') => {
     const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
     const isPanaType = chartType === 'pana' || cleanName.includes('PANA') || cleanName.includes('PANEL') ||
       (data && data.some(row => row && row.some(c => c && c.val && c.val.includes('-'))));
 
+    const finalRows = Math.max(parseInt(rows) || 0, data ? data.length : 20);
+    const finalCols = parseInt(cols) || (data && data[0] ? data[0].length : 7);
+
     setCharts((prevCharts) => {
       const updated = {
         ...prevCharts,
         [cleanName]: {
-          rows: parseInt(rows) || (data ? data.length : 20),
-          cols: parseInt(cols) || (data && data[0] ? data[0].length : 7),
+          rows: finalRows,
+          cols: finalCols,
           chartType: isPanaType ? 'pana' : 'jodi',
           updatedAt: new Date().toISOString(),
           data: data || []
         }
       };
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        POSSIBLE_STORAGE_KEYS.forEach((key) => {
+          localStorage.setItem(key, JSON.stringify(updated));
+        });
       } catch (e) {}
       return updated;
     });
