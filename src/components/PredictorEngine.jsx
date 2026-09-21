@@ -914,11 +914,6 @@ export const PredictorEngine = () => {
                       <Link2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> Open-to-Open Delta Boosted
                     </span>
                   )}
-                  {predictionResult.diagonalSumScansApplied > 0 && (
-                    <span className="bg-purple-950 border border-purple-500/50 text-purple-300 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                      <Brain className="w-3.5 h-3.5 text-pink-400 animate-pulse" /> Diagonal Pattern Matrix Boosted ({predictionResult.diagonalSumScansApplied} vectors)
-                    </span>
-                  )}
                 </div>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5 text-xs text-slate-300 font-mono pt-1">
                   <span className="bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">Open: <strong className="text-emerald-400">{predictionResult.top1O}</strong></span>
