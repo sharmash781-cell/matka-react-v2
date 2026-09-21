@@ -759,11 +759,13 @@ export const AILearningEngine = () => {
     const toCol = diagToDay;
     const checkDigitIdx = diagCheckDigit === 'close' ? 1 : 0; // 0 for Open, 1 for Close
 
+    const isHoliday = (v) => !v || v === '**' || v.includes('*') || v === 'XX' || v === '--';
+
     for (let r = 0; r < grid.length; r++) {
       const cell1Val = grid[r]?.[fromCol]?.val || '';
       const cell2Val = grid[r]?.[toCol]?.val || '';
 
-      if (!cell1Val || !cell2Val || !/^\d{2}$/.test(cell1Val) || !/^\d{2}$/.test(cell2Val)) continue;
+      if (isHoliday(cell1Val) || isHoliday(cell2Val) || !/^\d{2}$/.test(cell1Val) || !/^\d{2}$/.test(cell2Val)) continue;
 
       const tot1 = (parseInt(cell1Val[0]) + parseInt(cell1Val[1])) % 10;
       const secondDigit = diagDigitChoice === 'open' ? parseInt(cell2Val[0]) : parseInt(cell2Val[1]);
@@ -778,6 +780,10 @@ export const AILearningEngine = () => {
 
       const nextWkR = r + 1;
       const nextWkVal = (nextWkR < grid.length) ? grid[nextWkR]?.[toCol]?.val : null;
+
+      // Skip holiday cells in sequence
+      if (upRightVal && isHoliday(upRightVal)) continue;
+      if (nextWkVal && isHoliday(nextWkVal)) continue;
 
       // Check if diagonal check digit (Open or Close) matches targetSum
       let isDiagMatch = false;
@@ -810,13 +816,19 @@ export const AILearningEngine = () => {
 
       // 4. Right Neighbor
       const rightC = toCol + 1;
-      if (rightC < colsInput && grid[r]?.[rightC]?.val) {
+      if (rightC < colsInput && grid[r]?.[rightC]?.val && !isHoliday(grid[r]?.[rightC]?.val)) {
         cellsToMark.push({ r, c: rightC });
       }
 
-      // 5. Next Week Follow-up
-      if (nextWkVal) {
-        cellsToMark.push({ r: nextWkR, c: toCol });
+      // 5. Next Week Follow-up (or Prediction cell if empty!)
+      if (nextWkR < grid.length) {
+        cellsToMark.push({
+          r: nextWkR,
+          c: toCol,
+          isPrediction: !nextWkVal,
+          predDigit: targetSum,
+          cutDigit: (targetSum + 5) % 10
+        });
       }
 
       occurrences.push({
@@ -851,22 +863,20 @@ export const AILearningEngine = () => {
     const digitText = diagDigitChoice === 'open' ? 'Open' : 'Close';
     const checkText = diagCheckDigit === 'open' ? 'Sum of Opens' : 'Sum of Closes';
 
-    const occurrenceRules = occurrences.map((occ, idx) => {
-      const p = DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length];
-      return {
-        id: `diag_occ_${idx}_${Date.now()}`,
-        occIdx: idx,
-        color: p.color,
-        borderColor: p.border,
-        bg: p.bg,
-        text: p.text,
-        badgeClass: p.badge,
-        label: `Row #${occ.rowNum}: ${DAY_LABELS[fromCol]} (${occ.cell1Val}) + ${DAY_LABELS[toCol]} (${occ.cell2Val}) → Target ${occ.targetSum}`,
-        cells: occ.cellsToMark.map(c => ({ ...c, occIdx: idx, color: p.color }))
-      };
-    });
+    const masterRule = {
+      id: `diag_master_${Date.now()}`,
+      label: `📐 Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${checkText}) (${occurrences.length}x Found)`,
+      color: '#f59e0b',
+      borderColor: '#f59e0b',
+      bg: 'bg-amber-950',
+      text: 'text-amber-300',
+      cells: occurrences.flatMap((occ, idx) => {
+        const p = DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length];
+        return occ.cellsToMark.map(c => ({ ...c, occIdx: idx, color: p.color }));
+      })
+    };
 
-    setActiveRules(occurrenceRules);
+    setActiveRules([masterRule]);
     setScanSummary({
       count: occurrences.length,
       label: `Diagonal ${DAY_LABELS[fromCol]} Total + ${DAY_LABELS[toCol]} ${digitText} (${checkText}) (${occurrences.length}x Found)`,
@@ -884,7 +894,14 @@ export const AILearningEngine = () => {
       rule.cells.forEach(cell => {
         const key = `${cell.r}_${cell.c}`;
         if (!map[key]) {
-          map[key] = { rule, occIdx: rule.occIdx ?? cell.occIdx ?? null, color: cell.color || rule.color };
+          map[key] = {
+            rule,
+            occIdx: rule.occIdx ?? cell.occIdx ?? null,
+            color: cell.color || rule.color,
+            isPrediction: cell.isPrediction || false,
+            predDigit: cell.predDigit,
+            cutDigit: cell.cutDigit
+          };
         }
       });
     });
@@ -1906,6 +1923,17 @@ export const AILearningEngine = () => {
                                     </span>
                                     <span className="text-sm sm:text-2xl font-black font-mono text-pink-950 leading-none mt-0.5">
                                       {primaryEmptyPred.predictedDigit} <span className="text-[9px] text-pink-700 font-bold">({primaryEmptyPred.cutDigit})</span>
+                                    </span>
+                                  </div>
+                                )}
+
+                                {scanHighlightData?.isPrediction && !val && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-amber-100/90 backdrop-blur-[1px] rounded border-2 border-dashed border-amber-500 shadow-md p-0.5 animate-pulse">
+                                    <span className="text-[7px] sm:text-[9px] font-mono font-black text-amber-900 tracking-tighter uppercase leading-none">
+                                      🔮 PREDICTED
+                                    </span>
+                                    <span className="text-xs sm:text-base font-black font-mono text-amber-950 leading-none mt-0.5">
+                                      {scanHighlightData.predDigit} <span className="text-[9px] text-amber-700 font-bold">({scanHighlightData.cutDigit})</span>
                                     </span>
                                   </div>
                                 )}
