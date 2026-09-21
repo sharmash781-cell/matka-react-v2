@@ -679,17 +679,28 @@ export const PredictorEngine = () => {
     const sumTotal = totalScores.reduce((a, b) => a + b, 0) || 1;
 
     const topOpens = openScores
-      .map((score, digit) => ({ digit, prob: ((score / sumOpen) * 100).toFixed(1) }))
+      .map((score, digit) => ({
+        digit,
+        cutDigit: getCut(digit),
+        prob: ((score / sumOpen) * 100).toFixed(1)
+      }))
       .sort((a, b) => b.prob - a.prob)
       .slice(0, 3);
 
     const topCloses = closeScores
-      .map((score, digit) => ({ digit, prob: ((score / sumClose) * 100).toFixed(1) }))
+      .map((score, digit) => ({
+        digit,
+        cutDigit: getCut(digit),
+        prob: ((score / sumClose) * 100).toFixed(1)
+      }))
       .sort((a, b) => b.prob - a.prob)
       .slice(0, 3);
 
     const topTotals = totalScores
-      .map((score, digit) => ({ digit, prob: ((score / sumTotal) * 100).toFixed(1) }))
+      .map((score, digit) => ({
+        digit,
+        prob: ((score / sumTotal) * 100).toFixed(1)
+      }))
       .sort((a, b) => b.prob - a.prob)
       .slice(0, 3);
 
@@ -727,6 +738,7 @@ export const PredictorEngine = () => {
       customVisualRulesApplied,
       openToOpenHarmonicScansApplied,
       diagonalSumScansApplied,
+      redPairActionConfluences,
       topOpens,
       topCloses,
       topTotals,
@@ -922,42 +934,45 @@ export const PredictorEngine = () => {
           {/* Key Digit Probability Heatmap Pills (Top 3 Digits) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top Open Digits
+              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Open Digits</span>
+                <span className="text-[10px] text-slate-400 font-mono">Cut in ()</span>
               </span>
-              <div className="flex items-center gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topOpens.map((item, i) => (
-                  <div key={i} className="flex-1 bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-emerald-300">{item.digit}</span>
-                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  <div key={i} className="bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-xl font-black text-emerald-300">{item.digit} <span className="text-[10px] text-pink-400 font-bold">({item.cutDigit})</span></span>
+                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top Close Digits
+              <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Close Digits</span>
+                <span className="text-[10px] text-slate-400 font-mono">Cut in ()</span>
               </span>
-              <div className="flex items-center gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topCloses.map((item, i) => (
-                  <div key={i} className="flex-1 bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-blue-300">{item.digit}</span>
-                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  <div key={i} className="bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-xl font-black text-blue-300">{item.digit} <span className="text-[10px] text-pink-400 font-bold">({item.cutDigit})</span></span>
+                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" /> Top Total Sums
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Top Total Sums</span>
+                <span className="text-[10px] text-slate-400 font-mono">% Share</span>
               </span>
-              <div className="flex items-center gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topTotals.map((item, i) => (
-                  <div key={i} className="flex-1 bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-amber-300">{item.digit}</span>
-                    <span className="text-[10px] font-mono text-slate-400">{item.prob}%</span>
+                  <div key={i} className="bg-slate-900/90 border border-amber-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-xl font-black text-amber-300">{item.digit}</span>
+                    <span className="text-[10px] font-mono text-slate-300 font-bold">{item.prob}%</span>
                   </div>
                 ))}
               </div>
