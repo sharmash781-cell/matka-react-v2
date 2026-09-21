@@ -441,11 +441,12 @@ export const PredictorEngine = () => {
           const o = parseInt(val[0]), cVal = parseInt(val[1]);
           const total = (o + cVal) % 10;
 
-          addPoints(`${cVal}${o}`, 18, activeModel.familyWeight, recencyFactor, `Inverse Pair derived from Row ${r+1}, Col ${c+1} (${val}) [Recency Weight: ${(recencyFactor*100).toFixed(0)}%]`);
+          // Demoted generic noise scan to give 95%+ prediction priority to Master Harmonic Patterns
+          addPoints(`${cVal}${o}`, 3, activeModel.familyWeight, recencyFactor, `Background Inverse Pair (Low Priority)`);
 
           const family = getFamilySet(o, cVal);
           family.forEach(fJodi => {
-            addPoints(fJodi, 14, activeModel.familyWeight, recencyFactor, `Family Expansion of Row ${r+1} Jodi ${val} [Recency: ${(recencyFactor*100).toFixed(0)}%]`);
+            addPoints(fJodi, 2, activeModel.familyWeight, recencyFactor, `Background Family Expansion (Low Priority)`);
           });
 
           if (c === colVal && r > startRowIdx) {
