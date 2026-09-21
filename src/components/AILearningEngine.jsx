@@ -68,6 +68,7 @@ export const AILearningEngine = () => {
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
   const [diagCheckDigit, setDiagCheckDigit] = useState('open'); // 'open' or 'close' (Sum of Opens vs Sum of Closes)
   const [hoveredOccIdx, setHoveredOccIdx] = useState(null); // Hover/Focus active occurrence index
+  const [dismissedPreds, setDismissedPreds] = useState({}); // Map of dismissed prediction cells
 
   // ── DEDICATED TOTAL + OPEN / CLOSE SCANNER STATE ───────────────────────────
   const [totOpenFromDay, setTotOpenFromDay] = useState(0); // 0 = Mon
@@ -841,15 +842,13 @@ export const AILearningEngine = () => {
       }
 
       // 5. Next Week Follow-up (or Prediction cell if empty!)
-      if (nextWkR < grid.length) {
-        cellsToMark.push({
-          r: nextWkR,
-          c: toCol,
-          isPrediction: isPredictionCase || !nextWkVal,
-          predDigit: predDigit,
-          cutDigit: (predDigit + 5) % 10
-        });
-      }
+      cellsToMark.push({
+        r: nextWkR,
+        c: toCol,
+        isPrediction: isPredictionCase || !nextWkVal,
+        predDigit: predDigit,
+        cutDigit: (predDigit + 5) % 10
+      });
 
       occurrences.push({
         row1: r,
@@ -1947,10 +1946,21 @@ export const AILearningEngine = () => {
                                   </div>
                                 )}
 
-                                {scanHighlightData?.isPrediction && !val && (
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none bg-amber-100/90 backdrop-blur-[1px] rounded border-2 border-dashed border-amber-500 shadow-md p-0.5 animate-pulse">
+                                {scanHighlightData?.isPrediction && !val && !dismissedPreds[`${rIdx}_${cIdx}`] && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-amber-100/95 backdrop-blur-[1px] rounded border-2 border-dashed border-amber-500 shadow-md p-0.5 animate-pulse group/pred">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDismissedPreds(prev => ({ ...prev, [`${rIdx}_${cIdx}`]: true }));
+                                      }}
+                                      className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-amber-900 hover:text-white hover:bg-red-600 rounded-full transition font-black text-[10px] leading-none z-30"
+                                      title="Remove / dismiss prediction"
+                                    >
+                                      ✕
+                                    </button>
                                     <span className="text-[7px] sm:text-[9px] font-mono font-black text-amber-900 tracking-tighter uppercase leading-none">
-                                      🔮 PREDICTED
+                                      🔮 {diagCheckDigit === 'open' ? 'OPEN' : 'CLOSE'} NEEDED
                                     </span>
                                     <span className="text-xs sm:text-base font-black font-mono text-amber-950 leading-none mt-0.5">
                                       {scanHighlightData.predDigit} <span className="text-[9px] text-amber-700 font-bold">({scanHighlightData.cutDigit})</span>
