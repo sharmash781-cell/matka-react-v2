@@ -882,16 +882,16 @@ export const AILearningEngine = () => {
     }
 
     const DISTINCT_PALETTE = [
-      { color: '#f59e0b', border: '#f59e0b', bg: 'bg-amber-950', text: 'text-amber-300', badge: 'bg-amber-500 text-slate-950 border-amber-300' }, // #1: Amber Yellow
-      { color: '#06b6d4', border: '#06b6d4', bg: 'bg-cyan-950', text: 'text-cyan-300', badge: 'bg-cyan-500 text-slate-950 border-cyan-300' },    // #2: Cyan Blue
-      { color: '#a855f7', border: '#a855f7', bg: 'bg-purple-950', text: 'text-purple-300', badge: 'bg-purple-500 text-white border-purple-300' }, // #3: Purple
-      { color: '#10b981', border: '#10b981', bg: 'bg-emerald-950', text: 'text-emerald-300', badge: 'bg-emerald-500 text-slate-950 border-emerald-300' }, // #4: Emerald Green
-      { color: '#ec4899', border: '#ec4899', bg: 'bg-pink-950', text: 'text-pink-300', badge: 'bg-pink-500 text-white border-pink-300' },    // #5: Pink Rose
-      { color: '#6366f1', border: '#6366f1', bg: 'bg-indigo-950', text: 'text-indigo-300', badge: 'bg-indigo-500 text-white border-indigo-300' }, // #6: Indigo
-      { color: '#f97316', border: '#f97316', bg: 'bg-orange-950', text: 'text-orange-300', badge: 'bg-orange-500 text-slate-950 border-orange-300' }, // #7: Orange
-      { color: '#14b8a6', border: '#14b8a6', bg: 'bg-teal-950', text: 'text-teal-300', badge: 'bg-teal-500 text-slate-950 border-teal-300' },    // #8: Teal
-      { color: '#eab308', border: '#eab308', bg: 'bg-yellow-950', text: 'text-yellow-300', badge: 'bg-yellow-500 text-slate-950 border-yellow-300' }, // #9: Yellow
-      { color: '#8b5cf6', border: '#8b5cf6', bg: 'bg-violet-950', text: 'text-violet-300', badge: 'bg-violet-500 text-white border-violet-300' }  // #10: Violet
+      { color: '#059669', bgHex: '#6ee7b7', border: '#047857', badge: 'bg-emerald-500 text-slate-950 border-emerald-300' }, // Mint Green (Pic 1 #1)
+      { color: '#db2777', bgHex: '#f472b6', border: '#be185d', badge: 'bg-pink-500 text-white border-pink-300' },          // Vibrant Pink (Pic 1 #2)
+      { color: '#4f46e5', bgHex: '#a5b4fc', border: '#3730a3', badge: 'bg-indigo-500 text-white border-indigo-300' },     // Periwinkle Blue (Pic 1 #3)
+      { color: '#d97706', bgHex: '#fcd34d', border: '#b45309', badge: 'bg-amber-500 text-slate-950 border-amber-300' },     // Soft Amber
+      { color: '#0891b2', bgHex: '#67e8f9', border: '#0e7490', badge: 'bg-cyan-500 text-slate-950 border-cyan-300' },        // Light Cyan
+      { color: '#9333ea', bgHex: '#c084fc', border: '#7e22ce', badge: 'bg-purple-500 text-white border-purple-300' },      // Soft Purple
+      { color: '#ea580c', bgHex: '#fb923c', border: '#c2410c', badge: 'bg-orange-500 text-slate-950 border-orange-300' },    // Soft Orange
+      { color: '#0d9488', bgHex: '#5eead4', border: '#0f766e', badge: 'bg-teal-500 text-slate-950 border-teal-300' },        // Soft Teal
+      { color: '#7c3aed', bgHex: '#a78bfa', border: '#5b21b6', badge: 'bg-violet-500 text-white border-violet-300' },      // Soft Violet
+      { color: '#ca8a04', bgHex: '#fde047', border: '#854d0e', badge: 'bg-yellow-500 text-slate-950 border-yellow-300' }   // Soft Yellow
     ];
 
     const digitText = diagDigitChoice === 'open' ? 'Open' : 'Close';
@@ -906,7 +906,13 @@ export const AILearningEngine = () => {
       text: 'text-amber-300',
       cells: occurrences.flatMap((occ, idx) => {
         const p = DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length];
-        return occ.cellsToMark.map(c => ({ ...c, occIdx: idx, color: p.color }));
+        return occ.cellsToMark.map(c => ({
+          ...c,
+          occIdx: idx,
+          color: p.color,
+          bgHex: p.bgHex,
+          borderColor: p.border
+        }));
       })
     };
 
@@ -939,6 +945,8 @@ export const AILearningEngine = () => {
             rule,
             occIdx: rule.occIdx ?? cell.occIdx ?? null,
             color: cell.color || rule.color,
+            bgHex: cell.bgHex || `${cell.color || rule.color}60`,
+            borderColor: cell.borderColor || cell.color || rule.color,
             isPrediction: cell.isPrediction || false,
             predDigit: cell.predDigit,
             cutDigit: cell.cutDigit
@@ -1908,24 +1916,21 @@ export const AILearningEngine = () => {
                             borderWidthStyle = '3.5px';
                             shadowStyle = `0 0 12px ${primaryMatch.color}90 inset`;
                           } else if (scanHighlightData && cellColor) {
+                            const bgHex = scanHighlightData.bgHex || `${cellColor}60`;
+                            const borderHex = scanHighlightData.borderColor || cellColor;
+
                             if (isCellHovered) {
-                              // BRIGHT GLOWING NEON WHEN HOVERED OR CLICKED!
-                              bgStyle = `${cellColor}70`;
-                              borderStyle = cellColor;
-                              borderWidthStyle = '4px';
-                              shadowStyle = `0 0 18px ${cellColor}, 0 0 12px ${cellColor} inset`;
-                            } else if (isAnyOccHovered) {
-                              // Dim non-hovered occurrences slightly so active one pops out
-                              bgStyle = `${cellColor}20`;
-                              borderStyle = `${cellColor}90`;
+                              // HOVERED / ACTIVE OCCURRENCE -> GLOWING ACCENT & 3px BORDER
+                              bgStyle = bgHex;
+                              borderStyle = borderHex;
+                              borderWidthStyle = '3px';
+                              shadowStyle = `0 0 12px ${borderHex}`;
+                            } else {
+                              // VIBRANT PIC 1 STYLE PASTEL FILL WITH CRISP SOLID 2px BORDER
+                              bgStyle = bgHex;
+                              borderStyle = borderHex;
                               borderWidthStyle = '2px';
                               shadowStyle = 'none';
-                            } else {
-                              // Standard distinct vibrant color per occurrence!
-                              bgStyle = `${cellColor}40`;
-                              borderStyle = cellColor;
-                              borderWidthStyle = '3px';
-                              shadowStyle = `0 0 10px ${cellColor}bb inset`;
                             }
                           } else if (primaryEmptyPred) {
                             bgStyle = '#fce7f3';
@@ -2012,20 +2017,7 @@ export const AILearningEngine = () => {
                                   </div>
                                 )}
 
-                                {cellMatches.length > 0 && (
-                                  <div className="absolute top-0.5 left-0.5 flex flex-col items-start gap-0.5 z-20 pointer-events-none">
-                                    {cellMatches.map((m, idx) => (
-                                      <span
-                                        key={idx}
-                                        style={{ backgroundColor: m.color, color: '#020617' }}
-                                        className="text-[7px] font-black font-mono px-1 py-0.2 rounded-full shadow-sm leading-none border border-black/90 uppercase tracking-tighter"
-                                        title={`Match #${m.matchNumber}: Step ${m.stepIdx} of ${m.totalSteps}`}
-                                      >
-                                        #{m.matchNumber}:S{m.stepIdx}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+
 
                                 {/* BOTTOM: Open-Close Condition Pair */}
                                 {showStats && (
