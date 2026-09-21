@@ -65,6 +65,7 @@ export const AILearningEngine = () => {
   // ── DIAGONAL TOTAL + OPEN PATTERN SCANNER STATE ───────────────────────────
   const [diagFromDay, setDiagFromDay] = useState(1); // 1 = Tue (e.g. 70)
   const [diagToDay, setDiagToDay] = useState(2);   // 2 = Wed (e.g. 38)
+  const [diagWeekGap, setDiagWeekGap] = useState(0); // 0 = Same Wk, 1 = +1 Wk, 2 = +2 Wks
   const [diagDigitChoice, setDiagDigitChoice] = useState('open'); // 'open' or 'close' (2nd Jodi digit)
   const [diagCheckDigit, setDiagCheckDigit] = useState('open'); // 'open' or 'close' (Sum of Opens vs Sum of Closes)
   const [hoveredOccIdx, setHoveredOccIdx] = useState(null); // Hover/Focus active occurrence index
@@ -759,12 +760,16 @@ export const AILearningEngine = () => {
     const fromCol = diagFromDay;
     const toCol = diagToDay;
     const checkDigitIdx = diagCheckDigit === 'close' ? 1 : 0; // 0 for Open, 1 for Close
+    const rowGapVal = typeof diagWeekGap === 'number' ? diagWeekGap : (parseInt(diagWeekGap, 10) || 0);
 
     const isHoliday = (v) => !v || v === '**' || v.includes('*') || v === 'XX' || v === '--';
 
     for (let r = 0; r < grid.length; r++) {
       const cell1Val = grid[r]?.[fromCol]?.val || '';
-      const cell2Val = grid[r]?.[toCol]?.val || '';
+      
+      const r2 = r + rowGapVal;
+      if (r2 >= grid.length) continue;
+      const cell2Val = grid[r2]?.[toCol]?.val || '';
 
       if (isHoliday(cell1Val) || isHoliday(cell2Val) || !/^\d{2}$/.test(cell1Val) || !/^\d{2}$/.test(cell2Val)) continue;
 
@@ -776,17 +781,17 @@ export const AILearningEngine = () => {
       const targetSum = (tot1 + secondDigit) % 10;
 
       // 3 Diagonal Cells in sequence:
-      // 1. Up-Right (Row r-1, Col toCol+2)
-      const upRightR = r - 1;
+      // 1. Up-Right (Row r2-1, Col toCol+2)
+      const upRightR = r2 - 1;
       const upRightC = toCol + 2;
       const upRightVal = (upRightR >= 0 && upRightC < colsInput) ? grid[upRightR]?.[upRightC]?.val : null;
 
-      // 2. Middle Right (Row r, Col toCol+1)
+      // 2. Middle Right (Row r2, Col toCol+1)
       const rightC = toCol + 1;
-      const rightVal = (rightC < colsInput) ? grid[r]?.[rightC]?.val : null;
+      const rightVal = (rightC < colsInput) ? grid[r2]?.[rightC]?.val : null;
 
-      // 3. Next Week Follow-up (Row r+1, Col toCol)
-      const nextWkR = r + 1;
+      // 3. Next Week Follow-up (Row r2+1, Col toCol)
+      const nextWkR = r2 + 1;
       const nextWkVal = (nextWkR < grid.length) ? grid[nextWkR]?.[toCol]?.val : null;
 
       // Skip holiday cells in sequence
@@ -829,7 +834,7 @@ export const AILearningEngine = () => {
       cellsToMark.push({ r, c: fromCol });
 
       // 2. Second Jodi
-      cellsToMark.push({ r, c: toCol });
+      cellsToMark.push({ r: r2, c: toCol });
 
       // 3. Diagonal Up-Right
       if (upRightVal && !isHoliday(upRightVal)) {
@@ -838,7 +843,7 @@ export const AILearningEngine = () => {
 
       // 4. Middle Right Neighbor
       if (rightVal && !isHoliday(rightVal)) {
-        cellsToMark.push({ r, c: rightC });
+        cellsToMark.push({ r: r2, c: rightC });
       }
 
       // 5. Next Week Follow-up (or Prediction cell if empty!)
@@ -905,7 +910,14 @@ export const AILearningEngine = () => {
         palette: DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length]
       }))
     });
-  }, [grid, diagFromDay, diagToDay, diagDigitChoice, diagCheckDigit, colsInput]);
+
+    // Auto focus and scroll to the LAST (most recent) occurrence!
+    const lastOccIdx = occurrences.length - 1;
+    setHoveredOccIdx(lastOccIdx);
+    if (occurrences[lastOccIdx]) {
+      scrollToRowIndex(occurrences[lastOccIdx].row1);
+    }
+  }, [grid, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, colsInput, scrollToRowIndex]);
 
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
@@ -1402,7 +1414,7 @@ export const AILearningEngine = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs font-mono">
               {/* 1. FROM DAY (FIRST JODI) */}
               <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
                 <div className="text-[10px] text-amber-400 font-bold uppercase">1. 1st Jodi Day</div>
@@ -1429,6 +1441,35 @@ export const AILearningEngine = () => {
                     <option key={idx} value={idx}>{day} ({idx === 2 ? 'Wed' : `Day ${idx+1}`})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* ROW / WEEK GAP CONTROL (SAME WEEK VS NEXT WEEKS) */}
+              <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl space-y-1">
+                <div className="text-[10px] text-amber-300 font-bold uppercase flex items-center justify-between">
+                  <span>Week Gap</span>
+                  <span className="text-slate-400 font-normal text-[8px]">(Same/Next)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setDiagWeekGap(prev => Math.max(0, prev - 1))}
+                      className="w-5 h-5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-xs active:scale-95"
+                      title="Decrease Week Gap (-1)"
+                    >
+                      -
+                    </button>
+                    <span className="px-1.5 text-[11px] font-mono font-black text-amber-300 min-w-[55px] text-center">
+                      {diagWeekGap === 0 ? 'Same Wk' : `+${diagWeekGap} Wk`}
+                    </span>
+                    <button
+                      onClick={() => setDiagWeekGap(prev => prev + 1)}
+                      className="w-5 h-5 bg-slate-900 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center transition border border-slate-700 text-xs active:scale-95"
+                      title="Increase Week Gap (+1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* 3. 2ND JODI DIGIT */}
@@ -1947,7 +1988,11 @@ export const AILearningEngine = () => {
                                 )}
 
                                 {scanHighlightData?.isPrediction && !val && !dismissedPreds[`${rIdx}_${cIdx}`] && (
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-amber-100/95 backdrop-blur-[1px] rounded border-2 border-dashed border-amber-500 shadow-md p-0.5 animate-pulse group/pred">
+                                  <div
+                                    className={`absolute inset-0 flex items-center z-20 bg-amber-100/90 backdrop-blur-[1px] rounded border-2 border-dashed border-amber-500 shadow-md animate-pulse group/pred ${
+                                      diagCheckDigit === 'open' ? 'justify-start pl-2.5 sm:pl-3.5' : 'justify-end pr-2.5 sm:pr-3.5'
+                                    }`}
+                                  >
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -1959,11 +2004,8 @@ export const AILearningEngine = () => {
                                     >
                                       ✕
                                     </button>
-                                    <span className="text-[7px] sm:text-[9px] font-mono font-black text-amber-900 tracking-tighter uppercase leading-none">
-                                      🔮 {diagCheckDigit === 'open' ? 'OPEN' : 'CLOSE'} NEEDED
-                                    </span>
-                                    <span className="text-xs sm:text-base font-black font-mono text-amber-950 leading-none mt-0.5">
-                                      {scanHighlightData.predDigit} <span className="text-[9px] text-amber-700 font-bold">({scanHighlightData.cutDigit})</span>
+                                    <span className="text-base sm:text-2xl font-black font-mono text-amber-950 leading-none drop-shadow-sm">
+                                      {scanHighlightData.predDigit}
                                     </span>
                                   </div>
                                 )}
