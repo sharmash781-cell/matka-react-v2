@@ -304,21 +304,39 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       { color: '#06b6d4', border: '#0891b2', dot: '🔵' },
       { color: '#a855f7', border: '#7e22ce', dot: '🟣' },
       { color: '#ec4899', border: '#be185d', dot: '🩷' },
-      { color: '#f59e0b', border: '#d97706', dot: '🟡' }
+      { color: '#f59e0b', border: '#d97706', dot: '🟡' },
+      { color: '#3b82f6', border: '#1d4ed8', dot: '🔹' }
     ];
 
+    // Build linear array of all active cells in chart for 3rd-day (+2 steps) offset lookup
+    const flatCells = [];
+    const cellPosMap = {};
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+      for (let c = 0; c < colsCount; c++) {
+        const val = grid[r][c]?.val;
+        if (val && /^\d{2}$/.test(val)) {
+          const idx = flatCells.length;
+          const cellObj = { r, c, val, day: DAY_NAMES[c] || `Col ${c + 1}`, rowNum: r + 1, idx };
+          flatCells.push(cellObj);
+          cellPosMap[`${r}_${c}`] = cellObj;
+        }
+      }
+    }
+
     let pCount = 1;
+    const localDays = [];
+    q.split(/\s+/).forEach(w => {
+      const cw = w.replace(/[^a-z]/g, '');
+      if (DAY_MAP[cw] !== undefined && !localDays.includes(DAY_MAP[cw])) {
+        localDays.push(DAY_MAP[cw]);
+      }
+    });
+
     for (let r = 0; r < grid.length; r++) {
       if (!grid[r]) continue;
 
-      const localDays = [];
-      q.split(/\s+/).forEach(w => {
-        const cw = w.replace(/[^a-z]/g, '');
-        if (DAY_MAP[cw] !== undefined && !localDays.includes(DAY_MAP[cw])) {
-          localDays.push(DAY_MAP[cw]);
-        }
-      });
-      const searchCols = localDays.length > 0 ? localDays : Array.from({ length: colsCount }, (_, i) => i);
+      const searchCols = localDays.length > 0 ? localDays : [0]; // default to Monday (col 0) or specified day
 
       searchCols.forEach((c1) => {
         const val1 = grid[r][c1]?.val;
@@ -328,8 +346,12 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         const doubleTotal = (close1 * 2) % 10;
         const cutDoubleTotal = (doubleTotal + 5) % 10;
 
-        for (let c2 = 0; c2 < colsCount; c2++) {
-          if (c1 === c2) continue;
+        // Find ONLY the FIRST cell in the same week matching doubleTotal or cutDoubleTotal
+        let firstMatchCol = -1;
+        let firstMatchVal = null;
+        let firstMatchTotal = -1;
+
+        for (let c2 = c1 + 1; c2 < colsCount; c2++) {
           const val2 = grid[r][c2]?.val;
           if (!val2 || !/^\d{2}$/.test(val2)) continue;
 
@@ -338,29 +360,67 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           const tot2 = (o2 + c2Digit) % 10;
 
           if (tot2 === doubleTotal || tot2 === cutDoubleTotal) {
-            const palette = PART_COLORS[(pCount - 1) % PART_COLORS.length];
-            const pId = `CD${pCount++}`;
+            firstMatchCol = c2;
+            firstMatchVal = val2;
+            firstMatchTotal = tot2;
+            break; // STOP IMMEDIATELY after finding the FIRST match!
+          }
+        }
 
-            const m1 = {
-              r, c: c1, day: DAY_NAMES[c1] || `Col ${c1 + 1}`, rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1,
-              reason: `🔁 [CLOSE DOUBLE ORIGIN] ${DAY_NAMES[c1] || 'Col ' + (c1+1)} Row #${r + 1} (${val1}) Close ${close1} doubled = Total ${doubleTotal} / Cut ${cutDoubleTotal}`,
-              color: palette.color, border: palette.border, dot: '🟢'
-            };
-            const m2 = {
-              r, c: c2, day: DAY_NAMES[c2] || `Col ${c2 + 1}`, rowNum: r + 1, val: val2, pairId: pId, stepIndex: 2,
-              reason: `🔁 [CLOSE DOUBLE MATCH] ${DAY_NAMES[c2] || 'Col ' + (c2+1)} Row #${r + 1} (${val2}) Total ${tot2} matches doubled Close ${close1} of ${val1}`,
-              color: palette.color, border: palette.border, dot: '🟡'
-            };
+        if (firstMatchCol !== -1 && firstMatchVal) {
+          const cell2Obj = cellPosMap[`${r}_${firstMatchCol}`];
+          const palette = PART_COLORS[(pCount - 1) % PART_COLORS.length];
+          const pId = `CD${pCount++}`;
 
-            if (!matchMap[`${r}_${c1}`]) { matches.push(m1); matchMap[`${r}_${c1}`] = m1; }
-            if (!matchMap[`${r}_${c2}`]) { matches.push(m2); matchMap[`${r}_${c2}`] = m2; }
+          const m1 = {
+            r, c: c1, day: DAY_NAMES[c1] || `Col ${c1 + 1}`, rowNum: r + 1, val: val1, pairId: pId, stepIndex: 1,
+            reason: `🔁 [#1 CLOSE DOUBLE ORIGIN] ${DAY_NAMES[c1] || 'Col ' + (c1+1)} Row #${r + 1} (${val1}) Close ${close1} doubled = Total ${doubleTotal}/${cutDoubleTotal}`,
+            color: palette.color, border: palette.border, dot: '🟢'
+          };
+          const m2 = {
+            r, c: firstMatchCol, day: DAY_NAMES[firstMatchCol] || `Col ${firstMatchCol + 1}`, rowNum: r + 1, val: firstMatchVal, pairId: pId, stepIndex: 2,
+            reason: `🔁 [#2 FIRST MATCH IN WEEK] ${DAY_NAMES[firstMatchCol] || 'Col ' + (firstMatchCol+1)} Row #${r + 1} (${firstMatchVal}) Total ${firstMatchTotal} matches doubled Close ${close1} of ${val1}`,
+            color: palette.color, border: palette.border, dot: '🟡'
+          };
+
+          if (!matchMap[`${r}_${c1}`]) { matches.push(m1); matchMap[`${r}_${c1}`] = m1; }
+          if (!matchMap[`${r}_${firstMatchCol}`]) { matches.push(m2); matchMap[`${r}_${firstMatchCol}`] = m2; }
+
+          // Search 3rd-day target cell (+2 steps in linear sequence from cell2)
+          if (cell2Obj) {
+            const target3Idx = cell2Obj.idx + 2;
+            if (target3Idx < flatCells.length) {
+              const cell3Obj = flatCells[target3Idx];
+              const val3 = cell3Obj.val;
+              const o3 = parseInt(val3[0], 10);
+              const c3Digit = parseInt(val3[1], 10);
+              const tot3 = (o3 + c3Digit) % 10;
+
+              const c2ValDigit = parseInt(firstMatchVal[1], 10);
+              const targetTotOptA = c2ValDigit;
+              const targetTotOptACut = (c2ValDigit + 5) % 10;
+              const targetTotOptB = (c2ValDigit * 2) % 10;
+              const targetTotOptBCut = (targetTotOptB + 5) % 10;
+
+              if (tot3 === targetTotOptA || tot3 === targetTotOptACut || tot3 === targetTotOptB || tot3 === targetTotOptBCut) {
+                const m3 = {
+                  r: cell3Obj.r, c: cell3Obj.c, day: cell3Obj.day, rowNum: cell3Obj.rowNum, val: val3, pairId: pId, stepIndex: 3,
+                  reason: `🔁 [#3 3RD-DAY TARGET MATCH] ${cell3Obj.day} Row #${cell3Obj.rowNum} (${val3}) Total ${tot3} matches Close ${c2ValDigit}/Double-Close ${targetTotOptB} of ${firstMatchVal}`,
+                  color: palette.color, border: palette.border, dot: '🩷'
+                };
+                if (!matchMap[`${cell3Obj.r}_${cell3Obj.c}`]) {
+                  matches.push(m3);
+                  matchMap[`${cell3Obj.r}_${cell3Obj.c}`] = m3;
+                }
+              }
+            }
           }
         }
       });
     }
 
     const summary = matches.length > 0
-      ? `🔁 FOUND ${matches.length / 2} CLOSE DOUBLE MATCHES! Cells where doubled Close digit equals same-week Jodi Total.`
+      ? `🔁 FOUND ${pCount - 1} CLOSE DOUBLE TRIAD CHAINS! Mon doubled Close → 1st same-week Total → 3rd-day Target Total.`
       : `No Close Double matches found in current view.`;
 
     return { matches, summary, matchMap };
