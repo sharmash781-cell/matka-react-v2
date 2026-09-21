@@ -766,7 +766,7 @@ export const AILearningEngine = () => {
     if (!grid || grid.length === 0) return;
 
     const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const occurrences = [];
+    let occurrences = [];
 
     const fromCol = diagFromDay;
     const toCol = diagToDay;
