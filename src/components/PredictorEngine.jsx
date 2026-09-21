@@ -902,6 +902,104 @@ export const PredictorEngine = () => {
       }
     });
 
+    // --- PASS 19: MULTI-STEP HORIZONTAL & VERTICAL SAME/CUT DIGIT TOUCH MATRIX ---
+    // Evaluates up to 10 preceding days/weeks for continuous Same/Cut Open and Close touch chains (e.g. 90 -> 64 -> 46 -> 19 -> 99)
+    // 1. Horizontal Step Scan (up to 10 columns back)
+    for (let colStep = 1; colStep <= 10; colStep++) {
+      const prevC = colVal - colStep;
+      if (prevC >= 0 && grid[targetRowIdx]?.[prevC]?.val) {
+        const val = grid[targetRowIdx][prevC].val;
+        if (/^\d{2}$/.test(val)) {
+          const pO = parseInt(val[0]), pC = parseInt(val[1]);
+          const cutO = getCut(pO), cutC = getCut(pC);
+          const recencyFactor = Math.pow(0.96, colStep);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+
+              // Same / Cut Open to Open
+              if (o === pO || o === cutO) {
+                const label = o === pO ? "Same" : "Cut";
+                addPoints(
+                  candJodi,
+                  Math.round(35 * recencyFactor),
+                  activeModel.conditionWeight,
+                  recencyFactor,
+                  `🔗 [HORIZONTAL ${colStep}-STEP OPEN TOUCH] Cell "${val}" ${colStep} days back projects ${label} Open ${o}`
+                );
+              }
+
+              // Same / Cut Open to Close (e.g., 90 Open 9 -> 64 Close 4)
+              if (c === pO || c === cutO) {
+                const label = c === pO ? "Same" : "Cut";
+                addPoints(
+                  candJodi,
+                  Math.round(32 * recencyFactor),
+                  activeModel.conditionWeight,
+                  recencyFactor,
+                  `🔗 [HORIZONTAL ${colStep}-STEP OPEN-TO-CLOSE TOUCH] Cell "${val}" ${colStep} days back Open ${pO} projects ${label} Close ${c}`
+                );
+              }
+
+              // Same / Cut Close to Open
+              if (o === pC || o === cutC) {
+                const label = o === pC ? "Same" : "Cut";
+                addPoints(
+                  candJodi,
+                  Math.round(30 * recencyFactor),
+                  activeModel.conditionWeight,
+                  recencyFactor,
+                  `🔗 [HORIZONTAL ${colStep}-STEP CLOSE-TO-OPEN TOUCH] Cell "${val}" ${colStep} days back Close ${pC} projects ${label} Open ${o}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Vertical Step Scan (up to 10 weeks back in same column)
+    for (let rowStep = 1; rowStep <= 10; rowStep++) {
+      const prevR = targetRowIdx - rowStep;
+      if (prevR >= 0 && grid[prevR]?.[colVal]?.val) {
+        const val = grid[prevR][colVal].val;
+        if (/^\d{2}$/.test(val)) {
+          const pO = parseInt(val[0]), pC = parseInt(val[1]);
+          const cutO = getCut(pO), cutC = getCut(pC);
+          const recencyFactor = Math.pow(0.96, rowStep);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+
+              if (o === pO || o === cutO) {
+                const label = o === pO ? "Same" : "Cut";
+                addPoints(
+                  candJodi,
+                  Math.round(32 * recencyFactor),
+                  activeModel.conditionWeight,
+                  recencyFactor,
+                  `📐 [VERTICAL ${rowStep}-WEEK OPEN TOUCH] Cell "${val}" ${rowStep} weeks back projects ${label} Open ${o}`
+                );
+              }
+
+              if (c === pO || c === cutO) {
+                const label = c === pO ? "Same" : "Cut";
+                addPoints(
+                  candJodi,
+                  Math.round(28 * recencyFactor),
+                  activeModel.conditionWeight,
+                  recencyFactor,
+                  `📐 [VERTICAL ${rowStep}-WEEK OPEN-TO-CLOSE TOUCH] Cell "${val}" ${rowStep} weeks back Open ${pO} projects ${label} Close ${c}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
