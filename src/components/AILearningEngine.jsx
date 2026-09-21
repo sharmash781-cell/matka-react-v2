@@ -774,32 +774,53 @@ export const AILearningEngine = () => {
 
       const targetSum = (tot1 + secondDigit) % 10;
 
+      // 3 Diagonal Cells in sequence:
+      // 1. Up-Right (Row r-1, Col toCol+2)
       const upRightR = r - 1;
       const upRightC = toCol + 2;
       const upRightVal = (upRightR >= 0 && upRightC < colsInput) ? grid[upRightR]?.[upRightC]?.val : null;
 
+      // 2. Middle Right (Row r, Col toCol+1)
+      const rightC = toCol + 1;
+      const rightVal = (rightC < colsInput) ? grid[r]?.[rightC]?.val : null;
+
+      // 3. Next Week Follow-up (Row r+1, Col toCol)
       const nextWkR = r + 1;
       const nextWkVal = (nextWkR < grid.length) ? grid[nextWkR]?.[toCol]?.val : null;
 
       // Skip holiday cells in sequence
       if (upRightVal && isHoliday(upRightVal)) continue;
+      if (rightVal && isHoliday(rightVal)) continue;
       if (nextWkVal && isHoliday(nextWkVal)) continue;
 
-      // Check if diagonal check digit (Open or Close) matches targetSum
-      let isDiagMatch = false;
-      let matchedVal = '';
+      // Extract check digit (Open or Close) from each cell if valid 2-digit
+      const d1 = (upRightVal && /^\d{2}$/.test(upRightVal)) ? parseInt(upRightVal[checkDigitIdx]) : null;
+      const d2 = (rightVal && /^\d{2}$/.test(rightVal)) ? parseInt(rightVal[checkDigitIdx]) : null;
+      const d3 = (nextWkVal && /^\d{2}$/.test(nextWkVal)) ? parseInt(nextWkVal[checkDigitIdx]) : null;
 
-      if (nextWkVal && /^\d{2}$/.test(nextWkVal) && parseInt(nextWkVal[checkDigitIdx]) === targetSum) {
+      let isDiagMatch = false;
+      let isPredictionCase = false;
+      let predDigit = targetSum;
+
+      if (d1 !== null && d2 !== null && d3 !== null) {
+        // ALL 3 DIAGONAL CELLS EXIST -> Check if sum of their opens/closes equals targetSum
+        const diagonalSum = (d1 + d2 + d3) % 10;
+        if (diagonalSum === targetSum) {
+          isDiagMatch = true;
+        }
+      } else if (d1 !== null && d2 !== null && d3 === null) {
+        // 2 DIAGONAL CELLS EXIST, 3RD IS EMPTY / UPCOMING -> Calculate required 3rd digit to hit targetSum!
+        const knownSum = (d1 + d2) % 10;
+        predDigit = (targetSum - knownSum + 10) % 10;
         isDiagMatch = true;
-        matchedVal = nextWkVal;
-      } else if (upRightVal && /^\d{2}$/.test(upRightVal) && parseInt(upRightVal[checkDigitIdx]) === targetSum) {
+        isPredictionCase = true;
+      } else if (d3 !== null && d3 === targetSum) {
         isDiagMatch = true;
-        matchedVal = upRightVal;
-      } else if (!nextWkVal && !upRightVal) {
+      } else if (!upRightVal && !rightVal && !nextWkVal) {
         isDiagMatch = true;
       }
 
-      if (!isDiagMatch && (nextWkVal || upRightVal)) continue;
+      if (!isDiagMatch) continue;
 
       const cellsToMark = [];
 
@@ -810,13 +831,12 @@ export const AILearningEngine = () => {
       cellsToMark.push({ r, c: toCol });
 
       // 3. Diagonal Up-Right
-      if (upRightVal) {
+      if (upRightVal && !isHoliday(upRightVal)) {
         cellsToMark.push({ r: upRightR, c: upRightC });
       }
 
-      // 4. Right Neighbor
-      const rightC = toCol + 1;
-      if (rightC < colsInput && grid[r]?.[rightC]?.val && !isHoliday(grid[r]?.[rightC]?.val)) {
+      // 4. Middle Right Neighbor
+      if (rightVal && !isHoliday(rightVal)) {
         cellsToMark.push({ r, c: rightC });
       }
 
@@ -825,9 +845,9 @@ export const AILearningEngine = () => {
         cellsToMark.push({
           r: nextWkR,
           c: toCol,
-          isPrediction: !nextWkVal,
-          predDigit: targetSum,
-          cutDigit: (targetSum + 5) % 10
+          isPrediction: isPredictionCase || !nextWkVal,
+          predDigit: predDigit,
+          cutDigit: (predDigit + 5) % 10
         });
       }
 
@@ -837,7 +857,7 @@ export const AILearningEngine = () => {
         cell1Val,
         cell2Val,
         targetSum,
-        matchedVal,
+        matchedVal: nextWkVal || '',
         cellsToMark
       });
     }
