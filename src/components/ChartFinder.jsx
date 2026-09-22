@@ -42,6 +42,7 @@ export const ChartFinder = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredPairId, setHoveredPairId] = useState(null);
+  const [selectedPairId, setSelectedPairId] = useState(null);
 
   // MULTI-FAMILY HIGHLIGHT STATE (Up to 5 active families with distinct color palettes)
   const [activeFamilies, setActiveFamilies] = useState([]);
@@ -183,6 +184,7 @@ export const ChartFinder = () => {
   }, [searchQuery, matches.length]);
 
   const presetQueries = [
+    'sequence totals',
     'master game',
     'close double',
     '03 family',
@@ -371,7 +373,7 @@ export const ChartFinder = () => {
 
                 return groupOrder.map((gId, gIdx) => {
                   const group = groupMap[gId];
-                  const isHovered = group.id === hoveredPairId;
+                  const isHoveredOrSelected = group.id === hoveredPairId || group.id === selectedPairId;
                   const chainText = group.items.map(item => item.val).join(' - ');
                   const daysText = group.items.map(item => item.day).join(' - ');
                   const firstRow = group.items[0]?.rowNum || 1;
@@ -381,13 +383,16 @@ export const ChartFinder = () => {
                       key={group.id}
                       onMouseEnter={() => setHoveredPairId(group.id)}
                       onMouseLeave={() => setHoveredPairId(null)}
-                      onClick={() => scrollToRowIndex(group.items[0]?.r)}
+                      onClick={() => {
+                        setSelectedPairId(prev => prev === group.id ? null : group.id);
+                        scrollToRowIndex(group.items[0]?.r);
+                      }}
                       style={{
-                        borderColor: isHovered ? '#000000' : group.color,
-                        backgroundColor: isHovered ? `${group.color}60` : `${group.color}25`
+                        borderColor: isHoveredOrSelected ? '#000000' : group.color,
+                        backgroundColor: isHoveredOrSelected ? `${group.color}aa` : `${group.color}35`
                       }}
                       className={`flex items-center gap-1.5 border-2 px-3 py-1 rounded-xl cursor-pointer transition shadow-md shrink-0 text-white ${
-                        isHovered ? 'ring-2 ring-black font-black scale-105' : ''
+                        isHoveredOrSelected ? 'ring-2 ring-black font-black scale-105 border-black' : ''
                       }`}
                     >
                       <span className="text-[10px] font-black text-amber-300 font-mono">
@@ -473,7 +478,7 @@ export const ChartFinder = () => {
                         const holiday = isHoliday(val);
 
                         const matchItem = matchMap[`${rIdx}_${cIdx}`];
-                        const isHoveredPair = matchItem && matchItem.pairId && matchItem.pairId === hoveredPairId;
+                        const isHoveredPair = matchItem && matchItem.pairId && (matchItem.pairId === hoveredPairId || matchItem.pairId === selectedPairId);
                         const pColor = matchItem?.color || '#f59e0b';
 
                         const familyInfo = getCellFamilyInfo(val);
@@ -482,10 +487,10 @@ export const ChartFinder = () => {
 
                         let cellBg, cellBorderColor, cellBorderWidth, cellShadow;
                         if (matchItem) {
-                          cellBg = isHoveredPair ? `${pColor}cc` : `${pColor}70`;
-                          cellBorderColor = isHoveredPair ? '#020617' : pColor;
-                          cellBorderWidth = isHoveredPair ? '3.5px' : '3px';
-                          cellShadow = isHoveredPair ? `0 0 16px ${pColor} inset` : `0 0 10px ${pColor}80 inset`;
+                          cellBg = isHoveredPair ? `${pColor}ff` : `${pColor}70`;
+                          cellBorderColor = isHoveredPair ? '#000000' : pColor;
+                          cellBorderWidth = isHoveredPair ? '4px' : '3px';
+                          cellShadow = isHoveredPair ? `0 0 18px ${pColor} inset, 0 0 0 2px #000000` : `0 0 10px ${pColor}80 inset`;
                         } else if (isFamilyHighlight) {
                           const fColor = familyInfo.isExact ? familyInfo.colorObj.exact : familyInfo.colorObj.member;
                           cellBg = familyInfo.isExact ? `${fColor}55` : `${fColor}28`;

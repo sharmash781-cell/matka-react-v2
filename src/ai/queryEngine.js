@@ -456,6 +456,155 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     return { matches, summary, matchMap };
   }
 
+  // --- SPECIAL HANDLER FOR "sequence totals" / "serial totals" ---
+  if (
+    q.includes('sequence totals') ||
+    q.includes('serial total') ||
+    q.includes('sequence total') ||
+    q.includes('serial totals') ||
+    q.includes('total sequence') ||
+    q.includes('serial total sequence')
+  ) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+    const sequences = [];
+
+    const getJodiTotal = (val) => {
+      if (!val || !/^\d{2}$/.test(val)) return null;
+      return (parseInt(val[0], 10) + parseInt(val[1], 10)) % 10;
+    };
+
+    // Helper to check if array of totals forms a valid arithmetic sequence (step = +1, -1, +2, -2, +3, -3)
+    const isArithmeticSeq = (totals) => {
+      if (totals.length < 3) return false;
+      const step = (totals[1] - totals[0] + 10) % 10;
+      if (step === 0) return false;
+      for (let i = 1; i < totals.length - 1; i++) {
+        const nextStep = (totals[i + 1] - totals[i] + 10) % 10;
+        if (nextStep !== step) return false;
+      }
+      return true;
+    };
+
+    // 1. VERTICAL COLUMNS: Scan 3, 4, 5+ consecutive rows in each column
+    for (let c = 0; c < colsCount; c++) {
+      let r = 0;
+      while (r < grid.length - 2) {
+        let maxLen = 0;
+        let maxValidCells = [];
+
+        for (let testLen = 3; testLen <= grid.length - r; testLen++) {
+          const subCells = [];
+          const subTotals = [];
+          let valid = true;
+
+          for (let k = 0; k < testLen; k++) {
+            const val = grid[r + k]?.[c]?.val;
+            const tot = getJodiTotal(val);
+            if (tot === null) { valid = false; break; }
+            subCells.push({ r: r + k, c, val, tot, rowNum: r + k + 1, day: DAY_NAMES[c] || `Col ${c + 1}` });
+            subTotals.push(tot);
+          }
+
+          if (valid && isArithmeticSeq(subTotals)) {
+            maxLen = testLen;
+            maxValidCells = subCells;
+          } else if (!valid) {
+            break;
+          }
+        }
+
+        if (maxLen >= 3) {
+          sequences.push({ type: 'Vertical', cells: maxValidCells, len: maxLen });
+          r += maxLen;
+        } else {
+          r++;
+        }
+      }
+    }
+
+    // 2. HORIZONTAL ROWS: Scan 3, 4, 5+ consecutive columns in each row
+    for (let r = 0; r < grid.length; r++) {
+      if (!grid[r]) continue;
+      let c = 0;
+      while (c < colsCount - 2) {
+        let maxLen = 0;
+        let maxValidCells = [];
+
+        for (let testLen = 3; testLen <= colsCount - c; testLen++) {
+          const subCells = [];
+          const subTotals = [];
+          let valid = true;
+
+          for (let k = 0; k < testLen; k++) {
+            const val = grid[r]?.[c + k]?.val;
+            const tot = getJodiTotal(val);
+            if (tot === null) { valid = false; break; }
+            subCells.push({ r, c: c + k, val, tot, rowNum: r + 1, day: DAY_NAMES[c + k] || `Col ${c + k + 1}` });
+            subTotals.push(tot);
+          }
+
+          if (valid && isArithmeticSeq(subTotals)) {
+            maxLen = testLen;
+            maxValidCells = subCells;
+          } else if (!valid) {
+            break;
+          }
+        }
+
+        if (maxLen >= 3) {
+          sequences.push({ type: 'Horizontal', cells: maxValidCells, len: maxLen });
+          c += maxLen;
+        } else {
+          c++;
+        }
+      }
+    }
+
+    // Palette mapping by sequence length
+    const LENGTH_PALETTES = {
+      3: { color: '#f59e0b', border: '#d97706', dot: '🟡' }, // Amber/Gold for 3-seq
+      4: { color: '#a855f7', border: '#7e22ce', dot: '🟣' }, // Purple for 4-seq
+      5: { color: '#ec4899', border: '#be185d', dot: '🩷' }  // Pink for 5+-seq
+    };
+
+    let occurrenceIdx = 1;
+    sequences.forEach(seq => {
+      const palette = LENGTH_PALETTES[Math.min(seq.len, 5)] || LENGTH_PALETTES[3];
+      const totChain = seq.cells.map(cell => cell.tot).join('-');
+      const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain})`;
+
+      seq.cells.forEach((cell, idx) => {
+        const m = {
+          r: cell.r,
+          c: cell.c,
+          day: cell.day,
+          rowNum: cell.rowNum,
+          val: cell.val,
+          pairId: pId,
+          stepIndex: idx + 1,
+          seqLen: seq.len,
+          color: palette.color,
+          border: palette.border,
+          dot: palette.dot,
+          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain})`
+        };
+
+        if (!matchMap[`${cell.r}_${cell.c}`]) {
+          matches.push(m);
+          matchMap[`${cell.r}_${cell.c}`] = m;
+        }
+      });
+
+      occurrenceIdx++;
+    });
+
+    const summary = sequences.length > 0
+      ? `🔢 FOUND ${sequences.length} SERIAL/SEQUENCE TOTAL OCCURRENCES! 3-cell sequences in Amber (🟡), 4-cell sequences in Purple (🟣), 5+-cell sequences in Pink (🩷).`
+      : `No 3+ cell sequence totals found in current view.`;
+
+    return { matches, summary, matchMap };
+  }
+
   // --- 1. LADDER STEP PATTERN ---
   if (q.includes('ladder step') || q.includes('ladder')) {
     const colsCount = grid[0] ? grid[0].length : 7;
