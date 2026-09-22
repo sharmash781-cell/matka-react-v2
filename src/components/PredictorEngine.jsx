@@ -128,7 +128,7 @@ export const PredictorEngine = () => {
         const projC = (c1 + deltaC) % 10;
         const projJodi = `${projO}${projC}`;
 
-        addPoints(projJodi, 40, activeModel.rowWeight, 1.0, `Same-Row Sequence: Col ${colVal} (${prevDay1}) vs Col ${colVal-1} (${prevDay2}) -> ΔOpen=+${deltaO}, ΔClose=+${deltaC}`);
+        addPoints(projJodi, 40, activeModel.rowWeight, 1.0, `Same-Row Sequence: Col ${colVal} (${prevDay1}) vs Col ${colVal - 1} (${prevDay2}) -> ΔOpen=+${deltaO}, ΔClose=+${deltaC}`);
       }
     }
 
@@ -139,10 +139,10 @@ export const PredictorEngine = () => {
       if (pastR >= 0 && grid[pastR] && grid[pastR][colVal]?.val && /^\d{2}$/.test(grid[pastR][colVal].val)) {
         const cycleVal = grid[pastR][colVal].val;
         const cO = parseInt(cycleVal[0]), cC = parseInt(cycleVal[1]);
-        
+
         addPoints(cycleVal, 42, activeModel.columnWeight, 1.0, `🔄 [${gap}-WEEK CYCLE MATCH] Direct repeat from Row #${pastR + 1}, Col #${colVal + 1} (${cycleVal})`);
         addPoints(`${getCut(cO)}${cC}`, 24, activeModel.columnWeight, 0.95, `🔄 [${gap}-WEEK CYCLE CUT] Cut-Open variant derived from ${cycleVal}`);
-        
+
         const cycleFamily = getFamilySet(cO, cC);
         cycleFamily.forEach(fJodi => {
           addPoints(fJodi, 16, activeModel.familyWeight, 0.9, `🔄 [${gap}-WEEK CYCLE FAMILY] Family member of ${cycleVal}`);
@@ -375,7 +375,7 @@ export const PredictorEngine = () => {
                         140,
                         activeModel.conditionWeight * 1.5,
                         1.0,
-                        `👑 [MASTER CLOSE DOUBLE TRIAD TARGET] High-Priority projected Total ${candTot} from Origin ${val1} (Row #${r+1}) -> Match ${firstMatchVal}`
+                        `👑 [MASTER CLOSE DOUBLE TRIAD TARGET] High-Priority projected Total ${candTot} from Origin ${val1} (Row #${r + 1}) -> Match ${firstMatchVal}`
                       );
                     }
                   }
@@ -450,11 +450,11 @@ export const PredictorEngine = () => {
           });
 
           if (c === colVal && r > startRowIdx) {
-            const prevVal = grid[r-1][c]?.val;
+            const prevVal = grid[r - 1][c]?.val;
             if (prevVal && /^\d{2}$/.test(prevVal)) {
               const pO = parseInt(prevVal[0]), pC = parseInt(prevVal[1]);
               if ((pO + pC) % 10 === total) {
-                addPoints(val, 30, activeModel.conditionWeight, recencyFactor, `Total Condition Crossing match on Column ${colVal+1} [Recency: ${(recencyFactor*100).toFixed(0)}%]`);
+                addPoints(val, 30, activeModel.conditionWeight, recencyFactor, `Total Condition Crossing match on Column ${colVal + 1} [Recency: ${(recencyFactor * 100).toFixed(0)}%]`);
               }
             }
           }
@@ -516,7 +516,7 @@ export const PredictorEngine = () => {
                 55,
                 1.4,
                 1.0,
-                `🎨 [CUSTOM VISUAL TRAINED RULE] Direct match from user marked cell (Row ${m.r+1}, Col ${m.c+1}): "${pattern.explanation}"`
+                `🎨 [CUSTOM VISUAL TRAINED RULE] Direct match from user marked cell (Row ${m.r + 1}, Col ${m.c + 1}): "${pattern.explanation}"`
               );
 
               addPoints(
@@ -631,8 +631,8 @@ export const PredictorEngine = () => {
     // --- PASS 12: MASTER DYNAMIC MULTI-INTERVAL OPEN/CLOSE/TOTAL TRIAD SCANNER ---
     if (enableMasterTriadFinder) {
       // Dynamic intervals W from 2 to 12 weeks
-      const stepWeeksList = triadCycleInterval === 'AUTO' 
-        ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] 
+      const stepWeeksList = triadCycleInterval === 'AUTO'
+        ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         : [parseInt(triadCycleInterval)];
 
       stepWeeksList.forEach(stepWeeks => {
@@ -669,7 +669,7 @@ export const PredictorEngine = () => {
                         45,
                         activeModel.conditionWeight * 1.2,
                         1.0,
-                        `👑 [DYNAMIC OPEN TRIAD] 3-Open Sum (${o1}+${o2}+${o}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                        `👑 [DYNAMIC OPEN TRIAD] 3-Open Sum (${o1}+${o2}+${o}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1 + 1}, Col #${c1 + 1} & Row #${r2 + 1}, Col #${c2 + 1})`
                       );
                     }
 
@@ -680,7 +680,7 @@ export const PredictorEngine = () => {
                         40,
                         activeModel.conditionWeight * 1.1,
                         1.0,
-                        `👑 [DYNAMIC CLOSE TRIAD] 3-Close Sum (${cVal1}+${cVal2}+${c}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                        `👑 [DYNAMIC CLOSE TRIAD] 3-Close Sum (${cVal1}+${cVal2}+${c}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1 + 1}, Col #${c1 + 1} & Row #${r2 + 1}, Col #${c2 + 1})`
                       );
                     }
 
@@ -691,7 +691,7 @@ export const PredictorEngine = () => {
                         40,
                         activeModel.conditionWeight * 1.1,
                         1.0,
-                        `👑 [DYNAMIC TOTAL TRIAD] 3-Total Sum (${tot1}+${tot2}+${candTot}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1+1}, Col #${c1+1} & Row #${r2+1}, Col #${c2+1})`
+                        `👑 [DYNAMIC TOTAL TRIAD] 3-Total Sum (${tot1}+${tot2}+${candTot}) = Target ${targetSum} (${stepWeeks}-Week Step from Row #${r1 + 1}, Col #${c1 + 1} & Row #${r2 + 1}, Col #${c2 + 1})`
                       );
                     }
 
@@ -718,7 +718,7 @@ export const PredictorEngine = () => {
     // Scans direct diagonal vectors leading to target cell within rolling lookback window
     let diagonalSumScansApplied = 0;
     const diagStartR = Math.max(0, targetRowIdx - 30);
-    
+
     for (let r = diagStartR; r < targetRowIdx; r++) {
       const rDiff = targetRowIdx - r;
       for (let cOffset = -2; cOffset <= 2; cOffset++) {
@@ -1875,7 +1875,7 @@ export const PredictorEngine = () => {
       if (vTotals.length >= 2) {
         const t1 = vTotals[0]; // Most recent total (Row -1)
         const t2 = vTotals[1]; // Second most recent (Row -2)
-        
+
         let step = (t1 - t2) % 10;
         if (step < -5) step += 10;
         if (step > 5) step -= 10;
@@ -1921,7 +1921,7 @@ export const PredictorEngine = () => {
       if (hTotals.length >= 2) {
         const t1 = hTotals[0];
         const t2 = hTotals[1];
-        
+
         let step = (t1 - t2) % 10;
         if (step < -5) step += 10;
         if (step > 5) step -= 10;
@@ -2175,11 +2175,10 @@ export const PredictorEngine = () => {
                 return (
                   <div
                     key={jodi}
-                    className={`p-4 rounded-2xl border flex flex-col justify-between space-y-2 transition ${
-                      index === 0
+                    className={`p-4 rounded-2xl border flex flex-col justify-between space-y-2 transition ${index === 0
                         ? 'bg-gradient-to-b from-pink-950/60 to-purple-950/60 border-pink-500/60 shadow-lg'
                         : 'bg-slate-900/80 border-slate-800'
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${index === 0 ? 'bg-pink-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
@@ -2273,11 +2272,10 @@ export const PredictorEngine = () => {
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
                 <button
                   onClick={() => setSelectedJodiFilter('ALL')}
-                  className={`px-3 py-1 rounded-lg border font-bold transition ${
-                    selectedJodiFilter === 'ALL'
+                  className={`px-3 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === 'ALL'
                       ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                       : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   ALL TRACES
                 </button>
@@ -2285,11 +2283,10 @@ export const PredictorEngine = () => {
                   <button
                     key={jodi}
                     onClick={() => setSelectedJodiFilter(jodi)}
-                    className={`px-2.5 py-1 rounded-lg border font-bold transition ${
-                      selectedJodiFilter === jodi
+                    className={`px-2.5 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === jodi
                         ? 'bg-pink-500/20 border-pink-500 text-pink-300'
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
+                      }`}
                   >
                     #{idx + 1} ({jodi})
                   </button>

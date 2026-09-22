@@ -182,7 +182,7 @@ const splitClausesIntelligently = (queryText) => {
   return clauses.map(c => c.replace(/___CROSS_AND___/g, 'and').trim());
 };
 
-export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
+export const parseAndSearchChart = (queryStr, grid, cols = 7, options = {}) => {
   if (!queryStr || !grid || grid.length === 0) {
     return { matches: [], summary: 'Type a query in simple English or Telugu to search the chart.', matchMap: {} };
   }
@@ -466,14 +466,27 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     q.includes('serial total sequence')
   ) {
     const colsCount = grid[0] ? grid[0].length : 7;
-    const sequences = [];
+    const rawSequences = [];
+
+    // Check gap parameter from options or query text
+    let seqGap = options?.gap ?? 0;
+    const gapMatch = q.match(/gap\s*(\d+)/i);
+    if (gapMatch) {
+      seqGap = parseInt(gapMatch[1], 10);
+    }
+    const S = seqGap + 1; // step multiplier (Gap 0 => S=1, Gap 1 => S=2, etc.)
+
+    // Check direction parameter from options or query text
+    let seqDir = options?.direction || 'both';
+    if (q.includes('horizontal') || q.includes('row')) seqDir = 'horizontal';
+    if (q.includes('vertical') || q.includes('col')) seqDir = 'vertical';
 
     const getJodiTotal = (val) => {
       if (!val || !/^\d{2}$/.test(val)) return null;
       return (parseInt(val[0], 10) + parseInt(val[1], 10)) % 10;
     };
 
-    // Helper to check if array of totals forms a valid arithmetic sequence (step = +1, -1, +2, -2, +3, -3)
+    // Helper to check if array of totals forms a valid arithmetic sequence
     const isArithmeticSeq = (totals) => {
       if (totals.length < 3) return false;
       const step = (totals[1] - totals[0] + 10) % 10;
@@ -485,80 +498,91 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       return true;
     };
 
-    // 1. VERTICAL COLUMNS: Scan 3, 4, 5+ consecutive rows in each column
-    for (let c = 0; c < colsCount; c++) {
-      let r = 0;
-      while (r < grid.length - 2) {
-        let maxLen = 0;
-        let maxValidCells = [];
+    // 1. VERTICAL COLUMNS: Scan 3, 4, 5+ cells with step S (Gap)
+    if (seqDir === 'both' || seqDir === 'vertical') {
+      for (let c = 0; c < colsCount; c++) {
+        for (let r = 0; r < grid.length; r++) {
+          let maxLen = 0;
+          let maxValidCells = [];
 
-        for (let testLen = 3; testLen <= grid.length - r; testLen++) {
-          const subCells = [];
-          const subTotals = [];
-          let valid = true;
+          const maxPossibleLen = Math.floor((grid.length - 1 - r) / S) + 1;
+          for (let testLen = 3; testLen <= maxPossibleLen; testLen++) {
+            const subCells = [];
+            const subTotals = [];
+            let valid = true;
 
-          for (let k = 0; k < testLen; k++) {
-            const val = grid[r + k]?.[c]?.val;
-            const tot = getJodiTotal(val);
-            if (tot === null) { valid = false; break; }
-            subCells.push({ r: r + k, c, val, tot, rowNum: r + k + 1, day: DAY_NAMES[c] || `Col ${c + 1}` });
-            subTotals.push(tot);
+            for (let k = 0; k < testLen; k++) {
+              const rIdx = r + (k * S);
+              const val = grid[rIdx]?.[c]?.val;
+              const tot = getJodiTotal(val);
+              if (tot === null) { valid = false; break; }
+              subCells.push({ r: rIdx, c, val, tot, rowNum: rIdx + 1, day: DAY_NAMES[c] || `Col ${c + 1}` });
+              subTotals.push(tot);
+            }
+
+            if (valid && isArithmeticSeq(subTotals)) {
+              maxLen = testLen;
+              maxValidCells = subCells;
+            } else if (!valid) {
+              break;
+            }
           }
 
-          if (valid && isArithmeticSeq(subTotals)) {
-            maxLen = testLen;
-            maxValidCells = subCells;
-          } else if (!valid) {
-            break;
+          if (maxLen >= 3) {
+            rawSequences.push({ type: 'Vertical', cells: maxValidCells, len: maxLen, gap: seqGap });
           }
-        }
-
-        if (maxLen >= 3) {
-          sequences.push({ type: 'Vertical', cells: maxValidCells, len: maxLen });
-          r += maxLen;
-        } else {
-          r++;
         }
       }
     }
 
-    // 2. HORIZONTAL ROWS: Scan 3, 4, 5+ consecutive columns in each row
-    for (let r = 0; r < grid.length; r++) {
-      if (!grid[r]) continue;
-      let c = 0;
-      while (c < colsCount - 2) {
-        let maxLen = 0;
-        let maxValidCells = [];
+    // 2. HORIZONTAL ROWS: Scan 3, 4, 5+ cells with step S (Gap)
+    if (seqDir === 'both' || seqDir === 'horizontal') {
+      for (let r = 0; r < grid.length; r++) {
+        if (!grid[r]) continue;
+        for (let c = 0; c < colsCount; c++) {
+          let maxLen = 0;
+          let maxValidCells = [];
 
-        for (let testLen = 3; testLen <= colsCount - c; testLen++) {
-          const subCells = [];
-          const subTotals = [];
-          let valid = true;
+          const maxPossibleLen = Math.floor((colsCount - 1 - c) / S) + 1;
+          for (let testLen = 3; testLen <= maxPossibleLen; testLen++) {
+            const subCells = [];
+            const subTotals = [];
+            let valid = true;
 
-          for (let k = 0; k < testLen; k++) {
-            const val = grid[r]?.[c + k]?.val;
-            const tot = getJodiTotal(val);
-            if (tot === null) { valid = false; break; }
-            subCells.push({ r, c: c + k, val, tot, rowNum: r + 1, day: DAY_NAMES[c + k] || `Col ${c + k + 1}` });
-            subTotals.push(tot);
+            for (let k = 0; k < testLen; k++) {
+              const cIdx = c + (k * S);
+              const val = grid[r]?.[cIdx]?.val;
+              const tot = getJodiTotal(val);
+              if (tot === null) { valid = false; break; }
+              subCells.push({ r, c: cIdx, val, tot, rowNum: r + 1, day: DAY_NAMES[cIdx] || `Col ${cIdx + 1}` });
+              subTotals.push(tot);
+            }
+
+            if (valid && isArithmeticSeq(subTotals)) {
+              maxLen = testLen;
+              maxValidCells = subCells;
+            } else if (!valid) {
+              break;
+            }
           }
 
-          if (valid && isArithmeticSeq(subTotals)) {
-            maxLen = testLen;
-            maxValidCells = subCells;
-          } else if (!valid) {
-            break;
+          if (maxLen >= 3) {
+            rawSequences.push({ type: 'Horizontal', cells: maxValidCells, len: maxLen, gap: seqGap });
           }
-        }
-
-        if (maxLen >= 3) {
-          sequences.push({ type: 'Horizontal', cells: maxValidCells, len: maxLen });
-          c += maxLen;
-        } else {
-          c++;
         }
       }
     }
+
+    // Filter out redundant subset sequences so only maximal sequence chains remain
+    const sequences = rawSequences.filter((seqA, i) => {
+      return !rawSequences.some((seqB, j) => {
+        if (i === j) return false;
+        if (seqB.len <= seqA.len) return false;
+        if (seqB.type !== seqA.type) return false;
+        const seqBKeys = new Set(seqB.cells.map(cell => `${cell.r}_${cell.c}`));
+        return seqA.cells.every(cell => seqBKeys.has(`${cell.r}_${cell.c}`));
+      });
+    });
 
     // Sort sequences strictly by starting row index (r), then starting column (c) so Row 2 comes first as #1!
     sequences.sort((a, b) => {
@@ -576,7 +600,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // Unique Color Palette array per sequence set (like close double)
+    // Unique Color Palette array per sequence set
     const SEQUENCE_COLORS = [
       { color: '#06b6d4', border: '#0891b2', dot: '🔵', name: 'Cyan' },     // Set 1
       { color: '#a855f7', border: '#7e22ce', dot: '🟣', name: 'Purple' },   // Set 2
@@ -611,20 +635,26 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       }
 
-      // Check if next cell in grid is empty or upcoming
+      // Check if next cell in grid is empty or upcoming with step S
       let nextR = lastCell.r;
       let nextC = lastCell.c;
-      if (seq.type === 'Vertical') nextR += 1;
-      else nextC += 1;
+      if (seq.type === 'Vertical') {
+        nextR += S;
+      } else {
+        nextC += S;
+        if (nextC >= colsCount) {
+          nextR += Math.floor(nextC / colsCount);
+          nextC = nextC % colsCount;
+        }
+      }
 
       const nextCellVal = grid[nextR]?.[nextC]?.val;
-      // A holiday ('**', '*', 'X') is LEAVE! Projections must NEVER be placed on a holiday cell!
-      // Only TRULY BLANK unplayed cells positioned AFTER the last historical data row can receive live projection targets.
       const isBlankCell = !nextCellVal || (typeof nextCellVal === 'string' && nextCellVal.trim() === '');
       const isLiveUpcoming = isBlankCell && (nextR > lastDataRow);
 
+      const gapTag = seqGap > 0 ? ` (Gap ${seqGap})` : '';
       const projInfoText = `🔮 [NEXT CELL PROJECTION]: Step ${step > 0 ? '+' + step : step} → Next Total ${nextProjTotal} (Top Jodis: ${projJodis.slice(0, 4).join(', ')})`;
-      const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain}${isLiveUpcoming ? ` 🎯 Next Total: ${nextProjTotal}` : ''})`;
+      const pId = `Seq #${occurrenceIdx}${gapTag} (${seq.len}-Cell Totals: ${totChain}${isLiveUpcoming ? ` 🎯 Next Total: ${nextProjTotal}` : ''})`;
 
       seq.cells.forEach((cell, idx) => {
         const m = {
@@ -642,7 +672,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           isLiveUpcoming,
           nextProjTotal,
           projJodis,
-          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain}) ${isLiveUpcoming ? '| ' + projInfoText : ''}`
+          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}${gapTag}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain}) ${isLiveUpcoming ? '| ' + projInfoText : ''}`
         };
 
         if (!matchMap[`${cell.r}_${cell.c}`]) {
@@ -674,9 +704,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       occurrenceIdx++;
     });
 
+    const gapDesc = seqGap > 0 ? ` (Gap ${seqGap})` : ' (Gap 0)';
     const summary = sequences.length > 0
-      ? `🔢 FOUND ${sequences.length} SERIAL/SEQUENCE TOTAL OCCURRENCES! Each sequence set is highlighted in its own unique distinct color.`
-      : `No 3+ cell sequence totals found in current view.`;
+      ? `🔢 FOUND ${sequences.length} SEQUENCE TOTAL OCCURRENCES${gapDesc}! Each set is highlighted in its own unique color.`
+      : `No 3+ cell sequence totals found with current gap setting (${seqGap}).`;
 
     return { matches, summary, matchMap };
   }
@@ -1967,6 +1998,6 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
   };
 };
 
-export const queryChart = (grid, queryStr) => parseAndSearchChart(queryStr, grid);
+export const queryChart = (grid, queryStr, options = {}) => parseAndSearchChart(queryStr, grid, grid[0]?.length || 7, options);
 export const parseQuery = (queryStr) => queryStr;
 

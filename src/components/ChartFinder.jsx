@@ -44,6 +44,10 @@ export const ChartFinder = () => {
   const [hoveredPairId, setHoveredPairId] = useState(null);
   const [selectedPairId, setSelectedPairId] = useState(null);
 
+  // SEQUENCE TOTAL OPTIONS STATE
+  const [seqGap, setSeqGap] = useState(0);
+  const [seqDirection, setSeqDirection] = useState('both');
+
   // OPEN-CLOSE FINDER ENGINE STATE
   const [openCloseMode, setOpenCloseMode] = useState(false);
   const [selectedTargetRow, setSelectedTargetRow] = useState(1);
@@ -154,8 +158,8 @@ export const ChartFinder = () => {
   // Run natural language NLP query parser on active grid
   const queryResult = useMemo(() => {
     if (!grid || grid.length === 0) return { matches: [], isRelational: false, stats: {} };
-    return queryChart(grid, searchQuery);
-  }, [grid, searchQuery]);
+    return queryChart(grid, searchQuery, { gap: seqGap, direction: seqDirection });
+  }, [grid, searchQuery, seqGap, seqDirection]);
 
   const { matches = [], parsedFilter, isRelational = false, stats = {}, relationalGroups = [] } = queryResult;
 
@@ -339,6 +343,69 @@ export const ChartFinder = () => {
             </button>
           ))}
         </div>
+
+        {/* SEQUENCE TOTAL OPTIONS SELECTOR BAR */}
+        {(searchQuery.toLowerCase().includes('sequence') || searchQuery.toLowerCase().includes('serial total')) && (
+          <div className="bg-slate-900 border border-purple-500/60 rounded-xl p-2.5 space-y-2 shadow-xl animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔢</span>
+                <span className="font-black text-purple-300 uppercase tracking-wider">
+                  Sequence Total Gap & Direction Controls
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">
+                Current Gap: <strong className="text-amber-300 font-bold">{seqGap} Cell(s)</strong> {seqGap === 0 ? '(Direct Day-by-Day)' : `(${seqGap} Middle Cell Skipped)`}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap text-xs font-mono">
+              {/* GAP STEP COUNTER WITH - AND + BUTTONS */}
+              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-purple-900 shadow-sm">
+                <span className="text-slate-300 font-bold text-[11px]">Cell Gap:</span>
+                <button
+                  onClick={() => setSeqGap(prev => Math.max(0, prev - 1))}
+                  className="w-6 h-6 rounded bg-slate-800 hover:bg-purple-950 hover:border-purple-500 border border-slate-700 text-white font-black text-sm flex items-center justify-center active:scale-95 transition cursor-pointer"
+                  title="Decrease Gap (-1)"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center text-amber-300 font-black text-sm bg-slate-900 px-1 py-0.5 rounded border border-slate-800">
+                  {seqGap}
+                </span>
+                <button
+                  onClick={() => setSeqGap(prev => Math.min(5, prev + 1))}
+                  className="w-6 h-6 rounded bg-slate-800 hover:bg-purple-950 hover:border-purple-500 border border-slate-700 text-white font-black text-sm flex items-center justify-center active:scale-95 transition cursor-pointer"
+                  title="Increase Gap (+1)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* DIRECTION PILLS */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-purple-900 shadow-sm">
+                <span className="text-slate-400 font-bold text-[10px] px-1">Direction:</span>
+                {[
+                  { id: 'both', label: 'Both (Row & Col)' },
+                  { id: 'horizontal', label: 'Horizontal (Rows)' },
+                  { id: 'vertical', label: 'Vertical (Cols)' }
+                ].map(dir => (
+                  <button
+                    key={dir.id}
+                    onClick={() => setSeqDirection(dir.id)}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer ${
+                      seqDirection === dir.id
+                        ? 'bg-purple-600 text-white shadow font-extrabold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {dir.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* OPEN-CLOSE FINDER SELECTOR BAR */}
         {openCloseMode && (
