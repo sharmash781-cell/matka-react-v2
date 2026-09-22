@@ -560,18 +560,59 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       }
     }
 
-    // Palette mapping by sequence length
-    const LENGTH_PALETTES = {
-      3: { color: '#f59e0b', border: '#d97706', dot: '🟡' }, // Amber/Gold for 3-seq
-      4: { color: '#a855f7', border: '#7e22ce', dot: '🟣' }, // Purple for 4-seq
-      5: { color: '#ec4899', border: '#be185d', dot: '🩷' }  // Pink for 5+-seq
-    };
+    // Sort sequences strictly by starting row index (r), then starting column (c) so Row 2 comes first as #1!
+    sequences.sort((a, b) => {
+      const rDiff = a.cells[0].r - b.cells[0].r;
+      if (rDiff !== 0) return rDiff;
+      return a.cells[0].c - b.cells[0].c;
+    });
+
+    // Unique Color Palette array per sequence set (like close double)
+    const SEQUENCE_COLORS = [
+      { color: '#06b6d4', border: '#0891b2', dot: '🔵', name: 'Cyan' },     // Set 1
+      { color: '#a855f7', border: '#7e22ce', dot: '🟣', name: 'Purple' },   // Set 2
+      { color: '#10b981', border: '#047857', dot: '🟢', name: 'Emerald' },  // Set 3
+      { color: '#ec4899', border: '#be185d', dot: '🩷', name: 'Pink' },     // Set 4
+      { color: '#f59e0b', border: '#b45309', dot: '🟡', name: 'Amber' },    // Set 5
+      { color: '#6366f1', border: '#4338ca', dot: '🔹', name: 'Indigo' }    // Set 6
+    ];
 
     let occurrenceIdx = 1;
     sequences.forEach(seq => {
-      const palette = LENGTH_PALETTES[Math.min(seq.len, 5)] || LENGTH_PALETTES[3];
+      const palette = SEQUENCE_COLORS[(occurrenceIdx - 1) % SEQUENCE_COLORS.length];
       const totChain = seq.cells.map(cell => cell.tot).join('-');
-      const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain})`;
+      
+      // Calculate sequence arithmetic step & next projected total for empty cell
+      const lastCell = seq.cells[seq.cells.length - 1];
+      const firstTot = seq.cells[0].tot;
+      const secondTot = seq.cells[1].tot;
+      let step = (secondTot - firstTot) % 10;
+      if (step < -5) step += 10;
+      if (step > 5) step -= 10;
+
+      const nextProjTotal = (lastCell.tot + step + 10) % 10;
+      
+      // Candidate Jodis for next projected total
+      const projJodis = [];
+      for (let d1 = 0; d1 <= 9; d1++) {
+        for (let d2 = 0; d2 <= 9; d2++) {
+          if ((d1 + d2) % 10 === nextProjTotal) {
+            projJodis.push(`${d1}${d2}`);
+          }
+        }
+      }
+
+      // Check if next cell in grid is empty or upcoming
+      let nextR = lastCell.r;
+      let nextC = lastCell.c;
+      if (seq.type === 'Vertical') nextR += 1;
+      else nextC += 1;
+
+      const nextCellVal = grid[nextR]?.[nextC]?.val;
+      const isLiveUpcoming = !nextCellVal || nextCellVal === '**' || nextCellVal === '*' || nextCellVal === 'X';
+
+      const projInfoText = `🔮 [NEXT CELL PROJECTION]: Step ${step > 0 ? '+' + step : step} → Next Total ${nextProjTotal} (Top Jodis: ${projJodis.slice(0, 4).join(', ')})`;
+      const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain}${isLiveUpcoming ? ` 🎯 Next Total: ${nextProjTotal}` : ''})`;
 
       seq.cells.forEach((cell, idx) => {
         const m = {
@@ -586,7 +627,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           color: palette.color,
           border: palette.border,
           dot: palette.dot,
-          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain})`
+          isLiveUpcoming,
+          nextProjTotal,
+          projJodis,
+          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain}) | ${projInfoText}`
         };
 
         if (!matchMap[`${cell.r}_${cell.c}`]) {
@@ -595,11 +639,31 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       });
 
+      // If next cell is empty, also add a virtual projection target match at next cell position!
+      if (isLiveUpcoming && nextR < grid.length + 1 && nextC < (grid[0]?.length || 7)) {
+        const projMatch = {
+          r: nextR,
+          c: nextC,
+          day: DAY_NAMES[nextC] || `Col ${nextC + 1}`,
+          rowNum: nextR + 1,
+          val: `[Tot ${nextProjTotal}]`,
+          pairId: pId,
+          isProjectionCell: true,
+          color: '#ec4899',
+          border: '#be185d',
+          reason: `🎯 LIVE PROJECTION TARGET: Row #${nextR + 1} ${DAY_NAMES[nextC] || 'Col ' + (nextC + 1)} projected Total ${nextProjTotal} (Candidate Jodis: ${projJodis.join(', ')})`
+        };
+        if (!matchMap[`${nextR}_${nextC}`]) {
+          matches.push(projMatch);
+          matchMap[`${nextR}_${nextC}`] = projMatch;
+        }
+      }
+
       occurrenceIdx++;
     });
 
     const summary = sequences.length > 0
-      ? `🔢 FOUND ${sequences.length} SERIAL/SEQUENCE TOTAL OCCURRENCES! 3-cell sequences in Amber (🟡), 4-cell sequences in Purple (🟣), 5+-cell sequences in Pink (🩷).`
+      ? `🔢 FOUND ${sequences.length} SERIAL/SEQUENCE TOTAL OCCURRENCES! Each sequence set is highlighted in its own unique distinct color.`
       : `No 3+ cell sequence totals found in current view.`;
 
     return { matches, summary, matchMap };
@@ -1583,6 +1647,230 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
     : `No matches found for "${queryStr}".`;
 
   return { matches, summary, matchMap };
+};
+
+/**
+ * Advanced Open-Close Pattern Origin Scanner Engine
+ * Analyzes how the Open, Close, or Jodi of a target cell was formed.
+ */
+export const analyzeCellOrigin = (grid, targetR, targetC) => {
+  if (!grid || targetR < 0 || targetR >= grid.length || !grid[targetR] || targetC < 0 || targetC >= grid[targetR].length) {
+    return null;
+  }
+
+  const targetCell = grid[targetR][targetC];
+  const targetVal = targetCell?.val;
+  if (!targetVal || !/^\d{2}$/.test(targetVal)) return null;
+
+  const openDigit = parseInt(targetVal[0], 10);
+  const closeDigit = parseInt(targetVal[1], 10);
+  const jodiTotal = (openDigit + closeDigit) % 10;
+  const dayName = DAY_NAMES[targetC] || `Col ${targetC + 1}`;
+  const rowNum = targetR + 1;
+
+  const openOrigins = [];
+  const closeOrigins = [];
+  const originMatches = [];
+  const matchMap = {};
+
+  // Target Cell match object (Gold / Emerald 🎯 TARGET)
+  const targetMatch = {
+    r: targetR,
+    c: targetC,
+    day: dayName,
+    rowNum,
+    val: targetVal,
+    isTargetCell: true,
+    color: '#f59e0b',
+    border: '#d97706',
+    reason: `🎯 TARGET INSPECTED: Row #${rowNum} ${dayName} Jodi "${targetVal}" (Open ${openDigit}, Close ${closeDigit}, Total ${jodiTotal})`
+  };
+  originMatches.push(targetMatch);
+  matchMap[`${targetR}_${targetC}`] = targetMatch;
+
+  const addOriginSource = (r, c, reason, patternType, digitType) => {
+    if (r < 0 || r >= grid.length || !grid[r] || !grid[r][c]) return;
+    const val = grid[r][c].val;
+    if (!val || !/^\d{2}$/.test(val)) return;
+
+    const sourceDay = DAY_NAMES[c] || `Col ${c + 1}`;
+    const sourceRow = r + 1;
+    const color = digitType === 'open' ? '#06b6d4' : (digitType === 'close' ? '#a855f7' : '#10b981');
+    const border = digitType === 'open' ? '#0891b2' : (digitType === 'close' ? '#7e22ce' : '#047857');
+
+    const sourceObj = {
+      r, c,
+      day: sourceDay,
+      rowNum: sourceRow,
+      val,
+      reason: `⚡ ${patternType}: Row #${sourceRow} ${sourceDay} (${val}) → ${reason}`,
+      color,
+      border
+    };
+
+    if (!matchMap[`${r}_${c}`]) {
+      originMatches.push(sourceObj);
+      matchMap[`${r}_${c}`] = sourceObj;
+    }
+  };
+
+  // 1. OPEN DIGIT ORIGIN PATTERNS (Lookback up to 6 rows)
+  for (let rBack = 1; rBack <= 6; rBack++) {
+    const prevR = targetR - rBack;
+    if (prevR < 0) break;
+
+    // A. Vertical Same Column Open-to-Open
+    const vVal = grid[prevR]?.[targetC]?.val;
+    if (vVal && /^\d{2}$/.test(vVal)) {
+      const vOpen = parseInt(vVal[0], 10);
+      const vClose = parseInt(vVal[1], 10);
+
+      if (vOpen === openDigit) {
+        openOrigins.push({
+          title: `Direct Vertical Open Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
+          desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) repeats directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Direct Open Repeat (${vOpen})`, 'Vertical Open Repeat', 'open');
+      } else if ((vOpen + 5) % 10 === openDigit) {
+        openOrigins.push({
+          title: `Cut Open Touch (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
+          desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) Cut (${(vOpen + 5) % 10}) forms Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Cut Open (${vOpen} → ${openDigit})`, 'Cut Open Touch', 'open');
+      } else if ((vOpen + 1) % 10 === openDigit || (vOpen + 9) % 10 === openDigit) {
+        const stepDir = (vOpen + 1) % 10 === openDigit ? '+1 Up' : '-1 Down';
+        openOrigins.push({
+          title: `Vertical Step-1 Open Progression (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
+          desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) ${stepDir} step → Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Step Open (${vOpen} ${stepDir} → ${openDigit})`, 'Vertical Open Step', 'open');
+      }
+
+      if (vClose === openDigit) {
+        openOrigins.push({
+          title: `Vertical Close-to-Open Transposition`,
+          desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) transposes directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Close-to-Open Transposition (${vClose})`, 'Close-to-Open Touch', 'open');
+      }
+    }
+
+    // B. Diagonal Cross Column Open & Close Touch
+    [-1, 1].forEach(cOffset => {
+      const diagC = targetC + cOffset;
+      if (diagC >= 0 && diagC < (grid[0]?.length || 7)) {
+        const diagVal = grid[prevR]?.[diagC]?.val;
+        if (diagVal && /^\d{2}$/.test(diagVal)) {
+          const dOpen = parseInt(diagVal[0], 10);
+          const dClose = parseInt(diagVal[1], 10);
+          const diagDay = DAY_NAMES[diagC];
+
+          if (dOpen === openDigit || dClose === openDigit) {
+            openOrigins.push({
+              title: `Diagonal Cross Touch (${diagDay} Row #${prevR + 1})`,
+              desc: `Row #${prevR + 1} ${diagDay} (${diagVal}) digit ${dOpen === openDigit ? 'Open ' + dOpen : 'Close ' + dClose} touches diagonally to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+              sources: [{ r: prevR, c: diagC, val: diagVal }]
+            });
+            addOriginSource(prevR, diagC, `Diagonal Cross Touch (${diagVal})`, 'Diagonal Touch', 'open');
+          }
+        }
+      }
+    });
+
+    // C. Two-Cell Vertical Close Sum (Close1 + Close2 = Open)
+    if (prevR > 0) {
+      const c1Val = grid[prevR - 1]?.[targetC]?.val;
+      const c2Val = grid[prevR]?.[targetC]?.val;
+      if (c1Val && /^\d{2}$/.test(c1Val) && c2Val && /^\d{2}$/.test(c2Val)) {
+        const cl1 = parseInt(c1Val[1], 10);
+        const cl2 = parseInt(c2Val[1], 10);
+        const sumCl = (cl1 + cl2) % 10;
+        if (sumCl === openDigit) {
+          openOrigins.push({
+            title: `Two-Cell Vertical Close Sum Engine`,
+            desc: `Row #${prevR} Close (${cl1}) + Row #${prevR + 1} Close (${cl2}) = Sum (${sumCl}) → Forms Row #${rowNum} ${dayName} Open (${openDigit}).`,
+            sources: [{ r: prevR - 1, c: targetC, val: c1Val }, { r: prevR, c: targetC, val: c2Val }]
+          });
+          addOriginSource(prevR - 1, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 1', 'open');
+          addOriginSource(prevR, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 2', 'open');
+        }
+      }
+    }
+  }
+
+  // 2. CLOSE DIGIT ORIGIN PATTERNS (Lookback up to 6 rows)
+  for (let rBack = 1; rBack <= 6; rBack++) {
+    const prevR = targetR - rBack;
+    if (prevR < 0) break;
+
+    const vVal = grid[prevR]?.[targetC]?.val;
+    if (vVal && /^\d{2}$/.test(vVal)) {
+      const vClose = parseInt(vVal[1], 10);
+
+      if (vClose === closeDigit) {
+        closeOrigins.push({
+          title: `Direct Vertical Close Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
+          desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) repeats directly to Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Direct Close Repeat (${vClose})`, 'Vertical Close Repeat', 'close');
+      } else if ((vClose + 5) % 10 === closeDigit) {
+        closeOrigins.push({
+          title: `Cut Close Touch (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
+          desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) Cut (${(vClose + 5) % 10}) forms Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+          sources: [{ r: prevR, c: targetC, val: vVal }]
+        });
+        addOriginSource(prevR, targetC, `Cut Close (${vClose} → ${closeDigit})`, 'Cut Close Touch', 'close');
+      }
+    }
+  }
+
+  // 3. SAME-WEEK HORIZONTAL DAY TRANSPOSITION (Look across days of target week)
+  for (let c = 0; c < (grid[targetR]?.length || 7); c++) {
+    if (c === targetC) continue;
+    const hVal = grid[targetR]?.[c]?.val;
+    if (hVal && /^\d{2}$/.test(hVal)) {
+      const hOpen = parseInt(hVal[0], 10);
+      const hClose = parseInt(hVal[1], 10);
+      const hDay = DAY_NAMES[c];
+
+      if (hOpen === openDigit || hClose === openDigit) {
+        openOrigins.push({
+          title: `Same-Week Horizontal Open Transposition (${hDay})`,
+          desc: `Row #${rowNum} ${hDay} (${hVal}) digit ${hOpen === openDigit ? 'Open ' + hOpen : 'Close ' + hClose} transposes horizontally to ${dayName} Open (${openDigit}).`,
+          sources: [{ r: targetR, c, val: hVal }]
+        });
+        addOriginSource(targetR, c, `Same-Week Horizontal Open (${hVal})`, 'Horizontal Transposition', 'open');
+      }
+
+      if (hOpen === closeDigit || hClose === closeDigit) {
+        closeOrigins.push({
+          title: `Same-Week Horizontal Close Transposition (${hDay})`,
+          desc: `Row #${rowNum} ${hDay} (${hVal}) digit ${hOpen === closeDigit ? 'Open ' + hOpen : 'Close ' + hClose} transposes horizontally to ${dayName} Close (${closeDigit}).`,
+          sources: [{ r: targetR, c, val: hVal }]
+        });
+        addOriginSource(targetR, c, `Same-Week Horizontal Close (${hVal})`, 'Horizontal Transposition', 'close');
+      }
+    }
+  }
+
+  return {
+    targetRow: rowNum,
+    targetCol: targetC,
+    targetDay: dayName,
+    targetVal,
+    openDigit,
+    closeDigit,
+    jodiTotal,
+    openOrigins,
+    closeOrigins,
+    originMatches,
+    matchMap
+  };
 };
 
 export const queryChart = (grid, queryStr) => parseAndSearchChart(queryStr, grid);

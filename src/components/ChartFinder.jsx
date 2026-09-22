@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useChart, isRedPair } from '../context/ChartContext';
-import { parseQuery, queryChart } from '../ai/queryEngine';
-import { Search, Sparkles, Filter, Eye, Layers, ArrowRight, HelpCircle, Check, X } from 'lucide-react';
+import { parseQuery, queryChart, analyzeCellOrigin } from '../ai/queryEngine';
+import { Search, Sparkles, Filter, Eye, Layers, ArrowRight, HelpCircle, Check, X, Target } from 'lucide-react';
 
 const COL_HEADERS = ['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 const OVERSCAN = 150;
@@ -44,6 +44,12 @@ export const ChartFinder = () => {
   const [hoveredPairId, setHoveredPairId] = useState(null);
   const [selectedPairId, setSelectedPairId] = useState(null);
 
+  // OPEN-CLOSE FINDER ENGINE STATE
+  const [openCloseMode, setOpenCloseMode] = useState(false);
+  const [selectedTargetRow, setSelectedTargetRow] = useState(1);
+  const [selectedTargetCol, setSelectedTargetCol] = useState(0); // 0 = Mon
+  const [originResult, setOriginResult] = useState(null);
+
   // MULTI-FAMILY HIGHLIGHT STATE (Up to 5 active families with distinct color palettes)
   const [activeFamilies, setActiveFamilies] = useState([]);
 
@@ -54,6 +60,7 @@ export const ChartFinder = () => {
   const progressAnimRef = useRef(null);
 
   const containerRef = useRef(null);
+  const matchesBarRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
 
   const activeChartObj = charts[selectedChart] || null;
@@ -170,29 +177,45 @@ export const ChartFinder = () => {
     setScrollTop(e.target.scrollTop);
   };
 
-  const scrollToRowIndex = (rIdx) => {
+  const scrollToRowIndex = useCallback((rIdx) => {
     if (containerRef.current) {
       const targetScroll = Math.max(0, rIdx * rowHeight - 80);
       containerRef.current.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
-  };
+  }, [rowHeight]);
+
+  const runOriginAnalysis = useCallback((rIdx, cIdx) => {
+    if (rIdx === undefined || cIdx === undefined || rIdx < 0 || !grid[rIdx]) return;
+    const res = analyzeCellOrigin(grid, rIdx, cIdx);
+    setOriginResult(res);
+    setSelectedTargetRow(rIdx + 1);
+    setSelectedTargetCol(cIdx);
+    setOpenCloseMode(true);
+    scrollToRowIndex(rIdx);
+  }, [grid, scrollToRowIndex]);
 
   useEffect(() => {
     if (matches && matches.length > 0 && matches[0].r !== undefined) {
       scrollToRowIndex(matches[0].r);
     }
-  }, [searchQuery, matches.length]);
+  }, [searchQuery, matches.length, scrollToRowIndex]);
+
+  // Auto-scroll matches bar to the right (latest occurrences) when matches change
+  useEffect(() => {
+    if (matchesBarRef.current && matches.length > 0) {
+      matchesBarRef.current.scrollLeft = matchesBarRef.current.scrollWidth;
+    }
+  }, [matches]);
 
   const presetQueries = [
+    'open-close finder',
     'sequence totals',
     'master game',
     'close double',
     '03 family',
     '56 falti',
-    'open to open same and close to close one down between 1 to 4 row',
     'mon open to open same and close to close one down',
-    'wed 9 total near 6 total',
-    'somavaram 03 family and 5th varam red pair'
+    'wed 9 total near 6 total'
   ];
 
   const totalRows = grid.length;
@@ -213,6 +236,13 @@ export const ChartFinder = () => {
   const visibleRows = useMemo(() => {
     return grid.slice(startRow, endRow);
   }, [grid, startRow, endRow]);
+
+  const activeMatchMap = useMemo(() => {
+    if (originResult && originResult.matchMap) {
+      return { ...matchMap, ...originResult.matchMap };
+    }
+    return matchMap;
+  }, [matchMap, originResult]);
 
   const getCellFamilyInfo = useCallback((val) => {
     if (!val || activeFamilies.length === 0) return null;
@@ -244,6 +274,7 @@ export const ChartFinder = () => {
                 onChange={(e) => {
                   setSelectedChart(e.target.value);
                   if (setActiveChartName) setActiveChartName(e.target.value);
+                  setOriginResult(null);
                 }}
                 className="w-full sm:w-auto bg-slate-900 border-2 border-pink-500/80 text-pink-300 text-base sm:text-xl font-black font-mono px-3.5 py-1.5 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 shadow-lg cursor-pointer transition hover:border-pink-400"
               >
@@ -264,13 +295,19 @@ export const ChartFinder = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder='Type search in English or Telugu e.g. "mon open to open same", "somavaram 03 family"...'
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (e.target.value.toLowerCase().includes('open-close')) {
+                setOpenCloseMode(true);
+                runOriginAnalysis(grid.length - 1, 0);
+              }
+            }}
+            placeholder='Type search in English e.g. "open-close finder", "sequence totals", "master game"...'
             className="w-full pl-9 pr-24 py-2.5 bg-slate-900 border-2 border-pink-500/80 focus:border-pink-400 rounded-xl text-xs sm:text-sm font-mono text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-pink-500/40 shadow-inner transition"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => { setSearchQuery(''); setOriginResult(null); setOpenCloseMode(false); }}
               className="absolute inset-y-0 right-2 my-auto text-[10px] font-bold text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded-md h-6"
             >
               Clear
@@ -285,9 +322,15 @@ export const ChartFinder = () => {
           {presetQueries.map((preset, idx) => (
             <button
               key={idx}
-              onClick={() => setSearchQuery(preset)}
+              onClick={() => {
+                setSearchQuery(preset);
+                if (preset === 'open-close finder') {
+                  setOpenCloseMode(true);
+                  runOriginAnalysis(grid.length - 1, 0);
+                }
+              }}
               className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full transition whitespace-nowrap border ${
-                searchQuery === preset
+                searchQuery === preset || (preset === 'open-close finder' && openCloseMode)
                   ? 'bg-pink-600 text-white border-pink-400 shadow-md'
                   : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -296,6 +339,76 @@ export const ChartFinder = () => {
             </button>
           ))}
         </div>
+
+        {/* OPEN-CLOSE FINDER SELECTOR BAR */}
+        {openCloseMode && (
+          <div className="bg-slate-900 border border-cyan-500/50 rounded-xl p-3 space-y-2 shadow-xl animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
+                <span className="text-xs font-black text-cyan-300 uppercase tracking-wider font-mono">
+                  Open-Close Pattern Origin Finder
+                </span>
+              </div>
+              <button
+                onClick={() => { setOpenCloseMode(false); setOriginResult(null); }}
+                className="text-[10px] font-bold bg-slate-800 text-slate-400 hover:text-white px-2 py-0.5 rounded border border-slate-700"
+              >
+                Close Finder ✕
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                <span className="text-slate-400 font-bold">Row #:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={grid.length}
+                  value={selectedTargetRow}
+                  onChange={(e) => {
+                    const rVal = parseInt(e.target.value, 10);
+                    if (!isNaN(rVal) && rVal >= 1 && rVal <= grid.length) {
+                      setSelectedTargetRow(rVal);
+                    }
+                  }}
+                  className="w-16 bg-slate-900 text-amber-300 font-black font-mono text-center rounded px-1 border border-slate-700"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                <span className="text-slate-400 font-bold">Day:</span>
+                {['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].slice(0, colsInput).map((dName, dIdx) => (
+                  <button
+                    key={dIdx}
+                    onClick={() => {
+                      setSelectedTargetCol(dIdx);
+                      runOriginAnalysis(selectedTargetRow - 1, dIdx);
+                    }}
+                    className={`px-2 py-0.5 rounded font-black text-[11px] transition ${
+                      selectedTargetCol === dIdx
+                        ? 'bg-cyan-500 text-slate-950 shadow-md font-extrabold'
+                        : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {dName}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => runOriginAnalysis(selectedTargetRow - 1, selectedTargetCol)}
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3.5 py-1 rounded-lg shadow-md transition flex items-center gap-1 cursor-pointer"
+              >
+                <span>🔍 Analyze Pattern Origin</span>
+              </button>
+            </div>
+
+            <div className="text-[10px] text-cyan-400/90 font-mono">
+              💡 <strong>Tip:</strong> Click ANY cell directly in the table below to instantly analyze how its Open & Close digits were formed!
+            </div>
+          </div>
+        )}
 
         {activeFamilies.length > 0 && (
           <div className="flex items-center justify-between flex-wrap bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 gap-2">
@@ -353,74 +466,93 @@ export const ChartFinder = () => {
           </div>
         </div>
 
+        {/* MATCHES BAR WITH RIGHT AUTO-SCROLL AND JUMP CONTROLS */}
         {matches.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-            <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">Matches:</span>
-            {(() => {
-              // Group matches by pairId if present
-              const hasPairIds = matches.some(m => m.pairId);
-              if (hasPairIds) {
-                const groupMap = {};
-                const groupOrder = [];
-                matches.forEach((m) => {
-                  const gId = m.pairId || `${m.r}_${m.c}`;
-                  if (!groupMap[gId]) {
-                    groupMap[gId] = { id: gId, color: m.color, border: m.border, items: [] };
-                    groupOrder.push(gId);
-                  }
-                  groupMap[gId].items.push(m);
-                });
+          <div className="flex items-center gap-1.5 py-1">
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-[9px] text-slate-400 font-bold uppercase">Matches:</span>
+              <button
+                onClick={() => { if (matchesBarRef.current) matchesBarRef.current.scrollLeft = 0; }}
+                className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 px-1.5 py-0.5 rounded border border-slate-700 transition"
+                title="Jump to Oldest Occurrence (#1)"
+              >
+                ⏮️ Oldest (#1)
+              </button>
+              <button
+                onClick={() => { if (matchesBarRef.current) matchesBarRef.current.scrollLeft = matchesBarRef.current.scrollWidth; }}
+                className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 transition"
+                title="Jump to Latest Occurrence"
+              >
+                Latest ⏭️
+              </button>
+            </div>
 
-                return groupOrder.map((gId, gIdx) => {
-                  const group = groupMap[gId];
-                  const isHoveredOrSelected = group.id === hoveredPairId || group.id === selectedPairId;
-                  const chainText = group.items.map(item => item.val).join(' - ');
-                  const daysText = group.items.map(item => item.day).join(' - ');
-                  const firstRow = group.items[0]?.rowNum || 1;
+            <div ref={matchesBarRef} className="flex items-center gap-1.5 overflow-x-auto py-1 scroll-smooth">
+              {(() => {
+                const hasPairIds = matches.some(m => m.pairId);
+                if (hasPairIds) {
+                  const groupMap = {};
+                  const groupOrder = [];
+                  matches.forEach((m) => {
+                    const gId = m.pairId || `${m.r}_${m.c}`;
+                    if (!groupMap[gId]) {
+                      groupMap[gId] = { id: gId, color: m.color, border: m.border, items: [] };
+                      groupOrder.push(gId);
+                    }
+                    groupMap[gId].items.push(m);
+                  });
 
-                  return (
+                  return groupOrder.map((gId, gIdx) => {
+                    const group = groupMap[gId];
+                    const isHoveredOrSelected = group.id === hoveredPairId || group.id === selectedPairId;
+                    const chainText = group.items.map(item => item.val).join(' - ');
+                    const daysText = group.items.map(item => item.day).join(' - ');
+                    const firstRow = group.items[0]?.rowNum || 1;
+
+                    return (
+                      <button
+                        key={group.id}
+                        onMouseEnter={() => setHoveredPairId(group.id)}
+                        onMouseLeave={() => setHoveredPairId(null)}
+                        onClick={() => {
+                          setSelectedPairId(prev => prev === group.id ? null : group.id);
+                          scrollToRowIndex(group.items[0]?.r);
+                        }}
+                        style={{
+                          borderColor: isHoveredOrSelected ? '#000000' : group.color,
+                          backgroundColor: isHoveredOrSelected ? `${group.color}aa` : `${group.color}35`
+                        }}
+                        className={`flex items-center gap-1.5 border-2 px-3 py-1 rounded-xl cursor-pointer transition shadow-md shrink-0 text-white ${
+                          isHoveredOrSelected ? 'ring-2 ring-black font-black scale-105 border-black' : ''
+                        }`}
+                      >
+                        <span className="text-[10px] font-black text-amber-300 font-mono">
+                          #{gIdx + 1} (R#{firstRow})
+                        </span>
+                        <span className="text-xs font-black font-mono tracking-wider text-emerald-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700">
+                          {chainText}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-300 font-mono">
+                          ({daysText})
+                        </span>
+                      </button>
+                    );
+                  });
+                } else {
+                  return matches.map((m, idx) => (
                     <button
-                      key={group.id}
-                      onMouseEnter={() => setHoveredPairId(group.id)}
-                      onMouseLeave={() => setHoveredPairId(null)}
-                      onClick={() => {
-                        setSelectedPairId(prev => prev === group.id ? null : group.id);
-                        scrollToRowIndex(group.items[0]?.r);
-                      }}
-                      style={{
-                        borderColor: isHoveredOrSelected ? '#000000' : group.color,
-                        backgroundColor: isHoveredOrSelected ? `${group.color}aa` : `${group.color}35`
-                      }}
-                      className={`flex items-center gap-1.5 border-2 px-3 py-1 rounded-xl cursor-pointer transition shadow-md shrink-0 text-white ${
-                        isHoveredOrSelected ? 'ring-2 ring-black font-black scale-105 border-black' : ''
-                      }`}
+                      key={idx}
+                      onClick={() => scrollToRowIndex(m.r)}
+                      style={{ backgroundColor: m.color, color: '#020617' }}
+                      className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
                     >
-                      <span className="text-[10px] font-black text-amber-300 font-mono">
-                        #{gIdx + 1} (R#{firstRow})
-                      </span>
-                      <span className="text-xs font-black font-mono tracking-wider text-emerald-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700">
-                        {chainText}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-300 font-mono">
-                        ({daysText})
-                      </span>
+                      <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
+                      <ArrowRight className="w-2.5 h-2.5" />
                     </button>
-                  );
-                });
-              } else {
-                return matches.map((m, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => scrollToRowIndex(m.r)}
-                    style={{ backgroundColor: m.color, color: '#020617' }}
-                    className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
-                  >
-                    <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
-                    <ArrowRight className="w-2.5 h-2.5" />
-                  </button>
-                ));
-              }
-            })()}
+                  ));
+                }
+              })()}
+            </div>
           </div>
         )}
       </div>
@@ -428,7 +560,7 @@ export const ChartFinder = () => {
       <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
         <div className="flex items-center justify-between gap-1.5 px-1 pb-1 flex-wrap">
           <span className="text-[9px] text-slate-400 font-mono">
-            💡 <span className="text-cyan-400 font-bold">Hold any cell 1s</span> → toggle family highlight with custom colors
+            💡 <span className="text-cyan-400 font-bold">Click any cell</span> → inspect pattern origin | <span className="text-pink-400 font-bold">Hold 1s</span> → toggle family
           </span>
           {pressingCell && (
             <span className="text-[9px] text-cyan-400 font-bold animate-pulse">
@@ -477,7 +609,7 @@ export const ChartFinder = () => {
                         const red = isRedPair(val);
                         const holiday = isHoliday(val);
 
-                        const matchItem = matchMap[`${rIdx}_${cIdx}`];
+                        const matchItem = activeMatchMap[`${rIdx}_${cIdx}`];
                         const isHoveredPair = matchItem && matchItem.pairId && (matchItem.pairId === hoveredPairId || matchItem.pairId === selectedPairId);
                         const pColor = matchItem?.color || '#f59e0b';
 
@@ -525,6 +657,7 @@ export const ChartFinder = () => {
                             onTouchStart={() => startPressTimer(rIdx, cIdx, val)}
                             onTouchEnd={cancelPressTimer}
                             onTouchCancel={cancelPressTimer}
+                            onClick={() => runOriginAnalysis(rIdx, cIdx)}
                             style={{
                               backgroundColor: cellBg,
                               borderColor: cellBorderColor,
@@ -557,9 +690,9 @@ export const ChartFinder = () => {
                               </div>
                             )}
 
-                            {matchItem && matchItem.isTarget ? (
-                              <span className="text-xs xs:text-sm sm:text-base font-black font-mono tracking-tight text-slate-950 drop-shadow-sm">
-                                {matchItem.targetTotals[0]}/{matchItem.targetTotals[2]} (tot)
+                            {matchItem && matchItem.isProjectionCell ? (
+                              <span className="text-xs font-black font-mono tracking-tight text-pink-600 bg-pink-100 px-1 rounded border border-pink-500 animate-pulse">
+                                {matchItem.val}
                               </span>
                             ) : (
                               <span
@@ -586,6 +719,83 @@ export const ChartFinder = () => {
             </table>
           </div>
         </div>
+
+        {/* AI ORIGIN ANALYSIS BREAKDOWN CARD BELOW TABLE */}
+        {originResult && (
+          <div className="bg-slate-900 border-2 border-amber-500/60 rounded-2xl p-3 sm:p-4 space-y-3 shadow-2xl text-slate-100 mt-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎯</span>
+                <div>
+                  <h4 className="text-sm font-black text-amber-400 tracking-wide uppercase font-mono">
+                    Pattern Origin Breakdown: Row #{originResult.targetRow} {originResult.targetDay} Jodi "{originResult.targetVal}"
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    Open Digit: <span className="text-cyan-300 font-bold">{originResult.openDigit}</span> | Close Digit: <span className="text-purple-300 font-bold">{originResult.closeDigit}</span> | Jodi Total: <span className="text-emerald-300 font-bold">{originResult.jodiTotal}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOriginResult(null)}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition"
+              >
+                Dismiss ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+              {/* OPEN DIGIT EXPLANATIONS */}
+              <div className="bg-slate-950/90 p-3 rounded-xl border border-cyan-500/40 space-y-2">
+                <h5 className="text-xs font-black text-cyan-400 uppercase flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                  <span>🔓 How Open "{originResult.openDigit}" Was Formed:</span>
+                </h5>
+                {originResult.openOrigins.length > 0 ? (
+                  <div className="space-y-2 text-xs">
+                    {originResult.openOrigins.map((orig, idx) => (
+                      <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
+                        <div className="font-bold text-amber-300 text-[11px]">
+                          #{idx + 1} {orig.title}
+                        </div>
+                        <div className="text-[11px] text-slate-300 leading-snug">
+                          {orig.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic py-1">
+                    No direct historical origin pattern matched for Open digit {originResult.openDigit} in preceding 6 rows.
+                  </div>
+                )}
+              </div>
+
+              {/* CLOSE DIGIT EXPLANATIONS */}
+              <div className="bg-slate-950/90 p-3 rounded-xl border border-purple-500/40 space-y-2">
+                <h5 className="text-xs font-black text-purple-400 uppercase flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                  <span>🔒 How Close "{originResult.closeDigit}" Was Formed:</span>
+                </h5>
+                {originResult.closeOrigins.length > 0 ? (
+                  <div className="space-y-2 text-xs">
+                    {originResult.closeOrigins.map((orig, idx) => (
+                      <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
+                        <div className="font-bold text-amber-300 text-[11px]">
+                          #{idx + 1} {orig.title}
+                        </div>
+                        <div className="text-[11px] text-slate-300 leading-snug">
+                          {orig.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic py-1">
+                    No direct historical origin pattern matched for Close digit {originResult.closeDigit} in preceding 6 rows.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
