@@ -1605,6 +1605,83 @@ export const PredictorEngine = () => {
       });
     }
 
+    // --- PASS 29: DIAGONAL CROSS OPEN-TO-OPEN REPEAT & STEP-K STREAK ENGINE (e.g. 94 -> 93, 07 -> 03, 22 -> 27 CROSS OPEN TOUCH) ---
+    // Detects when the Open digit of a diagonal cross cell (Row-1, Col+1 or Row-1, Col-1) repeats or steps directly to become target Open digit
+    if (targetRowIdx >= 1) {
+      const openDiagNeighbors = [];
+      // Top-Right Diagonal Cell (Row - 1, Col + 1) -> e.g. 94 Open 9 -> 93 Open 9
+      if (colVal < activeChart.cols - 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal + 1]?.val) {
+        openDiagNeighbors.push({
+          dir: 'Top-Right Cross ↙',
+          r: targetRowIdx - 1,
+          c: colVal + 1,
+          val: grid[targetRowIdx - 1][colVal + 1].val
+        });
+      }
+      // Top-Left Diagonal Cell (Row - 1, Col - 1) -> e.g. 07 Open 0 -> 03 Open 0
+      if (colVal >= 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal - 1]?.val) {
+        openDiagNeighbors.push({
+          dir: 'Top-Left Cross ↘',
+          r: targetRowIdx - 1,
+          c: colVal - 1,
+          val: grid[targetRowIdx - 1][colVal - 1].val
+        });
+      }
+
+      openDiagNeighbors.forEach(nbr => {
+        if (/^\d{2}$/.test(nbr.val)) {
+          const diagOpen = parseInt(nbr.val[0], 10);
+          const diagCutOpen = getCut(diagOpen);
+
+          // Check if Open-to-Open diagonal repetition streak exists in recent rows
+          let openRepeatStreak = 0;
+          for (let rBack = 1; rBack <= 4; rBack++) {
+            const hR = targetRowIdx - rBack;
+            if (hR >= 1 && grid[hR] && grid[hR][nbr.c]?.val && grid[hR + 1] && grid[hR + 1][colVal]?.val) {
+              const hDiagVal = grid[hR][nbr.c].val;
+              const hTargetVal = grid[hR + 1][colVal].val;
+              if (/^\d{2}$/.test(hDiagVal) && /^\d{2}$/.test(hTargetVal)) {
+                if (parseInt(hDiagVal[0], 10) === parseInt(hTargetVal[0], 10)) {
+                  openRepeatStreak++;
+                } else break;
+              }
+            }
+          }
+
+          const streakBonus = openRepeatStreak * 25;
+
+          for (let c = 0; c <= 9; c++) {
+            const candJodiDirect = `${diagOpen}${c}`;
+            const candJodiCut = `${diagCutOpen}${c}`;
+
+            // 1. Direct Diagonal Open-to-Open Repeat (e.g. 94 Open 9 -> Target Open 9)
+            addPoints(
+              candJodiDirect,
+              125 + streakBonus,
+              activeModel.conditionWeight * 1.6,
+              1.0,
+              `🔄 [DIAGONAL CROSS OPEN REPEAT] ${nbr.dir} Jodi "${nbr.val}" Open ${diagOpen} crosses directly to Target Open ${diagOpen} (Streak: ${openRepeatStreak})`
+            );
+
+            // 2. Cut Diagonal Open-to-Open Touch (e.g. 94 Open 9 -> Target Cut Open 4)
+            addPoints(
+              candJodiCut,
+              95 + Math.round(streakBonus * 0.7),
+              activeModel.conditionWeight * 1.3,
+              1.0,
+              `🔄 [DIAGONAL CROSS CUT-OPEN TOUCH] ${nbr.dir} Jodi "${nbr.val}" Open ${diagOpen} crosses to Target Cut-Open ${diagCutOpen}`
+            );
+
+            // 3. Diagonal Open +1 / -1 Step Variations
+            const openPlus1 = (diagOpen + 1) % 10;
+            const openMinus1 = (diagOpen + 9) % 10;
+            addPoints(`${openPlus1}${c}`, 75, activeModel.conditionWeight * 1.1, 1.0, `📈 [DIAGONAL OPEN +1 STEP] ${nbr.dir} Open ${diagOpen} + 1 → Target Open ${openPlus1}`);
+            addPoints(`${openMinus1}${c}`, 75, activeModel.conditionWeight * 1.1, 1.0, `📉 [DIAGONAL OPEN -1 STEP] ${nbr.dir} Open ${diagOpen} - 1 → Target Open ${openMinus1}`);
+          }
+        }
+      });
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
