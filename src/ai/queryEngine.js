@@ -618,9 +618,10 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       else nextC += 1;
 
       const nextCellVal = grid[nextR]?.[nextC]?.val;
-      const isCellEmpty = !nextCellVal || nextCellVal === '**' || nextCellVal === '*' || nextCellVal === 'X';
-      // Only mark as live upcoming projection if empty AND positioned at/after the last historical data row!
-      const isLiveUpcoming = isCellEmpty && (nextR >= lastDataRow);
+      // A holiday ('**', '*', 'X') is LEAVE! Projections must NEVER be placed on a holiday cell!
+      // Only TRULY BLANK unplayed cells positioned AFTER the last historical data row can receive live projection targets.
+      const isBlankCell = !nextCellVal || (typeof nextCellVal === 'string' && nextCellVal.trim() === '');
+      const isLiveUpcoming = isBlankCell && (nextR > lastDataRow);
 
       const projInfoText = `🔮 [NEXT CELL PROJECTION]: Step ${step > 0 ? '+' + step : step} → Next Total ${nextProjTotal} (Top Jodis: ${projJodis.slice(0, 4).join(', ')})`;
       const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain}${isLiveUpcoming ? ` 🎯 Next Total: ${nextProjTotal}` : ''})`;
