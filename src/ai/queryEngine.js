@@ -1673,7 +1673,19 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
   const originMatches = [];
   const matchMap = {};
 
-  // Target Cell match object (Gold / Emerald 🎯 TARGET)
+  // Color Palette Array for Origin Rules (Ensures every rule has a unique color!)
+  const RULE_COLORS = [
+    { bg: '#06b6d4', border: '#0891b2', name: 'Cyan', text: 'text-cyan-300' },
+    { bg: '#10b981', border: '#047857', name: 'Emerald', text: 'text-emerald-300' },
+    { bg: '#a855f7', border: '#7e22ce', name: 'Purple', text: 'text-purple-300' },
+    { bg: '#f59e0b', border: '#b45309', name: 'Amber', text: 'text-amber-300' },
+    { bg: '#ec4899', border: '#be185d', name: 'Pink', text: 'text-pink-300' },
+    { bg: '#6366f1', border: '#4338ca', name: 'Indigo', text: 'text-indigo-300' },
+    { bg: '#84cc16', border: '#4d7c0f', name: 'Lime', text: 'text-lime-300' }
+  ];
+  let ruleCounter = 0;
+
+  // Target Cell match object (Gold / Amber 🎯 TARGET)
   const targetMatch = {
     r: targetR,
     c: targetC,
@@ -1688,15 +1700,13 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
   originMatches.push(targetMatch);
   matchMap[`${targetR}_${targetC}`] = targetMatch;
 
-  const addOriginSource = (r, c, reason, patternType, digitType) => {
+  const addOriginSource = (r, c, reason, patternType, palette) => {
     if (r < 0 || r >= grid.length || !grid[r] || !grid[r][c]) return;
     const val = grid[r][c].val;
     if (!val || !/^\d{2}$/.test(val)) return;
 
     const sourceDay = DAY_NAMES[c] || `Col ${c + 1}`;
     const sourceRow = r + 1;
-    const color = digitType === 'open' ? '#06b6d4' : (digitType === 'close' ? '#a855f7' : '#10b981');
-    const border = digitType === 'open' ? '#0891b2' : (digitType === 'close' ? '#7e22ce' : '#047857');
 
     const sourceObj = {
       r, c,
@@ -1704,8 +1714,8 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
       rowNum: sourceRow,
       val,
       reason: `⚡ ${patternType}: Row #${sourceRow} ${sourceDay} (${val}) → ${reason}`,
-      color,
-      border
+      color: palette.bg,
+      border: palette.border
     };
 
     if (!matchMap[`${r}_${c}`]) {
@@ -1719,43 +1729,84 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
     const prevR = targetR - rBack;
     if (prevR < 0) break;
 
-    // A. Vertical Same Column Open-to-Open
     const vVal = grid[prevR]?.[targetC]?.val;
     if (vVal && /^\d{2}$/.test(vVal)) {
       const vOpen = parseInt(vVal[0], 10);
       const vClose = parseInt(vVal[1], 10);
 
+      // A. Vertical Same Column Open-to-Open (With 2x / 3x Multi-Cycle Repeat Proof)
       if (vOpen === openDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
+        let proofLevel = 1;
+        let chainText = `Row #${prevR + 1} Open (${vOpen}) → Row #${rowNum} Open (${openDigit})`;
+
+        // Check for 2nd step back
+        const prevR2 = targetR - (rBack * 2);
+        if (prevR2 >= 0) {
+          const v2Val = grid[prevR2]?.[targetC]?.val;
+          if (v2Val && parseInt(v2Val[0], 10) === openDigit) {
+            proofLevel = 2;
+            chainText = `Row #${prevR2 + 1} Open (${openDigit}) → Row #${prevR + 1} Open (${openDigit}) → Row #${rowNum} Open (${openDigit})`;
+            addOriginSource(prevR2, targetC, `Multi-Cycle Open Step 2`, 'Vertical Open Repeat Step 2', palette);
+
+            // Check for 3rd step back
+            const prevR3 = targetR - (rBack * 3);
+            if (prevR3 >= 0) {
+              const v3Val = grid[prevR3]?.[targetC]?.val;
+              if (v3Val && parseInt(v3Val[0], 10) === openDigit) {
+                proofLevel = 3;
+                chainText = `Row #${prevR3 + 1} Open (${openDigit}) → Row #${prevR2 + 1} Open (${openDigit}) → Row #${prevR + 1} Open (${openDigit}) → Row #${rowNum} Open (${openDigit})`;
+                addOriginSource(prevR3, targetC, `Multi-Cycle Open Step 3`, 'Vertical Open Repeat Step 3', palette);
+              }
+            }
+          }
+        }
+
+        const proofTitle = proofLevel >= 3
+          ? `🔥 3rd Time Multi-Cycle Repeat Proof (Strongest Base)`
+          : (proofLevel === 2
+              ? `⚡ 2nd Time Sequential Repeat Proof (Strong Base)`
+              : `Direct Vertical Open Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`);
+
         openOrigins.push({
-          title: `Direct Vertical Open Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
-          desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) repeats directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          title: proofTitle,
+          desc: proofLevel > 1
+            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel} Consecutive Cycles): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel} times, forming a 100% solid base for Open ${openDigit}!`
+            : `Row #${prevR + 1} ${dayName} Open (${vOpen}) repeats directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Direct Open Repeat (${vOpen})`, 'Vertical Open Repeat', 'open');
+        addOriginSource(prevR, targetC, `Direct Open Repeat (${vOpen})`, 'Vertical Open Repeat', palette);
       } else if ((vOpen + 5) % 10 === openDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         openOrigins.push({
           title: `Cut Open Touch (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
           desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) Cut (${(vOpen + 5) % 10}) forms Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Cut Open (${vOpen} → ${openDigit})`, 'Cut Open Touch', 'open');
+        addOriginSource(prevR, targetC, `Cut Open (${vOpen} → ${openDigit})`, 'Cut Open Touch', palette);
       } else if ((vOpen + 1) % 10 === openDigit || (vOpen + 9) % 10 === openDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         const stepDir = (vOpen + 1) % 10 === openDigit ? '+1 Up' : '-1 Down';
         openOrigins.push({
           title: `Vertical Step-1 Open Progression (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
           desc: `Row #${prevR + 1} ${dayName} Open (${vOpen}) ${stepDir} step → Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Step Open (${vOpen} ${stepDir} → ${openDigit})`, 'Vertical Open Step', 'open');
+        addOriginSource(prevR, targetC, `Step Open (${vOpen} ${stepDir} → ${openDigit})`, 'Vertical Open Step', palette);
       }
 
       if (vClose === openDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         openOrigins.push({
           title: `Vertical Close-to-Open Transposition`,
           desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) transposes directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Close-to-Open Transposition (${vClose})`, 'Close-to-Open Touch', 'open');
+        addOriginSource(prevR, targetC, `Close-to-Open Transposition (${vClose})`, 'Close-to-Open Touch', palette);
       }
     }
 
@@ -1770,12 +1821,14 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
           const diagDay = DAY_NAMES[diagC];
 
           if (dOpen === openDigit || dClose === openDigit) {
+            const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
             openOrigins.push({
               title: `Diagonal Cross Touch (${diagDay} Row #${prevR + 1})`,
               desc: `Row #${prevR + 1} ${diagDay} (${diagVal}) digit ${dOpen === openDigit ? 'Open ' + dOpen : 'Close ' + dClose} touches diagonally to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+              palette,
               sources: [{ r: prevR, c: diagC, val: diagVal }]
             });
-            addOriginSource(prevR, diagC, `Diagonal Cross Touch (${diagVal})`, 'Diagonal Touch', 'open');
+            addOriginSource(prevR, diagC, `Diagonal Cross Touch (${diagVal})`, 'Diagonal Touch', palette);
           }
         }
       }
@@ -1790,13 +1843,15 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
         const cl2 = parseInt(c2Val[1], 10);
         const sumCl = (cl1 + cl2) % 10;
         if (sumCl === openDigit) {
+          const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
           openOrigins.push({
             title: `Two-Cell Vertical Close Sum Engine`,
             desc: `Row #${prevR} Close (${cl1}) + Row #${prevR + 1} Close (${cl2}) = Sum (${sumCl}) → Forms Row #${rowNum} ${dayName} Open (${openDigit}).`,
+            palette,
             sources: [{ r: prevR - 1, c: targetC, val: c1Val }, { r: prevR, c: targetC, val: c2Val }]
           });
-          addOriginSource(prevR - 1, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 1', 'open');
-          addOriginSource(prevR, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 2', 'open');
+          addOriginSource(prevR - 1, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 1', palette);
+          addOriginSource(prevR, targetC, `Close Sum (${cl1}+${cl2}=${sumCl})`, 'Close Sum Origin 2', palette);
         }
       }
     }
@@ -1812,19 +1867,42 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
       const vClose = parseInt(vVal[1], 10);
 
       if (vClose === closeDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
+        let proofLevel = 1;
+        let chainText = `Row #${prevR + 1} Close (${vClose}) → Row #${rowNum} Close (${closeDigit})`;
+
+        const prevR2 = targetR - (rBack * 2);
+        if (prevR2 >= 0) {
+          const v2Val = grid[prevR2]?.[targetC]?.val;
+          if (v2Val && parseInt(v2Val[1], 10) === closeDigit) {
+            proofLevel = 2;
+            chainText = `Row #${prevR2 + 1} Close (${closeDigit}) → Row #${prevR + 1} Close (${closeDigit}) → Row #${rowNum} Close (${closeDigit})`;
+            addOriginSource(prevR2, targetC, `Multi-Cycle Close Step 2`, 'Vertical Close Repeat Step 2', palette);
+          }
+        }
+
+        const proofTitle = proofLevel >= 2
+          ? `⚡ 2nd Time Sequential Repeat Proof (Strong Base)`
+          : `Direct Vertical Close Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`;
+
         closeOrigins.push({
-          title: `Direct Vertical Close Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
-          desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) repeats directly to Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+          title: proofTitle,
+          desc: proofLevel > 1
+            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel} Consecutive Cycles): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel} times, forming a 100% solid base for Close ${closeDigit}!`
+            : `Row #${prevR + 1} ${dayName} Close (${vClose}) repeats directly to Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Direct Close Repeat (${vClose})`, 'Vertical Close Repeat', 'close');
+        addOriginSource(prevR, targetC, `Direct Close Repeat (${vClose})`, 'Vertical Close Repeat', palette);
       } else if ((vClose + 5) % 10 === closeDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         closeOrigins.push({
           title: `Cut Close Touch (${rBack} Row${rBack > 1 ? 's' : ''} Back)`,
           desc: `Row #${prevR + 1} ${dayName} Close (${vClose}) Cut (${(vClose + 5) % 10}) forms Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+          palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
-        addOriginSource(prevR, targetC, `Cut Close (${vClose} → ${closeDigit})`, 'Cut Close Touch', 'close');
+        addOriginSource(prevR, targetC, `Cut Close (${vClose} → ${closeDigit})`, 'Cut Close Touch', palette);
       }
     }
   }
@@ -1839,21 +1917,25 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
       const hDay = DAY_NAMES[c];
 
       if (hOpen === openDigit || hClose === openDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         openOrigins.push({
           title: `Same-Week Horizontal Open Transposition (${hDay})`,
           desc: `Row #${rowNum} ${hDay} (${hVal}) digit ${hOpen === openDigit ? 'Open ' + hOpen : 'Close ' + hClose} transposes horizontally to ${dayName} Open (${openDigit}).`,
+          palette,
           sources: [{ r: targetR, c, val: hVal }]
         });
-        addOriginSource(targetR, c, `Same-Week Horizontal Open (${hVal})`, 'Horizontal Transposition', 'open');
+        addOriginSource(targetR, c, `Same-Week Horizontal Open (${hVal})`, 'Horizontal Transposition', palette);
       }
 
       if (hOpen === closeDigit || hClose === closeDigit) {
+        const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         closeOrigins.push({
           title: `Same-Week Horizontal Close Transposition (${hDay})`,
           desc: `Row #${rowNum} ${hDay} (${hVal}) digit ${hOpen === closeDigit ? 'Open ' + hOpen : 'Close ' + hClose} transposes horizontally to ${dayName} Close (${closeDigit}).`,
+          palette,
           sources: [{ r: targetR, c, val: hVal }]
         });
-        addOriginSource(targetR, c, `Same-Week Horizontal Close (${hVal})`, 'Horizontal Transposition', 'close');
+        addOriginSource(targetR, c, `Same-Week Horizontal Close (${hVal})`, 'Horizontal Transposition', palette);
       }
     }
   }

@@ -746,24 +746,46 @@ export const ChartFinder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
               {/* OPEN DIGIT EXPLANATIONS */}
               <div className="bg-slate-950/90 p-3 rounded-xl border border-cyan-500/40 space-y-2">
-                <h5 className="text-xs font-black text-cyan-400 uppercase flex items-center gap-1.5 border-b border-slate-800 pb-1">
-                  <span>🔓 How Open "{originResult.openDigit}" Was Formed:</span>
+                <h5 className="text-xs font-black text-cyan-400 uppercase flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span className="flex items-center gap-1.5">🔓 How Open "{originResult.openDigit}" Was Formed:</span>
+                  <span className="text-[10px] text-cyan-300 font-bold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-700">
+                    {originResult.openOrigins.length} Rule(s) Found
+                  </span>
                 </h5>
                 {originResult.openOrigins.length > 0 ? (
-                  <div className="space-y-2 text-xs">
-                    {originResult.openOrigins.map((orig, idx) => (
-                      <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
-                        <div className="font-bold text-amber-300 text-[11px]">
-                          #{idx + 1} {orig.title}
+                  <div className="space-y-2.5 text-xs">
+                    {originResult.openOrigins.map((orig, idx) => {
+                      const isProof = orig.title.includes('Proof') || orig.title.includes('🔥') || orig.title.includes('⚡');
+                      const palette = orig.palette || { bg: '#06b6d4', name: 'Cyan' };
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-2.5 rounded-lg border space-y-1.5 transition-all ${
+                            isProof
+                              ? 'bg-amber-950/30 border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                              : 'bg-slate-900 border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <span className="font-bold text-amber-300 text-[11px] flex items-center gap-1">
+                              #{idx + 1} {orig.title}
+                            </span>
+                            <span
+                              className="text-[9px] font-black px-2 py-0.5 rounded shadow border border-black/50 uppercase tracking-wider"
+                              style={{ backgroundColor: palette.bg, color: '#020617' }}
+                            >
+                              {palette.name} Pattern
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-200 leading-snug font-mono bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                            {orig.desc}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-300 leading-snug">
-                          {orig.desc}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400 italic py-1">
+                  <div className="text-xs text-slate-400 italic py-2">
                     No direct historical origin pattern matched for Open digit {originResult.openDigit} in preceding 6 rows.
                   </div>
                 )}
@@ -771,24 +793,46 @@ export const ChartFinder = () => {
 
               {/* CLOSE DIGIT EXPLANATIONS */}
               <div className="bg-slate-950/90 p-3 rounded-xl border border-purple-500/40 space-y-2">
-                <h5 className="text-xs font-black text-purple-400 uppercase flex items-center gap-1.5 border-b border-slate-800 pb-1">
-                  <span>🔒 How Close "{originResult.closeDigit}" Was Formed:</span>
+                <h5 className="text-xs font-black text-purple-400 uppercase flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span className="flex items-center gap-1.5">🔒 How Close "{originResult.closeDigit}" Was Formed:</span>
+                  <span className="text-[10px] text-purple-300 font-bold bg-purple-950/80 px-2 py-0.5 rounded border border-purple-700">
+                    {originResult.closeOrigins.length} Rule(s) Found
+                  </span>
                 </h5>
                 {originResult.closeOrigins.length > 0 ? (
-                  <div className="space-y-2 text-xs">
-                    {originResult.closeOrigins.map((orig, idx) => (
-                      <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
-                        <div className="font-bold text-amber-300 text-[11px]">
-                          #{idx + 1} {orig.title}
+                  <div className="space-y-2.5 text-xs">
+                    {originResult.closeOrigins.map((orig, idx) => {
+                      const isProof = orig.title.includes('Proof') || orig.title.includes('🔥') || orig.title.includes('⚡');
+                      const palette = orig.palette || { bg: '#a855f7', name: 'Purple' };
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-2.5 rounded-lg border space-y-1.5 transition-all ${
+                            isProof
+                              ? 'bg-amber-950/30 border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                              : 'bg-slate-900 border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <span className="font-bold text-amber-300 text-[11px] flex items-center gap-1">
+                              #{idx + 1} {orig.title}
+                            </span>
+                            <span
+                              className="text-[9px] font-black px-2 py-0.5 rounded shadow border border-black/50 uppercase tracking-wider"
+                              style={{ backgroundColor: palette.bg, color: '#020617' }}
+                            >
+                              {palette.name} Pattern
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-200 leading-snug font-mono bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                            {orig.desc}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-300 leading-snug">
-                          {orig.desc}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400 italic py-1">
+                  <div className="text-xs text-slate-400 italic py-2">
                     No direct historical origin pattern matched for Close digit {originResult.closeDigit} in preceding 6 rows.
                   </div>
                 )}
