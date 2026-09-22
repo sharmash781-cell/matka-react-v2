@@ -1462,6 +1462,66 @@ export const PredictorEngine = () => {
       }
     });
 
+    // --- PASS 27: RECURRING OPEN-TO-OPEN DELTA STREAK ENGINE (e.g., +2 UP / STEP-K REPEAT PATTERN) ---
+    // Detects when adjacent or cross-column pairs show a recurring Open-to-Open step delta (+2, +3, etc.) across consecutive rows/weeks
+    if (colVal > 0) {
+      for (let cLeft = 0; cLeft < colVal; cLeft++) {
+        const deltasSeen = [];
+        for (let rBack = 1; rBack <= 5; rBack++) {
+          const pR = targetRowIdx - rBack;
+          if (pR >= 0 && grid[pR]) {
+            const vLeft = grid[pR][cLeft]?.val;
+            const vRight = grid[pR][colVal]?.val;
+            if (vLeft && vRight && /^\d{2}$/.test(vLeft) && /^\d{2}$/.test(vRight)) {
+              const oL = parseInt(vLeft[0], 10);
+              const oR = parseInt(vRight[0], 10);
+              const delta = (oR - oL + 10) % 10;
+              deltasSeen.push({ r: pR, delta, vLeft, vRight });
+            }
+          }
+        }
+
+        if (deltasSeen.length >= 2) {
+          const streakDelta = deltasSeen[0].delta;
+          let streakLength = 0;
+          for (let dObj of deltasSeen) {
+            if (dObj.delta === streakDelta) streakLength++;
+            else break;
+          }
+
+          if (streakLength >= 2) {
+            const curLeftVal = grid[targetRowIdx] ? grid[targetRowIdx][cLeft]?.val : null;
+            if (curLeftVal && /^\d{2}$/.test(curLeftVal)) {
+              const curLeftOpen = parseInt(curLeftVal[0], 10);
+              const projOpen = (curLeftOpen + streakDelta) % 10;
+              const projCutOpen = getCut(projOpen);
+
+              for (let c = 0; c <= 9; c++) {
+                const candJodi = `${projOpen}${c}`;
+                const candCutJodi = `${projCutOpen}${c}`;
+
+                addPoints(
+                  candJodi,
+                  145 + (streakLength * 15),
+                  activeModel.conditionWeight * 1.6,
+                  1.0,
+                  `📈 [OPEN-TO-OPEN +${streakDelta} DELTA STREAK] Matched ${streakLength}-row consecutive Open-to-Open delta (+${streakDelta}) from ${COL_HEADERS[cLeft] || 'Left Col'} "${curLeftVal}" → Projects Target Open ${projOpen}`
+                );
+
+                addPoints(
+                  candCutJodi,
+                  85 + (streakLength * 10),
+                  activeModel.conditionWeight * 1.2,
+                  1.0,
+                  `📈 [OPEN-TO-OPEN +${streakDelta} CUT STREAK] Cut-Open ${projCutOpen} derived from ${streakLength}-row Open delta streak (+${streakDelta})`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
