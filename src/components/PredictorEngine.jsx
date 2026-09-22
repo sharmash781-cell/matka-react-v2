@@ -1755,6 +1755,89 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 31: CLOSE-TO-TOTAL SAME & CUT TRANSPOSITION HARMONIC SCANNER (e.g. 83 Close 3 -> 76 Total 3; 71 Close 1 -> 29 Total 1; 76 Close 6 -> 79 Total 6) ---
+    // Evaluates preceding vertical and cross-column cells: Close digit directly transposes to become Target Total (Same or Opposite Cut Total)
+    const recentLookbackCells = [];
+    for (let rBack = 1; rBack <= 6; rBack++) {
+      const pR = targetRowIdx - rBack;
+      if (pR >= 0 && grid[pR]) {
+        for (let c = 0; c < activeChart.cols; c++) {
+          const cellVal = grid[pR][c]?.val;
+          if (cellVal && /^\d{2}$/.test(cellVal)) {
+            const dist = rBack + Math.abs(c - colVal);
+            recentLookbackCells.push({ r: pR, c, val: cellVal, dist });
+          }
+        }
+      }
+    }
+
+    recentLookbackCells.sort((a, b) => a.dist - b.dist);
+    const topLookbackCells = recentLookbackCells.slice(0, 8);
+
+    topLookbackCells.forEach(cell => {
+      const cVal = parseInt(cell.val[1], 10);
+      const oVal = parseInt(cell.val[0], 10);
+
+      const projTotalSame = cVal;
+      const projTotalCut = getCut(cVal);
+      const projOpenTotalSame = oVal;
+      const projOpenTotalCut = getCut(oVal);
+
+      // Recency weighting
+      const rWeight = Math.pow(0.95, cell.dist);
+
+      for (let o = 0; o <= 9; o++) {
+        for (let c = 0; c <= 9; c++) {
+          const candJodi = `${o}${c}`;
+          const candTotal = (o + c) % 10;
+
+          // 1. Direct Same Close-to-Total Transposition (e.g. Close 3 -> Total 3, Close 1 -> Total 1, Close 6 -> Total 6)
+          if (candTotal === projTotalSame) {
+            addPoints(
+              candJodi,
+              140,
+              activeModel.conditionWeight * 1.7,
+              rWeight,
+              `🎯 [CLOSE-TO-TOTAL SAME TRANSPOSITION] Cell "${cell.val}" (Col ${cell.c + 1}) Close ${cVal} directly projects Target Total ${projTotalSame}`
+            );
+          }
+
+          // 2. Opposite / Cut Close-to-Total Transposition (e.g. Close 3 -> Cut Total 8)
+          if (candTotal === projTotalCut) {
+            addPoints(
+              candJodi,
+              95,
+              activeModel.conditionWeight * 1.3,
+              rWeight,
+              `🎯 [CLOSE-TO-TOTAL CUT TRANSPOSITION] Cell "${cell.val}" (Col ${cell.c + 1}) Close ${cVal} projects Opposite (Cut) Target Total ${projTotalCut}`
+            );
+          }
+
+          // 3. Direct Open-to-Total Transposition
+          if (candTotal === projOpenTotalSame) {
+            addPoints(
+              candJodi,
+              115,
+              activeModel.conditionWeight * 1.4,
+              rWeight,
+              `🎯 [OPEN-TO-TOTAL SAME TRANSPOSITION] Cell "${cell.val}" (Col ${cell.c + 1}) Open ${oVal} directly projects Target Total ${projOpenTotalSame}`
+            );
+          }
+
+          // 4. Cut Open-to-Total Transposition
+          if (candTotal === projOpenTotalCut) {
+            addPoints(
+              candJodi,
+              80,
+              activeModel.conditionWeight * 1.1,
+              rWeight,
+              `🎯 [OPEN-TO-TOTAL CUT TRANSPOSITION] Cell "${cell.val}" (Col ${cell.c + 1}) Open ${oVal} projects Cut Target Total ${projOpenTotalCut}`
+            );
+          }
+        }
+      }
+    });
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
