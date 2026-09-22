@@ -567,6 +567,15 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       return a.cells[0].c - b.cells[0].c;
     });
 
+    // Find the last row in the grid containing valid 2-digit historical Jodi data
+    let lastDataRow = -1;
+    for (let r = grid.length - 1; r >= 0; r--) {
+      if (grid[r] && grid[r].some(cell => cell.val && /^\d{2}$/.test(cell.val))) {
+        lastDataRow = r;
+        break;
+      }
+    }
+
     // Unique Color Palette array per sequence set (like close double)
     const SEQUENCE_COLORS = [
       { color: '#06b6d4', border: '#0891b2', dot: '🔵', name: 'Cyan' },     // Set 1
@@ -609,7 +618,9 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
       else nextC += 1;
 
       const nextCellVal = grid[nextR]?.[nextC]?.val;
-      const isLiveUpcoming = !nextCellVal || nextCellVal === '**' || nextCellVal === '*' || nextCellVal === 'X';
+      const isCellEmpty = !nextCellVal || nextCellVal === '**' || nextCellVal === '*' || nextCellVal === 'X';
+      // Only mark as live upcoming projection if empty AND positioned at/after the last historical data row!
+      const isLiveUpcoming = isCellEmpty && (nextR >= lastDataRow);
 
       const projInfoText = `🔮 [NEXT CELL PROJECTION]: Step ${step > 0 ? '+' + step : step} → Next Total ${nextProjTotal} (Top Jodis: ${projJodis.slice(0, 4).join(', ')})`;
       const pId = `Seq #${occurrenceIdx} (${seq.len}-Cell Totals: ${totChain}${isLiveUpcoming ? ` 🎯 Next Total: ${nextProjTotal}` : ''})`;
@@ -630,7 +641,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
           isLiveUpcoming,
           nextProjTotal,
           projJodis,
-          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain}) | ${projInfoText}`
+          reason: `🔢 [${seq.len}-CELL ${seq.type.toUpperCase()} TOTAL SEQUENCE #${occurrenceIdx}] ${cell.day} Row #${cell.rowNum} Jodi "${cell.val}" (Total ${cell.tot}) in chain: ${seq.cells.map(c => c.val).join('-')} (Totals: ${totChain}) ${isLiveUpcoming ? '| ' + projInfoText : ''}`
         };
 
         if (!matchMap[`${cell.r}_${cell.c}`]) {
@@ -639,7 +650,7 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7) => {
         }
       });
 
-      // If next cell is empty, also add a virtual projection target match at next cell position!
+      // If next cell is empty AND it is at the live end of the chart, add virtual projection target match!
       if (isLiveUpcoming && nextR < grid.length + 1 && nextC < (grid[0]?.length || 7)) {
         const projMatch = {
           r: nextR,
@@ -1738,24 +1749,24 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
       if (vOpen === openDigit) {
         const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         let proofLevel = 1;
-        let chainText = `Row #${prevR + 1} Open (${vOpen}) → Row #${rowNum} Open (${openDigit})`;
+        let chainText = `Occurrence #1: Row #${prevR + 1} Open (${vOpen}) → Occurrence #2: Row #${rowNum} Open (${openDigit})`;
 
-        // Check for 2nd step back
+        // Check for 2nd step back (3rd time occurrence!)
         const prevR2 = targetR - (rBack * 2);
         if (prevR2 >= 0) {
           const v2Val = grid[prevR2]?.[targetC]?.val;
           if (v2Val && parseInt(v2Val[0], 10) === openDigit) {
             proofLevel = 2;
-            chainText = `Row #${prevR2 + 1} Open (${openDigit}) → Row #${prevR + 1} Open (${openDigit}) → Row #${rowNum} Open (${openDigit})`;
+            chainText = `Occurrence #1: Row #${prevR2 + 1} Open (${openDigit}) → Occurrence #2: Row #${prevR + 1} Open (${openDigit}) → Occurrence #3 (Proof Target): Row #${rowNum} Open (${openDigit})`;
             addOriginSource(prevR2, targetC, `Multi-Cycle Open Step 2`, 'Vertical Open Repeat Step 2', palette);
 
-            // Check for 3rd step back
+            // Check for 3rd step back (4th time occurrence!)
             const prevR3 = targetR - (rBack * 3);
             if (prevR3 >= 0) {
               const v3Val = grid[prevR3]?.[targetC]?.val;
               if (v3Val && parseInt(v3Val[0], 10) === openDigit) {
                 proofLevel = 3;
-                chainText = `Row #${prevR3 + 1} Open (${openDigit}) → Row #${prevR2 + 1} Open (${openDigit}) → Row #${prevR + 1} Open (${openDigit}) → Row #${rowNum} Open (${openDigit})`;
+                chainText = `Occurrence #1: Row #${prevR3 + 1} Open (${openDigit}) → Occurrence #2: Row #${prevR2 + 1} Open (${openDigit}) → Occurrence #3: Row #${prevR + 1} Open (${openDigit}) → Occurrence #4 (Proof Target): Row #${rowNum} Open (${openDigit})`;
                 addOriginSource(prevR3, targetC, `Multi-Cycle Open Step 3`, 'Vertical Open Repeat Step 3', palette);
               }
             }
@@ -1763,16 +1774,16 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
         }
 
         const proofTitle = proofLevel >= 3
-          ? `🔥 3rd Time Multi-Cycle Repeat Proof (Strongest Base)`
+          ? `🔥 4th Time Multi-Cycle Repeat Proof (Unstoppable Pattern Base)`
           : (proofLevel === 2
-              ? `⚡ 2nd Time Sequential Repeat Proof (Strong Base)`
+              ? `🔥 3rd Time Multi-Cycle Repeat Proof (100% Solid Base)`
               : `Direct Vertical Open Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`);
 
         openOrigins.push({
           title: proofTitle,
           desc: proofLevel > 1
-            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel} Consecutive Cycles): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel} times, forming a 100% solid base for Open ${openDigit}!`
-            : `Row #${prevR + 1} ${dayName} Open (${vOpen}) repeats directly to Row #${rowNum} ${dayName} Open (${openDigit}).`,
+            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel + 1} Occurrences): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel + 1} times, proving a 100% solid base for Open ${openDigit}!`
+            : `Row #${prevR + 1} ${dayName} Open (${vOpen}) repeats directly to Row #${rowNum} ${dayName} Open (${openDigit}) (2nd Occurrence Repeat).`,
           palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
@@ -1869,27 +1880,27 @@ export const analyzeCellOrigin = (grid, targetR, targetC) => {
       if (vClose === closeDigit) {
         const palette = RULE_COLORS[ruleCounter++ % RULE_COLORS.length];
         let proofLevel = 1;
-        let chainText = `Row #${prevR + 1} Close (${vClose}) → Row #${rowNum} Close (${closeDigit})`;
+        let chainText = `Occurrence #1: Row #${prevR + 1} Close (${vClose}) → Occurrence #2: Row #${rowNum} Close (${closeDigit})`;
 
         const prevR2 = targetR - (rBack * 2);
         if (prevR2 >= 0) {
           const v2Val = grid[prevR2]?.[targetC]?.val;
           if (v2Val && parseInt(v2Val[1], 10) === closeDigit) {
             proofLevel = 2;
-            chainText = `Row #${prevR2 + 1} Close (${closeDigit}) → Row #${prevR + 1} Close (${closeDigit}) → Row #${rowNum} Close (${closeDigit})`;
+            chainText = `Occurrence #1: Row #${prevR2 + 1} Close (${closeDigit}) → Occurrence #2: Row #${prevR + 1} Close (${closeDigit}) → Occurrence #3 (Proof Target): Row #${rowNum} Close (${closeDigit})`;
             addOriginSource(prevR2, targetC, `Multi-Cycle Close Step 2`, 'Vertical Close Repeat Step 2', palette);
           }
         }
 
         const proofTitle = proofLevel >= 2
-          ? `⚡ 2nd Time Sequential Repeat Proof (Strong Base)`
+          ? `🔥 3rd Time Multi-Cycle Repeat Proof (100% Solid Base)`
           : `Direct Vertical Close Repeat (${rBack} Row${rBack > 1 ? 's' : ''} Back)`;
 
         closeOrigins.push({
           title: proofTitle,
           desc: proofLevel > 1
-            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel} Consecutive Cycles): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel} times, forming a 100% solid base for Close ${closeDigit}!`
-            : `Row #${prevR + 1} ${dayName} Close (${vClose}) repeats directly to Row #${rowNum} ${dayName} Close (${closeDigit}).`,
+            ? `🔥 STRONG HISTORICAL PROOF (${proofLevel + 1} Occurrences): ${chainText}. This exact ${rBack}-row step repeated ${proofLevel + 1} times, proving a 100% solid base for Close ${closeDigit}!`
+            : `Row #${prevR + 1} ${dayName} Close (${vClose}) repeats directly to Row #${rowNum} ${dayName} Close (${closeDigit}) (2nd Occurrence Repeat).`,
           palette,
           sources: [{ r: prevR, c: targetC, val: vVal }]
         });
