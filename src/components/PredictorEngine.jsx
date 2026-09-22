@@ -1855,6 +1855,103 @@ export const PredictorEngine = () => {
       }
     });
 
+    // --- PASS 32: DYNAMIC SEQUENCE TOTAL ARITHMETIC PREDICTOR ENGINE ---
+    // Scans preceding vertical column and horizontal row cells leading up to target prediction cell.
+    // Detects arithmetic sequences of totals (e.g. 5➔0➔5 -> step +5 -> next total 0) and projects the exact Total.
+    // Boosts candidate Jodis with matching Total Sum so projected Total dominates Top 2 Totals!
+
+    // 1. Vertical Column Sequence of Totals (e.g. Row -3, Row -2, Row -1 in same column)
+    if (targetRowIdx >= 2) {
+      const vTotals = [];
+      for (let rBack = 1; rBack <= 5; rBack++) {
+        const pR = targetRowIdx - rBack;
+        if (pR >= 0 && grid[pR] && grid[pR][colVal]?.val && /^\d{2}$/.test(grid[pR][colVal].val)) {
+          const vVal = grid[pR][colVal].val;
+          const vTot = (parseInt(vVal[0], 10) + parseInt(vVal[1], 10)) % 10;
+          vTotals.push(vTot);
+        } else break;
+      }
+
+      if (vTotals.length >= 2) {
+        const t1 = vTotals[0]; // Most recent total (Row -1)
+        const t2 = vTotals[1]; // Second most recent (Row -2)
+        
+        let step = (t1 - t2) % 10;
+        if (step < -5) step += 10;
+        if (step > 5) step -= 10;
+
+        let is3CellSeq = false;
+        if (vTotals.length >= 3) {
+          const t3 = vTotals[2];
+          let step2 = (t2 - t3) % 10;
+          if (step2 < -5) step2 += 10;
+          if (step2 > 5) step2 -= 10;
+          if (step === step2) is3CellSeq = true;
+        }
+
+        const projSeqTotal = (t1 + step + 10) % 10;
+        const seqPts = is3CellSeq ? 180 : 130;
+        const seqReason = is3CellSeq
+          ? `🔢🔥 [3-CELL VERTICAL SEQUENCE TOTAL ENGINE] 3-Cell Total Chain (${vTotals[2]}➔${vTotals[1]}➔${vTotals[0]}, Step ${step >= 0 ? '+' + step : step}) projects High-Confidence Top Total ${projSeqTotal}`
+          : `🔢⚡ [2-CELL VERTICAL SEQUENCE TOTAL ENGINE] Vertical Total Step (${vTotals[1]}➔${vTotals[0]}, Step ${step >= 0 ? '+' + step : step}) projects Top Total ${projSeqTotal}`;
+
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+            if ((o + c) % 10 === projSeqTotal) {
+              addPoints(candJodi, seqPts, activeModel.columnWeight * 1.8, 1.0, seqReason);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Horizontal Row Sequence of Totals (e.g. Col -3, Col -2, Col -1 in target row)
+    if (colVal >= 2 && grid[targetRowIdx]) {
+      const hTotals = [];
+      for (let cBack = 1; cBack <= 5; cBack++) {
+        const pC = colVal - cBack;
+        if (pC >= 0 && grid[targetRowIdx][pC]?.val && /^\d{2}$/.test(grid[targetRowIdx][pC].val)) {
+          const hVal = grid[targetRowIdx][pC].val;
+          const hTot = (parseInt(hVal[0], 10) + parseInt(hVal[1], 10)) % 10;
+          hTotals.push(hTot);
+        } else break;
+      }
+
+      if (hTotals.length >= 2) {
+        const t1 = hTotals[0];
+        const t2 = hTotals[1];
+        
+        let step = (t1 - t2) % 10;
+        if (step < -5) step += 10;
+        if (step > 5) step -= 10;
+
+        let is3CellSeq = false;
+        if (hTotals.length >= 3) {
+          const t3 = hTotals[2];
+          let step2 = (t2 - t3) % 10;
+          if (step2 < -5) step2 += 10;
+          if (step2 > 5) step2 -= 10;
+          if (step === step2) is3CellSeq = true;
+        }
+
+        const projSeqTotal = (t1 + step + 10) % 10;
+        const seqPts = is3CellSeq ? 170 : 120;
+        const seqReason = is3CellSeq
+          ? `🔢🔥 [3-CELL HORIZONTAL SEQUENCE TOTAL ENGINE] 3-Cell Row Total Chain (${hTotals[2]}➔${hTotals[1]}➔${hTotals[0]}, Step ${step >= 0 ? '+' + step : step}) projects High-Confidence Top Total ${projSeqTotal}`
+          : `🔢⚡ [2-CELL HORIZONTAL SEQUENCE TOTAL ENGINE] Row Total Step (${hTotals[1]}➔${hTotals[0]}, Step ${step >= 0 ? '+' + step : step}) projects Top Total ${projSeqTotal}`;
+
+        for (let o = 0; o <= 9; o++) {
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${o}${c}`;
+            if ((o + c) % 10 === projSeqTotal) {
+              addPoints(candJodi, seqPts, activeModel.rowWeight * 1.8, 1.0, seqReason);
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
