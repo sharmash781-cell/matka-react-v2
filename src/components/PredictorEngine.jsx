@@ -1522,6 +1522,89 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 28: DIAGONAL CLOSE-TO-OPEN STEP-K & CUT HARMONIC ENGINE (e.g. 56 -> 47, 66 -> 91, 94 -> 74 +3 UP CROSS) ---
+    // Evaluates diagonal cross cells (Row-1, Col-1 or Row-1, Col+1) where Close digit steps by +K (e.g. +3 or +3 Cut) to become target Open digit
+    if (targetRowIdx >= 1) {
+      const diagNeighbors = [];
+      // Top-Left Diagonal Cell (Row - 1, Col - 1)
+      if (colVal >= 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal - 1]?.val) {
+        diagNeighbors.push({
+          dir: 'Top-Left ↘',
+          r: targetRowIdx - 1,
+          c: colVal - 1,
+          val: grid[targetRowIdx - 1][colVal - 1].val
+        });
+      }
+      // Top-Right Diagonal Cell (Row - 1, Col + 1)
+      if (colVal < activeChart.cols - 1 && grid[targetRowIdx - 1] && grid[targetRowIdx - 1][colVal + 1]?.val) {
+        diagNeighbors.push({
+          dir: 'Top-Right ↙',
+          r: targetRowIdx - 1,
+          c: colVal + 1,
+          val: grid[targetRowIdx - 1][colVal + 1].val
+        });
+      }
+
+      diagNeighbors.forEach(nbr => {
+        if (/^\d{2}$/.test(nbr.val)) {
+          const prevClose = parseInt(nbr.val[1], 10);
+          const prevOpen = parseInt(nbr.val[0], 10);
+
+          // Check historical diagonal step delta consistency (e.g. +3, +2, +1)
+          const diagDeltas = [];
+          for (let rBack = 1; rBack <= 5; rBack++) {
+            const hR = targetRowIdx - rBack;
+            const hC = nbr.c;
+            if (hR >= 1 && grid[hR] && grid[hR][hC]?.val && grid[hR + 1] && grid[hR + 1][colVal]?.val) {
+              const hPrev = grid[hR][hC].val;
+              const hNext = grid[hR + 1][colVal].val;
+              if (/^\d{2}$/.test(hPrev) && /^\d{2}$/.test(hNext)) {
+                const hClose = parseInt(hPrev[1], 10);
+                const hOpen = parseInt(hNext[0], 10);
+                const delta = (hOpen - hClose + 10) % 10;
+                diagDeltas.push(delta);
+              }
+            }
+          }
+
+          // Test primary step deltas (specifically +3, +2, +1 and their cut variants)
+          const stepOptions = [3, 2, 1, 4, 0];
+          stepOptions.forEach(stepK => {
+            const projOpenDirect = (prevClose + stepK) % 10;
+            const projOpenCut = getCut(projOpenDirect);
+
+            let streakBonus = 0;
+            if (diagDeltas.length >= 1 && (diagDeltas[0] === stepK || diagDeltas[0] === getCut(stepK))) {
+              streakBonus = 40;
+            }
+
+            for (let c = 0; c <= 9; c++) {
+              const candJodiDirect = `${projOpenDirect}${c}`;
+              const candJodiCut = `${projOpenCut}${c}`;
+
+              // Direct Step-K Open (e.g. Close 6 + 3 = Open 9)
+              addPoints(
+                candJodiDirect,
+                110 + streakBonus,
+                activeModel.conditionWeight * 1.5,
+                1.0,
+                `↗️ [DIAGONAL CLOSE-TO-OPEN +${stepK} STEP] ${nbr.dir} Jodi "${nbr.val}" Close ${prevClose} + ${stepK} step → Projects Target Open ${projOpenDirect}`
+              );
+
+              // Cut Step-K Open (e.g. Close 6 + 3 = 9 -> Cut Open 4)
+              addPoints(
+                candJodiCut,
+                95 + streakBonus,
+                activeModel.conditionWeight * 1.3,
+                1.0,
+                `↗️ [DIAGONAL CLOSE-TO-OPEN +${stepK} CUT STEP] ${nbr.dir} Jodi "${nbr.val}" Close ${prevClose} + ${stepK} cut step → Projects Cut Open ${projOpenCut}`
+              );
+            }
+          });
+        }
+      });
+    }
+
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
     // Gives extra weight boost to candidate Jodis that received signals from 3+ independent analytical passes
     Object.keys(candidateLogs).forEach(candJodi => {
