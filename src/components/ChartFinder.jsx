@@ -466,27 +466,43 @@ export const ChartFinder = () => {
           </div>
         </div>
 
-        {/* MATCHES BAR WITH RIGHT AUTO-SCROLL AND JUMP CONTROLS */}
+        {/* MATCHES BAR WITH RESPONSIVE MOBILE LAYOUT AND DEDICATED JUMP CONTROLS */}
         {matches.length > 0 && (
-          <div className="flex items-center gap-1.5 py-1">
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[9px] text-slate-400 font-bold uppercase">Matches:</span>
-              <button
-                onClick={() => { if (matchesBarRef.current) matchesBarRef.current.scrollLeft = 0; }}
-                className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 px-1.5 py-0.5 rounded border border-slate-700 transition"
-                title="Jump to Oldest Occurrence (#1)"
-              >
-                ⏮️ Oldest (#1)
-              </button>
-              <button
-                onClick={() => { if (matchesBarRef.current) matchesBarRef.current.scrollLeft = matchesBarRef.current.scrollWidth; }}
-                className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 transition"
-                title="Jump to Latest Occurrence"
-              >
-                Latest ⏭️
-              </button>
+          <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800 space-y-1.5 shadow-md">
+            {/* Top Control Header */}
+            <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-mono">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-amber-400 font-black uppercase font-mono tracking-wider">
+                  Matches ({matches.some(m => m.pairId) ? new Set(matches.map(m => m.pairId)).size : matches.length}):
+                </span>
+              </div>
+              <div className="flex items-center gap-1 font-mono">
+                <button
+                  onClick={() => {
+                    if (matchesBarRef.current) matchesBarRef.current.scrollLeft = 0;
+                    const firstMatch = matches[0];
+                    if (firstMatch) scrollToRowIndex(firstMatch.r);
+                  }}
+                  className="text-[10px] font-black bg-cyan-950 hover:bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded-lg border border-cyan-700/80 transition flex items-center gap-1 active:scale-95 shadow-sm cursor-pointer"
+                  title="Jump to Oldest Occurrence (#1)"
+                >
+                  ⏮️ Oldest (#1)
+                </button>
+                <button
+                  onClick={() => {
+                    if (matchesBarRef.current) matchesBarRef.current.scrollLeft = matchesBarRef.current.scrollWidth;
+                    const lastMatch = matches[matches.length - 1];
+                    if (lastMatch) scrollToRowIndex(lastMatch.r);
+                  }}
+                  className="text-[10px] font-black bg-amber-950 hover:bg-amber-900 text-amber-300 px-2 py-0.5 rounded-lg border border-amber-700/80 transition flex items-center gap-1 active:scale-95 shadow-sm cursor-pointer"
+                  title="Jump to Latest Occurrence"
+                >
+                  Latest ⏭️
+                </button>
+              </div>
             </div>
 
+            {/* Scrollable Match Chips Bar */}
             <div ref={matchesBarRef} className="flex items-center gap-1.5 overflow-x-auto py-1 scroll-smooth">
               {(() => {
                 const hasPairIds = matches.some(m => m.pairId);
@@ -505,8 +521,8 @@ export const ChartFinder = () => {
                   return groupOrder.map((gId, gIdx) => {
                     const group = groupMap[gId];
                     const isHoveredOrSelected = group.id === hoveredPairId || group.id === selectedPairId;
-                    const chainText = group.items.map(item => item.val).join(' - ');
-                    const daysText = group.items.map(item => item.day).join(' - ');
+                    const chainText = group.items.map(item => item.val).join('-');
+                    const daysText = group.items.map(item => item.day).join('-');
                     const firstRow = group.items[0]?.rowNum || 1;
 
                     return (
@@ -519,20 +535,20 @@ export const ChartFinder = () => {
                           scrollToRowIndex(group.items[0]?.r);
                         }}
                         style={{
-                          borderColor: isHoveredOrSelected ? '#000000' : group.color,
-                          backgroundColor: isHoveredOrSelected ? `${group.color}aa` : `${group.color}35`
+                          borderColor: isHoveredOrSelected ? '#ffffff' : group.color,
+                          backgroundColor: isHoveredOrSelected ? `${group.color}ee` : `${group.color}35`
                         }}
-                        className={`flex items-center gap-1.5 border-2 px-3 py-1 rounded-xl cursor-pointer transition shadow-md shrink-0 text-white ${
-                          isHoveredOrSelected ? 'ring-2 ring-black font-black scale-105 border-black' : ''
+                        className={`flex items-center gap-1 border-2 px-2 py-1 rounded-lg cursor-pointer transition shadow-md shrink-0 text-white font-mono whitespace-nowrap text-[11px] ${
+                          isHoveredOrSelected ? 'ring-2 ring-white font-black scale-105 border-white' : ''
                         }`}
                       >
-                        <span className="text-[10px] font-black text-amber-300 font-mono">
+                        <span className="font-black text-amber-300 bg-slate-950/80 px-1.5 py-0.5 rounded border border-slate-700 text-[10px]">
                           #{gIdx + 1} (R#{firstRow})
                         </span>
-                        <span className="text-xs font-black font-mono tracking-wider text-emerald-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700">
+                        <span className="font-black tracking-tight text-emerald-300 bg-slate-950/90 px-1.5 py-0.5 rounded border border-slate-700">
                           {chainText}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-300 font-mono">
+                        <span className="text-[10px] font-bold text-slate-300 bg-slate-900/60 px-1 py-0.5 rounded">
                           ({daysText})
                         </span>
                       </button>
@@ -544,9 +560,9 @@ export const ChartFinder = () => {
                       key={idx}
                       onClick={() => scrollToRowIndex(m.r)}
                       style={{ backgroundColor: m.color, color: '#020617' }}
-                      className="text-[9px] font-black font-mono px-2 py-0.5 rounded-md shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0"
+                      className="text-[10px] font-black font-mono px-2 py-1 rounded-lg shadow-sm border border-black/80 flex items-center gap-1 hover:opacity-90 transition shrink-0 whitespace-nowrap"
                     >
-                      <span>#{m.rowNum} {m.day}: <strong>{m.val}</strong></span>
+                      <span>#{idx + 1} (R#{m.rowNum}) {m.day}: <strong>{m.val}</strong></span>
                       <ArrowRight className="w-2.5 h-2.5" />
                     </button>
                   ));
