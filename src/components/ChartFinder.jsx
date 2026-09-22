@@ -48,6 +48,9 @@ export const ChartFinder = () => {
   const [seqGap, setSeqGap] = useState(0);
   const [seqDirection, setSeqDirection] = useState('both');
 
+  // PROJECTION DETAILS MODAL STATE
+  const [selectedProjModal, setSelectedProjModal] = useState(null);
+
   // OPEN-CLOSE FINDER ENGINE STATE
   const [openCloseMode, setOpenCloseMode] = useState(false);
   const [selectedTargetRow, setSelectedTargetRow] = useState(1);
@@ -71,6 +74,51 @@ export const ChartFinder = () => {
   const grid = activeChartObj ? activeChartObj.data : [];
   const colsInput = activeChartObj ? activeChartObj.cols : 7;
   const rowHeight = 38;
+
+  // Calculate high chance candidate Jodis for projected target total
+  const calculateCandidateChances = useCallback((colIdx, projTotal) => {
+    if (projTotal === undefined || projTotal === null || !grid) return [];
+
+    const candidateJodis = [];
+    for (let d1 = 0; d1 <= 9; d1++) {
+      for (let d2 = 0; d2 <= 9; d2++) {
+        if ((d1 + d2) % 10 === projTotal) {
+          candidateJodis.push(`${d1}${d2}`);
+        }
+      }
+    }
+
+    const colCountMap = {};
+    const totalCountMap = {};
+    grid.forEach(row => {
+      if (!row) return;
+      row.forEach((cell, c) => {
+        const v = cell?.val;
+        if (v && /^\d{2}$/.test(v)) {
+          totalCountMap[v] = (totalCountMap[v] || 0) + 1;
+          if (c === colIdx) {
+            colCountMap[v] = (colCountMap[v] || 0) + 1;
+          }
+        }
+      });
+    });
+
+    const scored = candidateJodis.map(jodi => {
+      const colFreq = colCountMap[jodi] || 0;
+      const totalFreq = totalCountMap[jodi] || 0;
+      const openD = parseInt(jodi[0], 10);
+      const closeD = parseInt(jodi[1], 10);
+
+      let score = 70 + (colFreq * 9) + (totalFreq * 3);
+      if (openD === closeD) score += 4;
+      const chancePct = Math.min(97, Math.max(52, score));
+
+      return { jodi, chancePct, colFreq, totalFreq };
+    });
+
+    scored.sort((a, b) => b.chancePct - a.chancePct);
+    return scored;
+  }, [grid]);
 
   // Toggle or add a family to active state
   const toggleJodiFamily = useCallback((jodiStr) => {
@@ -740,7 +788,21 @@ export const ChartFinder = () => {
                             onTouchStart={() => startPressTimer(rIdx, cIdx, val)}
                             onTouchEnd={cancelPressTimer}
                             onTouchCancel={cancelPressTimer}
-                            onClick={() => runOriginAnalysis(rIdx, cIdx)}
+                            onClick={() => {
+                              if (matchItem && matchItem.isProjectionCell) {
+                                const chances = calculateCandidateChances(cIdx, matchItem.nextProjTotal);
+                                setSelectedProjModal({
+                                  rowNum: rIdx + 1,
+                                  day: DAY_NAMES[cIdx] || `Col ${cIdx + 1}`,
+                                  nextProjTotal: matchItem.nextProjTotal,
+                                  reason: matchItem.reason,
+                                  pairId: matchItem.pairId,
+                                  chances
+                                });
+                              } else {
+                                runOriginAnalysis(rIdx, cIdx);
+                              }
+                            }}
                             style={{
                               backgroundColor: cellBg,
                               borderColor: cellBorderColor,
@@ -778,11 +840,15 @@ export const ChartFinder = () => {
                                 <span className="text-[10px] sm:text-xs font-black font-mono tracking-tight text-pink-700 bg-pink-100 px-1 py-0.5 rounded border border-pink-500 shadow-sm animate-pulse">
                                   {matchItem.val}
                                 </span>
-                                {matchItem.projJodis && matchItem.projJodis.length > 0 && (
-                                  <span className="text-[8px] sm:text-[9px] font-black font-mono text-purple-950 bg-amber-300 px-1 rounded mt-0.5 border border-amber-500 tracking-tighter shadow-sm" title={`Candidate Jodis for ${matchItem.val}: ${matchItem.projJodis.join(', ')}`}>
-                                    {matchItem.projJodis.slice(0, 4).join(' ')}
-                                  </span>
-                                )}
+                                {(() => {
+                                  const chances = calculateCandidateChances(cIdx, matchItem.nextProjTotal);
+                                  const topChoice = chances[0]?.jodi;
+                                  return (
+                                    <span className="text-[8px] sm:text-[9px] font-black font-mono text-purple-950 bg-amber-300 px-1 rounded mt-0.5 border border-amber-500 tracking-tighter shadow-sm" title={`Candidate Jodis: ${chances.map(c => c.jodi).join(', ')}`}>
+                                      ⭐ Top: {topChoice || matchItem.projJodis?.slice(0, 3).join(' ')}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             ) : (
                               <span
@@ -927,6 +993,80 @@ export const ChartFinder = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TARGET PROJECTION CHANCES MODAL */}
+        {selectedProjModal && (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 animate-fadeIn">
+            <div className="bg-slate-900 border-2 border-pink-500/80 rounded-2xl max-w-md w-full p-4 space-y-3 shadow-2xl relative">
+              <button
+                onClick={() => setSelectedProjModal(null)}
+                className="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-7 h-7 rounded-full flex items-center justify-center font-bold transition cursor-pointer"
+              >
+                ✕
+              </button>
+
+              <div className="flex items-center gap-2.5 border-b border-slate-800 pb-2.5">
+                <div className="bg-pink-600/30 p-2.5 rounded-xl text-pink-400 border border-pink-500/50 text-xl">
+                  🎯
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-pink-300 font-mono tracking-tight">
+                    LIVE TARGET PREDICTION & CHANCES
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-mono">
+                    Row #{selectedProjModal.rowNum} {selectedProjModal.day} | Target Total: <strong className="text-amber-300 font-bold">Total {selectedProjModal.nextProjTotal}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-3 rounded-xl border border-purple-900/60 space-y-1.5 shadow-inner">
+                <span className="text-[10px] text-purple-300 font-black uppercase tracking-wider block font-mono">
+                  👑 TOP 3 HIGHEST CHANCE JODIS (Predicted):
+                </span>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {selectedProjModal.chances.slice(0, 3).map((item, idx) => (
+                    <div key={item.jodi} className="bg-gradient-to-b from-slate-900 to-slate-950 border border-pink-500/60 p-2 rounded-xl text-center space-y-1 shadow-md">
+                      <div className="text-[10px] font-black text-amber-300 uppercase tracking-tight">
+                        {idx === 0 ? '🥇 #1 BEST' : idx === 1 ? '🥈 #2 HIGH' : '🥉 #3 TOP'}
+                      </div>
+                      <div className="text-2xl font-black font-mono text-white tracking-tight">
+                        {item.jodi}
+                      </div>
+                      <div className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 rounded py-0.5 border border-emerald-800">
+                        {item.chancePct}% Chance
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block font-mono">
+                  📋 ALL 10 CANDIDATE JODIS FOR TOTAL {selectedProjModal.nextProjTotal}:
+                </span>
+                <div className="flex flex-wrap gap-1.5 bg-slate-950 p-2.5 rounded-xl border border-slate-800 max-h-28 overflow-y-auto">
+                  {selectedProjModal.chances.map((item) => (
+                    <div key={item.jodi} className="flex items-center gap-1 bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg text-xs font-mono font-bold">
+                      <span className="text-amber-300 font-black">{item.jodi}</span>
+                      <span className="text-[9px] text-emerald-400">({item.chancePct}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-[10px] text-cyan-300/90 font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800 leading-snug">
+                ℹ️ {selectedProjModal.reason}
+              </div>
+
+              <button
+                onClick={() => setSelectedProjModal(null)}
+                className="w-full bg-pink-600 hover:bg-pink-500 text-white font-black py-2.5 rounded-xl text-xs font-mono shadow-lg transition cursor-pointer active:scale-95"
+              >
+                Close Prediction Details
+              </button>
             </div>
           </div>
         )}
