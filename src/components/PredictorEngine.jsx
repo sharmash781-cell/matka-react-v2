@@ -1675,11 +1675,84 @@ export const PredictorEngine = () => {
             // 3. Diagonal Open +1 / -1 Step Variations
             const openPlus1 = (diagOpen + 1) % 10;
             const openMinus1 = (diagOpen + 9) % 10;
-            addPoints(`${openPlus1}${c}`, 75, activeModel.conditionWeight * 1.1, 1.0, `📈 [DIAGONAL OPEN +1 STEP] ${nbr.dir} Open ${diagOpen} + 1 → Target Open ${openPlus1}`);
-            addPoints(`${openMinus1}${c}`, 75, activeModel.conditionWeight * 1.1, 1.0, `📉 [DIAGONAL OPEN -1 STEP] ${nbr.dir} Open ${diagOpen} - 1 → Target Open ${openMinus1}`);
           }
         }
       });
+    }
+
+    // --- PASS 30: TWO-CELL VERTICAL CLOSE-SUM TO ADJACENT OPEN ENGINE (e.g. 71+87 Closes 1+7=8 -> 86 Open 8; 54+19 Closes 4+9=3 -> 32 Open 3; 33+41 Closes 3+1=4 -> 41 Open 4) ---
+    // Evaluates two vertical cells in left column: Sum of their Close digits directly becomes today's target Open digit
+    if (colVal > 0 && targetRowIdx >= 1) {
+      for (let cLeft = 0; cLeft < colVal; cLeft++) {
+        const cell1 = grid[targetRowIdx - 1] ? grid[targetRowIdx - 1][cLeft]?.val : null;
+        const cell2 = grid[targetRowIdx] ? grid[targetRowIdx][cLeft]?.val : null;
+
+        if (cell1 && cell2 && /^\d{2}$/.test(cell1) && /^\d{2}$/.test(cell2)) {
+          const c1 = parseInt(cell1[1], 10);
+          const c2 = parseInt(cell2[1], 10);
+          const o1 = parseInt(cell1[0], 10);
+          const o2 = parseInt(cell2[0], 10);
+
+          const sumCloses = (c1 + c2) % 10;
+          const cutSumCloses = getCut(sumCloses);
+
+          const sumOpens = (o1 + o2) % 10;
+          const cutSumOpens = getCut(sumOpens);
+
+          // Measure if this Close-Sum pattern repeated in recent historical rows
+          let closeSumStreak = 0;
+          for (let rBack = 1; rBack <= 5; rBack++) {
+            const hR = targetRowIdx - rBack;
+            if (hR >= 1 && grid[hR - 1] && grid[hR - 1][cLeft]?.val && grid[hR] && grid[hR][cLeft]?.val && grid[hR][colVal]?.val) {
+              const hV1 = grid[hR - 1][cLeft].val;
+              const hV2 = grid[hR][cLeft].val;
+              const hTarget = grid[hR][colVal].val;
+              if (/^\d{2}$/.test(hV1) && /^\d{2}$/.test(hV2) && /^\d{2}$/.test(hTarget)) {
+                const hSumC = (parseInt(hV1[1], 10) + parseInt(hV2[1], 10)) % 10;
+                const hTargetOpen = parseInt(hTarget[0], 10);
+                if (hTargetOpen === hSumC || hTargetOpen === getCut(hSumC)) {
+                  closeSumStreak++;
+                }
+              }
+            }
+          }
+
+          const streakBonus = closeSumStreak * 30;
+
+          for (let c = 0; c <= 9; c++) {
+            const candJodiCloseSum = `${sumCloses}${c}`;
+            const candJodiCutCloseSum = `${cutSumCloses}${c}`;
+            const candJodiOpenSum = `${sumOpens}${c}`;
+
+            // 1. Direct Vertical Close-Sum to Target Open (e.g. 1+7=8 -> Target Open 8, 4+9=3 -> Target Open 3, 3+1=4 -> Target Open 4)
+            addPoints(
+              candJodiCloseSum,
+              150 + streakBonus,
+              activeModel.conditionWeight * 1.8,
+              1.0,
+              `🔥 [VERTICAL TWO-CLOSE SUM TO OPEN] Left cells "${cell1}" (Close ${c1}) + "${cell2}" (Close ${c2}) = ${sumCloses} → Projects Target Open ${sumCloses} (Streak: ${closeSumStreak})`
+            );
+
+            // 2. Cut Vertical Close-Sum to Target Open
+            addPoints(
+              candJodiCutCloseSum,
+              100 + Math.round(streakBonus * 0.7),
+              activeModel.conditionWeight * 1.3,
+              1.0,
+              `🔥 [VERTICAL TWO-CLOSE SUM CUT-OPEN] Left cells "${cell1}" + "${cell2}" Close Sum ${sumCloses} → Projects Cut-Open ${cutSumCloses}`
+            );
+
+            // 3. Vertical Open-Sum to Target Open (e.g. Open 7 + Open 8 = 5)
+            addPoints(
+              candJodiOpenSum,
+              115 + Math.round(streakBonus * 0.8),
+              activeModel.conditionWeight * 1.4,
+              1.0,
+              `🔗 [VERTICAL TWO-OPEN SUM TO OPEN] Left cells "${cell1}" (Open ${o1}) + "${cell2}" (Open ${o2}) = ${sumOpens} → Projects Target Open ${sumOpens}`
+            );
+          }
+        }
+      }
     }
 
     // --- PASS 18: MULTI-PASS EXPONENTIAL CONFLUENCE BOOST ---
