@@ -498,76 +498,100 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7, options = {}) => {
       return true;
     };
 
-    // 1. VERTICAL COLUMNS: Scan 3, 4, 5+ cells with step S (Gap)
+    // 1. VERTICAL COLUMNS: Scan in linear O(N) time with step S (Gap)
     if (seqDir === 'both' || seqDir === 'vertical') {
       for (let c = 0; c < colsCount; c++) {
-        for (let r = 0; r < grid.length; r++) {
-          let maxLen = 0;
-          let maxValidCells = [];
+        for (let startOffset = 0; startOffset < S; startOffset++) {
+          let currentChain = [];
+          for (let r = startOffset; r < grid.length; r += S) {
+            const val = grid[r]?.[c]?.val;
+            const tot = getJodiTotal(val);
 
-          const maxPossibleLen = Math.floor((grid.length - 1 - r) / S) + 1;
-          for (let testLen = 3; testLen <= maxPossibleLen; testLen++) {
-            const subCells = [];
-            const subTotals = [];
-            let valid = true;
-
-            for (let k = 0; k < testLen; k++) {
-              const rIdx = r + (k * S);
-              const val = grid[rIdx]?.[c]?.val;
-              const tot = getJodiTotal(val);
-              if (tot === null) { valid = false; break; }
-              subCells.push({ r: rIdx, c, val, tot, rowNum: rIdx + 1, day: DAY_NAMES[c] || `Col ${c + 1}` });
-              subTotals.push(tot);
+            if (tot === null) {
+              if (currentChain.length >= 3 && isArithmeticSeq(currentChain.map(x => x.tot))) {
+                rawSequences.push({ type: 'Vertical', cells: [...currentChain], len: currentChain.length, gap: seqGap });
+              }
+              currentChain = [];
+              continue;
             }
 
-            if (valid && isArithmeticSeq(subTotals)) {
-              maxLen = testLen;
-              maxValidCells = subCells;
-            } else if (!valid) {
-              break;
+            const cellInfo = { r, c, val, tot, rowNum: r + 1, day: DAY_NAMES[c] || `Col ${c + 1}` };
+
+            if (currentChain.length < 2) {
+              currentChain.push(cellInfo);
+            } else {
+              const prevStep = (currentChain[1].tot - currentChain[0].tot + 10) % 10;
+              const newStep = (tot - currentChain[currentChain.length - 1].tot + 10) % 10;
+
+              if (prevStep !== 0 && newStep === prevStep) {
+                currentChain.push(cellInfo);
+              } else {
+                if (currentChain.length >= 3) {
+                  rawSequences.push({ type: 'Vertical', cells: [...currentChain], len: currentChain.length, gap: seqGap });
+                }
+                const lastCell = currentChain[currentChain.length - 1];
+                const step2 = (tot - lastCell.tot + 10) % 10;
+                if (step2 !== 0) {
+                  currentChain = [lastCell, cellInfo];
+                } else {
+                  currentChain = [cellInfo];
+                }
+              }
             }
           }
 
-          if (maxLen >= 3) {
-            rawSequences.push({ type: 'Vertical', cells: maxValidCells, len: maxLen, gap: seqGap });
+          if (currentChain.length >= 3 && isArithmeticSeq(currentChain.map(x => x.tot))) {
+            rawSequences.push({ type: 'Vertical', cells: [...currentChain], len: currentChain.length, gap: seqGap });
           }
         }
       }
     }
 
-    // 2. HORIZONTAL ROWS: Scan 3, 4, 5+ cells with step S (Gap)
+    // 2. HORIZONTAL ROWS: Scan in linear O(N) time with step S (Gap)
     if (seqDir === 'both' || seqDir === 'horizontal') {
       for (let r = 0; r < grid.length; r++) {
         if (!grid[r]) continue;
-        for (let c = 0; c < colsCount; c++) {
-          let maxLen = 0;
-          let maxValidCells = [];
+        for (let startOffset = 0; startOffset < S; startOffset++) {
+          let currentChain = [];
+          for (let c = startOffset; c < colsCount; c += S) {
+            const val = grid[r]?.[c]?.val;
+            const tot = getJodiTotal(val);
 
-          const maxPossibleLen = Math.floor((colsCount - 1 - c) / S) + 1;
-          for (let testLen = 3; testLen <= maxPossibleLen; testLen++) {
-            const subCells = [];
-            const subTotals = [];
-            let valid = true;
-
-            for (let k = 0; k < testLen; k++) {
-              const cIdx = c + (k * S);
-              const val = grid[r]?.[cIdx]?.val;
-              const tot = getJodiTotal(val);
-              if (tot === null) { valid = false; break; }
-              subCells.push({ r, c: cIdx, val, tot, rowNum: r + 1, day: DAY_NAMES[cIdx] || `Col ${cIdx + 1}` });
-              subTotals.push(tot);
+            if (tot === null) {
+              if (currentChain.length >= 3 && isArithmeticSeq(currentChain.map(x => x.tot))) {
+                rawSequences.push({ type: 'Horizontal', cells: [...currentChain], len: currentChain.length, gap: seqGap });
+              }
+              currentChain = [];
+              continue;
             }
 
-            if (valid && isArithmeticSeq(subTotals)) {
-              maxLen = testLen;
-              maxValidCells = subCells;
-            } else if (!valid) {
-              break;
+            const cellInfo = { r, c, val, tot, rowNum: r + 1, day: DAY_NAMES[c] || `Col ${c + 1}` };
+
+            if (currentChain.length < 2) {
+              currentChain.push(cellInfo);
+            } else {
+              const prevStep = (currentChain[1].tot - currentChain[0].tot + 10) % 10;
+              const newStep = (tot - currentChain[currentChain.length - 1].tot + 10) % 10;
+
+              if (prevStep !== 0 && newStep === prevStep) {
+                currentChain.push(cellInfo);
+              } else {
+                if (currentChain.length >= 3) {
+                  rawSequences.push({ type: 'Horizontal', cells: [...currentChain], len: currentChain.length, gap: seqGap });
+                }
+                const lastCell = currentChain[currentChain.length - 1];
+                const step2 = (tot - lastCell.tot + 10) % 10;
+                if (step2 !== 0) {
+                  currentChain = [lastCell, cellInfo];
+                } else {
+                  currentChain = [cellInfo];
+                }
+              }
             }
           }
 
-          if (maxLen >= 3) {
-            rawSequences.push({ type: 'Horizontal', cells: maxValidCells, len: maxLen, gap: seqGap });
+          if (currentChain.length >= 3 && isArithmeticSeq(currentChain.map(x => x.tot))) {
+            rawSequences.push({ type: 'Horizontal', cells: [...currentChain], len: currentChain.length, gap: seqGap });
           }
         }
       }

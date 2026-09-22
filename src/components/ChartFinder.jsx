@@ -774,9 +774,16 @@ export const ChartFinder = () => {
                             )}
 
                             {matchItem && matchItem.isProjectionCell ? (
-                              <span className="text-xs font-black font-mono tracking-tight text-pink-600 bg-pink-100 px-1 rounded border border-pink-500 animate-pulse">
-                                {matchItem.val}
-                              </span>
+                              <div className="flex flex-col items-center justify-center p-0.5 leading-none">
+                                <span className="text-[10px] sm:text-xs font-black font-mono tracking-tight text-pink-700 bg-pink-100 px-1 py-0.5 rounded border border-pink-500 shadow-sm animate-pulse">
+                                  {matchItem.val}
+                                </span>
+                                {matchItem.projJodis && matchItem.projJodis.length > 0 && (
+                                  <span className="text-[8px] sm:text-[9px] font-black font-mono text-purple-950 bg-amber-300 px-1 rounded mt-0.5 border border-amber-500 tracking-tighter shadow-sm" title={`Candidate Jodis for ${matchItem.val}: ${matchItem.projJodis.join(', ')}`}>
+                                    {matchItem.projJodis.slice(0, 4).join(' ')}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span
                                 className={`text-base xs:text-lg sm:text-2xl font-black font-mono tracking-tighter ${
