@@ -2336,6 +2336,160 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 36: 3-CELL VERTICAL & HORIZONTAL DIGIT-SUM ARITHMETIC PROGRESSION ENGINE (OPEN-SUM, CLOSE-SUM, TOTAL-SUM) ---
+    // Specifically targets 3-cell vertical block digit sums stepping in arithmetic progressions (e.g. 5➔7➔9 with +2 step)
+    // Example from user chart:
+    // Wed [79, 27, 49] Closes (9+7+9) = 5
+    // Thu [30, 32, 15] Closes (0+2+5) = 7
+    // Fri [66, 53, ? ] Closes (6+3+?) = 9  ==> Projects Target Close 0 for Jodi 50!
+
+    if (targetRowIdx >= 2) {
+      // 1. Cross-Column 3-Cell Vertical Block Close-Sum Progression
+      if (colVal >= 2) {
+        const c1 = colVal - 2;
+        const c2 = colVal - 1;
+        const c3 = colVal;
+        const r3 = targetRowIdx;
+        const r1 = r3 - 2;
+        const r2 = r3 - 1;
+
+        // Fetch cells for Column 1 (colVal - 2)
+        const cell1_1 = grid[r1]?.[c1]?.val, cell1_2 = grid[r2]?.[c1]?.val, cell1_3 = grid[r3]?.[c1]?.val;
+        // Fetch cells for Column 2 (colVal - 1)
+        const cell2_1 = grid[r1]?.[c2]?.val, cell2_2 = grid[r2]?.[c2]?.val, cell2_3 = grid[r3]?.[c2]?.val;
+        // Fetch cells for Column 3 (colVal - current active column)
+        const cell3_1 = grid[r1]?.[c3]?.val, cell3_2 = grid[r2]?.[c3]?.val;
+
+        if (
+          cell1_1 && /^\d{2}$/.test(cell1_1) && cell1_2 && /^\d{2}$/.test(cell1_2) && cell1_3 && /^\d{2}$/.test(cell1_3) &&
+          cell2_1 && /^\d{2}$/.test(cell2_1) && cell2_2 && /^\d{2}$/.test(cell2_2) && cell2_3 && /^\d{2}$/.test(cell2_3) &&
+          cell3_1 && /^\d{2}$/.test(cell3_1) && cell3_2 && /^\d{2}$/.test(cell3_2)
+        ) {
+          // --- A. CLOSE-SUM PROGRESSION ---
+          const cSum1 = (parseInt(cell1_1[1], 10) + parseInt(cell1_2[1], 10) + parseInt(cell1_3[1], 10)) % 10;
+          const cSum2 = (parseInt(cell2_1[1], 10) + parseInt(cell2_2[1], 10) + parseInt(cell2_3[1], 10)) % 10;
+          const cDelta = (cSum2 - cSum1 + 10) % 10;
+
+          const projCSum3 = (cSum2 + cDelta) % 10;
+          const projCSum3Cut = getCut(projCSum3);
+
+          const curTwoCloseSum = (parseInt(cell3_1[1], 10) + parseInt(cell3_2[1], 10)) % 10;
+          const projTargetClose = (projCSum3 - curTwoCloseSum + 20) % 10;
+          const projCutTargetClose = (projCSum3Cut - curTwoCloseSum + 20) % 10;
+
+          for (let o = 0; o <= 9; o++) {
+            const candJodi = `${o}${projTargetClose}`;
+            const candCutJodi = `${o}${projCutTargetClose}`;
+
+            addPoints(
+              candJodi,
+              185,
+              activeModel.conditionWeight * 2.2,
+              1.0,
+              `📈🔥 [3-CELL VERTICAL CLOSE-SUM PROGRESSION] 3-Cell Close Sums (${cSum1}➔${cSum2}, Step +${cDelta}) project Column 3-Cell Close Sum ${projCSum3} → Projects Target Close ${projTargetClose}`
+            );
+
+            addPoints(
+              candCutJodi,
+              150,
+              activeModel.conditionWeight * 1.7,
+              1.0,
+              `📈🔥 [3-CELL VERTICAL CLOSE-SUM CUT PROGRESSION] Projects Cut Target Close ${projCutTargetClose}`
+            );
+          }
+
+          // --- B. OPEN-SUM PROGRESSION ---
+          const oSum1 = (parseInt(cell1_1[0], 10) + parseInt(cell1_2[0], 10) + parseInt(cell1_3[0], 10)) % 10;
+          const oSum2 = (parseInt(cell2_1[0], 10) + parseInt(cell2_2[0], 10) + parseInt(cell2_3[0], 10)) % 10;
+          const oDelta = (oSum2 - oSum1 + 10) % 10;
+
+          const projOSum3 = (oSum2 + oDelta) % 10;
+          const projOSum3Cut = getCut(projOSum3);
+
+          const curTwoOpenSum = (parseInt(cell3_1[0], 10) + parseInt(cell3_2[0], 10)) % 10;
+          const projTargetOpen = (projOSum3 - curTwoOpenSum + 20) % 10;
+          const projCutTargetOpen = (projOSum3Cut - curTwoOpenSum + 20) % 10;
+
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${projTargetOpen}${c}`;
+            const candCutJodi = `${projCutTargetOpen}${c}`;
+
+            addPoints(
+              candJodi,
+              185,
+              activeModel.conditionWeight * 2.2,
+              1.0,
+              `📈🔥 [3-CELL VERTICAL OPEN-SUM PROGRESSION] 3-Cell Open Sums (${oSum1}➔${oSum2}, Step +${oDelta}) project Column 3-Cell Open Sum ${projOSum3} → Projects Target Open ${projTargetOpen}`
+            );
+
+            addPoints(
+              candCutJodi,
+              150,
+              activeModel.conditionWeight * 1.7,
+              1.0,
+              `📈🔥 [3-CELL VERTICAL OPEN-SUM CUT PROGRESSION] Projects Cut Target Open ${projCutTargetOpen}`
+            );
+          }
+
+          // --- C. TOTAL-SUM PROGRESSION ---
+          const tSum1 = (parseInt(cell1_1[0], 10) + parseInt(cell1_1[1], 10) + parseInt(cell1_2[0], 10) + parseInt(cell1_2[1], 10) + parseInt(cell1_3[0], 10) + parseInt(cell1_3[1], 10)) % 10;
+          const tSum2 = (parseInt(cell2_1[0], 10) + parseInt(cell2_1[1], 10) + parseInt(cell2_2[0], 10) + parseInt(cell2_2[1], 10) + parseInt(cell2_3[0], 10) + parseInt(cell2_3[1], 10)) % 10;
+          const tDelta = (tSum2 - tSum1 + 10) % 10;
+
+          const projTSum3 = (tSum2 + tDelta) % 10;
+          const curTwoTotSum = ((parseInt(cell3_1[0], 10) + parseInt(cell3_1[1], 10)) + (parseInt(cell3_2[0], 10) + parseInt(cell3_2[1], 10))) % 10;
+          const projTargetTotal = (projTSum3 - curTwoTotSum + 20) % 10;
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+              if ((o + c) % 10 === projTargetTotal) {
+                addPoints(
+                  candJodi,
+                  175,
+                  activeModel.columnWeight * 2.0,
+                  1.0,
+                  `📈🔥 [3-CELL VERTICAL TOTAL-SUM PROGRESSION] 3-Cell Total Sums (${tSum1}➔${tSum2}, Step +${tDelta}) project Column 3-Cell Total Sum ${projTSum3} → Projects Target Total ${projTargetTotal}`
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Same-Column Vertical 3-Cell Sum Sequence Stepper (Row-4..2 vs Row-3..1 vs Active Target Row)
+      if (targetRowIdx >= 4) {
+        const rActive = targetRowIdx;
+        const r1 = rActive - 4, r2 = rActive - 3, r3 = rActive - 2, r4 = rActive - 1;
+
+        const cell1 = grid[r1]?.[colVal]?.val;
+        const cell2 = grid[r2]?.[colVal]?.val;
+        const cell3 = grid[r3]?.[colVal]?.val;
+        const cell4 = grid[r4]?.[colVal]?.val;
+
+        if (cell1 && /^\d{2}$/.test(cell1) && cell2 && /^\d{2}$/.test(cell2) && cell3 && /^\d{2}$/.test(cell3) && cell4 && /^\d{2}$/.test(cell4)) {
+          const blk1CloseSum = (parseInt(cell1[1], 10) + parseInt(cell2[1], 10) + parseInt(cell3[1], 10)) % 10;
+          const blk2CloseSum = (parseInt(cell2[1], 10) + parseInt(cell3[1], 10) + parseInt(cell4[1], 10)) % 10;
+          const cDelta = (blk2CloseSum - blk1CloseSum + 10) % 10;
+
+          const projCSum3 = (blk2CloseSum + cDelta) % 10;
+          const curTwoCloseSum = (parseInt(cell3[1], 10) + parseInt(cell4[1], 10)) % 10;
+          const projTargetClose = (projCSum3 - curTwoCloseSum + 20) % 10;
+
+          for (let o = 0; o <= 9; o++) {
+            const candJodi = `${o}${projTargetClose}`;
+            addPoints(
+              candJodi,
+              170,
+              activeModel.columnWeight * 1.9,
+              1.0,
+              `📈⚡ [SAME-COL 3-CELL CLOSE-SUM STEPPER] Rolling 3-Cell Close Sums (${blk1CloseSum}➔${blk2CloseSum}, Step +${cDelta}) project Target Close ${projTargetClose}`
+            );
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
