@@ -64,9 +64,10 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     return digitType === 'open' ? val[0] : val[1];
   };
 
-  // Helper to check if a specific step combination matches targetSeq
+  // Helper to check if a specific step combination matches targetSeq (Exact Same or Opposite/Cut digit)
   const checkSequenceAlongPath = (rStart, cStart, rStep, cStep, digitTypeCombo, dirName) => {
     const matchedCells = [];
+    let isCutMatch = false;
 
     for (let i = 0; i < seqLen; i++) {
       const r = rStart + i * rStep;
@@ -76,8 +77,17 @@ export const findSequenceMatches = (grid, sequenceInput) => {
 
       const digitType = digitTypeCombo[i];
       const digit = getCellDigit(r, c, digitType);
+      if (digit === null) return null;
 
-      if (digit === null || digit !== targetSeq[i]) {
+      const targetD = targetSeq[i];
+      const cutD = String((parseInt(targetD, 10) + 5) % 10);
+
+      if (digit === targetD) {
+        // Exact digit match
+      } else if (digit === cutD) {
+        // Cut digit match
+        isCutMatch = true;
+      } else {
         return null; // Sequence broken
       }
 
@@ -92,7 +102,7 @@ export const findSequenceMatches = (grid, sequenceInput) => {
 
     return {
       direction: dirName,
-      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → '),
+      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Equal)'),
       cells: matchedCells
     };
   };
@@ -102,6 +112,7 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     if (seqLen < 3) return null;
 
     const matchedCells = [];
+    let isCutMatch = false;
 
     // Check first (seqLen - 1) steps match targetSeq
     for (let i = 0; i < seqLen - 1; i++) {
@@ -111,9 +122,19 @@ export const findSequenceMatches = (grid, sequenceInput) => {
 
       const digitType = digitTypeCombo[i];
       const digit = getCellDigit(r, c, digitType);
-      if (digit === null || digit !== targetSeq[i]) {
+      if (digit === null) return null;
+
+      const targetD = targetSeq[i];
+      const cutD = String((parseInt(targetD, 10) + 5) % 10);
+
+      if (digit === targetD) {
+        // Same
+      } else if (digit === cutD) {
+        isCutMatch = true;
+      } else {
         return null;
       }
+
       matchedCells.push({
         r,
         c,
@@ -137,7 +158,7 @@ export const findSequenceMatches = (grid, sequenceInput) => {
 
     return {
       direction: dirName,
-      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → '),
+      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Equal)'),
       cells: matchedCells,
       isPartialSetup: true,
       emptyCell: {
@@ -151,11 +172,16 @@ export const findSequenceMatches = (grid, sequenceInput) => {
   };
 
   // Digit type combinations to evaluate:
-  // Strictly ALL OPEN digits (Open -> Open -> Open) OR ALL CLOSE digits (Close -> Close -> Close)
-  const digitCombos = [
-    Array(seqLen).fill('open'),
-    Array(seqLen).fill('close')
-  ];
+  // All combinations of Open & Close digits (Open->Open, Close->Close, Open->Close, Close->Open, etc.)
+  const digitCombos = [];
+  const numCombos = Math.pow(2, seqLen);
+  for (let i = 0; i < numCombos; i++) {
+    const combo = [];
+    for (let j = 0; j < seqLen; j++) {
+      combo.push((i & (1 << j)) ? 'close' : 'open');
+    }
+    digitCombos.push(combo);
+  }
 
   // Deduplication tracker
   const seenPaths = new Set();

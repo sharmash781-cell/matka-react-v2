@@ -1952,6 +1952,390 @@ export const PredictorEngine = () => {
       }
     }
 
+    // --- PASS 33: 3-CELL VERTICAL & HORIZONTAL OPEN/CLOSE EQUAL & CUT SET REPEATER & TRANSPOSITION ENGINE ---
+    // Specifically addresses 3-step vertical and horizontal Jodi blocks (e.g. [16, 78, 74] vs [46, 17, 97], or [36, 63, 81] vs [41, 13, 51])
+    // Evaluates Open-to-Open, Close-to-Close, Open-to-Close, and Close-to-Open Equal & Cut digit set alignments across the chart grid.
+
+    const isDigitEqualOrCut = (d1, d2) => d1 === d2 || d2 === getCut(d1);
+
+    // 1. Vertical 3-Cell Block Alignment
+    if (targetRowIdx >= 2) {
+      const vCell1 = grid[targetRowIdx - 2]?.[colVal]?.val;
+      const vCell2 = grid[targetRowIdx - 1]?.[colVal]?.val;
+
+      if (vCell1 && /^\d{2}$/.test(vCell1) && vCell2 && /^\d{2}$/.test(vCell2)) {
+        const vO1 = parseInt(vCell1[0], 10), vC1 = parseInt(vCell1[1], 10);
+        const vO2 = parseInt(vCell2[0], 10), vC2 = parseInt(vCell2[1], 10);
+
+        for (let rHist = 0; rHist < targetRowIdx - 2; rHist++) {
+          for (let cHist = 0; cHist < activeChart.cols; cHist++) {
+            const h1 = grid[rHist]?.[cHist]?.val;
+            const h2 = grid[rHist + 1]?.[cHist]?.val;
+            const h3 = grid[rHist + 2]?.[cHist]?.val;
+
+            if (h1 && /^\d{2}$/.test(h1) && h2 && /^\d{2}$/.test(h2) && h3 && /^\d{2}$/.test(h3)) {
+              const hO1 = parseInt(h1[0], 10), hC1 = parseInt(h1[1], 10);
+              const hO2 = parseInt(h2[0], 10), hC2 = parseInt(h2[1], 10);
+              const hO3 = parseInt(h3[0], 10), hC3 = parseInt(h3[1], 10);
+
+              // Case A: Close-to-Close Equal & Cut Alignment (e.g. 1, 3, 1 vs 6, 3, 1)
+              if (isDigitEqualOrCut(vC1, hC1) && isDigitEqualOrCut(vC2, hC2)) {
+                for (let o = 0; o <= 9; o++) {
+                  const candJodiDirect = `${o}${hC3}`;
+                  const candJodiCut = `${o}${getCut(hC3)}`;
+
+                  addPoints(
+                    candJodiDirect,
+                    175,
+                    activeModel.conditionWeight * 2.0,
+                    1.0,
+                    `🔥 [3-CELL VERTICAL CLOSE-TO-CLOSE EQUAL/CUT BLOCK] Active Closes (${vC1}, ${vC2}) match historical block (${hC1}, ${hC2}) → Projects Target Close ${hC3} from Jodi ${h3}`
+                  );
+                  addPoints(
+                    candJodiCut,
+                    140,
+                    activeModel.conditionWeight * 1.6,
+                    1.0,
+                    `🔥 [3-CELL VERTICAL CLOSE-TO-CLOSE CUT BLOCK] Active Closes (${vC1}, ${vC2}) match historical block → Projects Cut Target Close ${getCut(hC3)}`
+                  );
+                }
+              }
+
+              // Case B: Open-to-Open Equal & Cut Alignment (e.g. 4, 1, 9 vs 4, 1, 9)
+              if (isDigitEqualOrCut(vO1, hO1) && isDigitEqualOrCut(vO2, hO2)) {
+                for (let c = 0; c <= 9; c++) {
+                  const candJodiDirect = `${hO3}${c}`;
+                  const candJodiCut = `${getCut(hO3)}${c}`;
+
+                  addPoints(
+                    candJodiDirect,
+                    175,
+                    activeModel.conditionWeight * 2.0,
+                    1.0,
+                    `🔥 [3-CELL VERTICAL OPEN-TO-OPEN EQUAL/CUT BLOCK] Active Opens (${vO1}, ${vO2}) match historical block (${hO1}, ${hO2}) → Projects Target Open ${hO3} from Jodi ${h3}`
+                  );
+                  addPoints(
+                    candJodiCut,
+                    140,
+                    activeModel.conditionWeight * 1.6,
+                    1.0,
+                    `🔥 [3-CELL VERTICAL OPEN-TO-OPEN CUT BLOCK] Active Opens (${vO1}, ${vO2}) match historical block → Projects Cut Target Open ${getCut(hO3)}`
+                  );
+                }
+              }
+
+              // Case C: Open-to-Close Transposition Alignment (Active Opens match Historical Closes, e.g. 1, 7, 7 vs 6, 7, 7)
+              if (isDigitEqualOrCut(vO1, hC1) && isDigitEqualOrCut(vO2, hC2)) {
+                for (let c = 0; c <= 9; c++) {
+                  const candJodiDirect = `${hO3}${c}`;
+                  const candJodiCut = `${getCut(hO3)}${c}`;
+
+                  addPoints(
+                    candJodiDirect,
+                    170,
+                    activeModel.conditionWeight * 1.9,
+                    1.0,
+                    `🔄 [3-CELL OPEN-TO-CLOSE TRANSPOSITION BLOCK] Active Opens (${vO1}, ${vO2}) transpose to historical Closes (${hC1}, ${hC2}) → Projects Target Open ${hO3} from Jodi ${h3}`
+                  );
+                  addPoints(
+                    candJodiCut,
+                    135,
+                    activeModel.conditionWeight * 1.5,
+                    1.0,
+                    `🔄 [3-CELL OPEN-TO-CLOSE CUT TRANSPOSITION BLOCK] Projects Cut Target Open ${getCut(hO3)}`
+                  );
+                }
+              }
+
+              // Case D: Close-to-Open Transposition Alignment (Active Closes match Historical Opens)
+              if (isDigitEqualOrCut(vC1, hO1) && isDigitEqualOrCut(vC2, hO2)) {
+                for (let o = 0; o <= 9; o++) {
+                  const candJodiDirect = `${o}${hC3}`;
+                  const candJodiCut = `${o}${getCut(hC3)}`;
+
+                  addPoints(
+                    candJodiDirect,
+                    170,
+                    activeModel.conditionWeight * 1.9,
+                    1.0,
+                    `🔄 [3-CELL CLOSE-TO-OPEN TRANSPOSITION BLOCK] Active Closes (${vC1}, ${vC2}) transpose to historical Opens (${hO1}, ${hO2}) → Projects Target Close ${hC3} from Jodi ${h3}`
+                  );
+                  addPoints(
+                    candJodiCut,
+                    135,
+                    activeModel.conditionWeight * 1.5,
+                    1.0,
+                    `🔄 [3-CELL CLOSE-TO-OPEN CUT TRANSPOSITION BLOCK] Projects Cut Target Close ${getCut(hC3)}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Horizontal 3-Cell Block Alignment
+    if (colVal >= 2 && grid[targetRowIdx]) {
+      const hCell1 = grid[targetRowIdx]?.[colVal - 2]?.val;
+      const hCell2 = grid[targetRowIdx]?.[colVal - 1]?.val;
+
+      if (hCell1 && /^\d{2}$/.test(hCell1) && hCell2 && /^\d{2}$/.test(hCell2)) {
+        const hO1 = parseInt(hCell1[0], 10), hC1 = parseInt(hCell1[1], 10);
+        const hO2 = parseInt(hCell2[0], 10), hC2 = parseInt(hCell2[1], 10);
+
+        for (let rHist = 0; rHist < targetRowIdx; rHist++) {
+          for (let cHist = 0; cHist < activeChart.cols - 2; cHist++) {
+            const blk1 = grid[rHist]?.[cHist]?.val;
+            const blk2 = grid[rHist]?.[cHist + 1]?.val;
+            const blk3 = grid[rHist]?.[cHist + 2]?.val;
+
+            if (blk1 && /^\d{2}$/.test(blk1) && blk2 && /^\d{2}$/.test(blk2) && blk3 && /^\d{2}$/.test(blk3)) {
+              const bO1 = parseInt(blk1[0], 10), bC1 = parseInt(blk1[1], 10);
+              const bO2 = parseInt(blk2[0], 10), bC2 = parseInt(blk2[1], 10);
+              const bO3 = parseInt(blk3[0], 10), bC3 = parseInt(blk3[1], 10);
+
+              // Close-to-Close Horizontal Equal/Cut
+              if (isDigitEqualOrCut(hC1, bC1) && isDigitEqualOrCut(hC2, bC2)) {
+                for (let o = 0; o <= 9; o++) {
+                  addPoints(
+                    `${o}${bC3}`,
+                    165,
+                    activeModel.rowWeight * 1.9,
+                    1.0,
+                    `🔥 [3-CELL HORIZONTAL CLOSE-TO-CLOSE EQUAL/CUT BLOCK] Row Closes (${hC1}, ${hC2}) match historical row block → Projects Target Close ${bC3}`
+                  );
+                }
+              }
+
+              // Open-to-Open Horizontal Equal/Cut
+              if (isDigitEqualOrCut(hO1, bO1) && isDigitEqualOrCut(hO2, bO2)) {
+                for (let c = 0; c <= 9; c++) {
+                  addPoints(
+                    `${bO3}${c}`,
+                    165,
+                    activeModel.rowWeight * 1.9,
+                    1.0,
+                    `🔥 [3-CELL HORIZONTAL OPEN-TO-OPEN EQUAL/CUT BLOCK] Row Opens (${hO1}, ${hO2}) match historical row block → Projects Target Open ${bO3}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 34: MULTI-STEP CROSS-POSITION EQUAL & CUT TRANSPOSITION TOUCH ENGINE ---
+    // Scans recent vertical & horizontal cells for Open-to-Open, Open-to-Close, Close-to-Open, Close-to-Close Equal & Cut matches
+    for (let rBack = 1; rBack <= 8; rBack++) {
+      const pR = targetRowIdx - rBack;
+      if (pR >= 0 && grid[pR]) {
+        for (let c = 0; c < activeChart.cols; c++) {
+          const val = grid[pR][c]?.val;
+          if (val && /^\d{2}$/.test(val)) {
+            const pO = parseInt(val[0], 10);
+            const pC = parseInt(val[1], 10);
+            const cutO = getCut(pO);
+            const cutC = getCut(pC);
+            const recency = Math.pow(0.96, rBack);
+
+            for (let o = 0; o <= 9; o++) {
+              for (let closeD = 0; closeD <= 9; closeD++) {
+                const candJodi = `${o}${closeD}`;
+
+                // 1. Close-to-Close Equal & Cut (e.g. Close 1 in Thu matches Close 1 in Mon, or Close 6 cut=1)
+                if (closeD === pC || closeD === cutC) {
+                  const label = closeD === pC ? 'Equal' : 'Cut';
+                  addPoints(
+                    candJodi,
+                    Math.round(45 * recency),
+                    activeModel.conditionWeight * 1.3,
+                    recency,
+                    `🎯 [MULTI-STEP CLOSE-TO-CLOSE ${label.toUpperCase()}] Row #${pR + 1} Col #${c + 1} Jodi "${val}" Close ${pC} projects ${label} Target Close ${closeD}`
+                  );
+                }
+
+                // 2. Open-to-Open Equal & Cut
+                if (o === pO || o === cutO) {
+                  const label = o === pO ? 'Equal' : 'Cut';
+                  addPoints(
+                    candJodi,
+                    Math.round(45 * recency),
+                    activeModel.conditionWeight * 1.3,
+                    recency,
+                    `🎯 [MULTI-STEP OPEN-TO-OPEN ${label.toUpperCase()}] Row #${pR + 1} Col #${c + 1} Jodi "${val}" Open ${pO} projects ${label} Target Open ${o}`
+                  );
+                }
+
+                // 3. Open-to-Close Transposition (Open of historical Jodi becomes candidate Close)
+                if (closeD === pO || closeD === cutO) {
+                  const label = closeD === pO ? 'Equal' : 'Cut';
+                  addPoints(
+                    candJodi,
+                    Math.round(40 * recency),
+                    activeModel.conditionWeight * 1.2,
+                    recency,
+                    `🔄 [MULTI-STEP OPEN-TO-CLOSE ${label.toUpperCase()} TRANSPOSITION] Row #${pR + 1} Col #${c + 1} Open ${pO} transposes to ${label} Target Close ${closeD}`
+                  );
+                }
+
+                // 4. Close-to-Open Transposition (Close of historical Jodi becomes candidate Open)
+                if (o === pC || o === cutC) {
+                  const label = o === pC ? 'Equal' : 'Cut';
+                  addPoints(
+                    candJodi,
+                    Math.round(40 * recency),
+                    activeModel.conditionWeight * 1.2,
+                    recency,
+                    `🔄 [MULTI-STEP CLOSE-TO-OPEN ${label.toUpperCase()} TRANSPOSITION] Row #${pR + 1} Col #${c + 1} Close ${pC} transposes to ${label} Target Open ${o}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- PASS 35: TWO-CELL VERTICAL CLOSE-SUM TO JODI TOTAL ENGINE (SAME & CUT TOTAL) ---
+    // Evaluates two consecutive vertical cells (in adjacent left column or current column).
+    // The sum of their Close digits predicts candidate Jodi Total (Direct Same Total or Opposite Cut Total).
+    // Examples from user patterns:
+    // 1) 73 (Close 3) + 26 (Close 6) = 9 -> Projects Total 9 (e.g. 45 [Tot 9])
+    // 2) 73 (Close 3) + 26 (Close 6) = 9 (Cut = 4) -> Projects Cut Total 4 (e.g. 77 [Tot 4])
+    // 3) 03 (Close 3) + 81 (Close 1) = 4 (Cut = 9) -> Projects Cut Total 9 (e.g. 63 [Tot 9])
+
+    if (targetRowIdx >= 1) {
+      // 1. Left Adjacent Column Lookback (colVal - 1)
+      if (colVal > 0) {
+        const cLeft = colVal - 1;
+        const cellPairs = [];
+
+        // Pair A: Row-1 and Row
+        const vCellA1 = grid[targetRowIdx - 1]?.[cLeft]?.val;
+        const vCellA2 = grid[targetRowIdx]?.[cLeft]?.val;
+        if (vCellA1 && /^\d{2}$/.test(vCellA1) && vCellA2 && /^\d{2}$/.test(vCellA2)) {
+          cellPairs.push({
+            name: 'Left Vertical Pair (R-1, R)',
+            v1: vCellA1,
+            v2: vCellA2,
+            c1: parseInt(vCellA1[1], 10),
+            c2: parseInt(vCellA2[1], 10)
+          });
+        }
+
+        // Pair B: Row-2 and Row-1
+        if (targetRowIdx >= 2) {
+          const vCellB1 = grid[targetRowIdx - 2]?.[cLeft]?.val;
+          const vCellB2 = grid[targetRowIdx - 1]?.[cLeft]?.val;
+          if (vCellB1 && /^\d{2}$/.test(vCellB1) && vCellB2 && /^\d{2}$/.test(vCellB2)) {
+            cellPairs.push({
+              name: 'Upper Left Vertical Pair (R-2, R-1)',
+              v1: vCellB1,
+              v2: vCellB2,
+              c1: parseInt(vCellB1[1], 10),
+              c2: parseInt(vCellB2[1], 10)
+            });
+          }
+        }
+
+        cellPairs.forEach(pair => {
+          const closeSum = (pair.c1 + pair.c2) % 10;
+          const cutCloseSum = getCut(closeSum);
+
+          // Measure if this Close-Sum to Total pattern repeated in recent historical rows
+          let streakCount = 0;
+          for (let rBack = 1; rBack <= 5; rBack++) {
+            const hR = targetRowIdx - rBack;
+            if (hR >= 1 && grid[hR - 1]?.[cLeft]?.val && grid[hR]?.[cLeft]?.val && grid[hR]?.[colVal]?.val) {
+              const hV1 = grid[hR - 1][cLeft].val;
+              const hV2 = grid[hR][cLeft].val;
+              const hTarget = grid[hR][colVal].val;
+              if (/^\d{2}$/.test(hV1) && /^\d{2}$/.test(hV2) && /^\d{2}$/.test(hTarget)) {
+                const hCloseSum = (parseInt(hV1[1], 10) + parseInt(hV2[1], 10)) % 10;
+                const hTargetTot = (parseInt(hTarget[0], 10) + parseInt(hTarget[1], 10)) % 10;
+                if (hTargetTot === hCloseSum || hTargetTot === getCut(hCloseSum)) {
+                  streakCount++;
+                }
+              }
+            }
+          }
+
+          const streakBonus = streakCount * 25;
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+              const candTot = (o + c) % 10;
+
+              // Direct Same Close-Sum -> Target Total (e.g. 3+6=9 -> Total 9 like 45)
+              if (candTot === closeSum) {
+                addPoints(
+                  candJodi,
+                  180 + streakBonus,
+                  activeModel.conditionWeight * 2.1,
+                  1.0,
+                  `🎯🔥 [TWO-CLOSE SUM TO SAME TOTAL] Left cells "${pair.v1}" (Close ${pair.c1}) + "${pair.v2}" (Close ${pair.c2}) Close Sum = ${closeSum} → Projects Direct Target Total ${closeSum}`
+                );
+              }
+
+              // Opposite / Cut Close-Sum -> Target Total (e.g. 3+6=9 Cut=4 -> Total 4 like 77, 3+1=4 Cut=9 -> Total 9 like 63)
+              if (candTot === cutCloseSum) {
+                addPoints(
+                  candJodi,
+                  165 + streakBonus,
+                  activeModel.conditionWeight * 1.9,
+                  1.0,
+                  `🎯🔥 [TWO-CLOSE SUM TO CUT TOTAL] Left cells "${pair.v1}" (Close ${pair.c1}) + "${pair.v2}" (Close ${pair.c2}) Close Sum = ${closeSum} → Projects Opposite (Cut) Target Total ${cutCloseSum}`
+                );
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Same Column Lookback (colVal) - Two cells above target cell
+      if (targetRowIdx >= 2) {
+        const vCell1 = grid[targetRowIdx - 2]?.[colVal]?.val;
+        const vCell2 = grid[targetRowIdx - 1]?.[colVal]?.val;
+
+        if (vCell1 && /^\d{2}$/.test(vCell1) && vCell2 && /^\d{2}$/.test(vCell2)) {
+          const c1 = parseInt(vCell1[1], 10);
+          const c2 = parseInt(vCell2[1], 10);
+          const sameColCloseSum = (c1 + c2) % 10;
+          const sameColCutCloseSum = getCut(sameColCloseSum);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+              const candTot = (o + c) % 10;
+
+              if (candTot === sameColCloseSum) {
+                addPoints(
+                  candJodi,
+                  175,
+                  activeModel.columnWeight * 2.0,
+                  1.0,
+                  `🎯🔥 [SAME-COL TWO-CLOSE SUM TO SAME TOTAL] Column cells "${vCell1}" (Close ${c1}) + "${vCell2}" (Close ${c2}) Close Sum = ${sameColCloseSum} → Projects Target Total ${sameColCloseSum}`
+                );
+              }
+
+              if (candTot === sameColCutCloseSum) {
+                addPoints(
+                  candJodi,
+                  160,
+                  activeModel.columnWeight * 1.8,
+                  1.0,
+                  `🎯🔥 [SAME-COL TWO-CLOSE SUM TO CUT TOTAL] Column cells "${vCell1}" + "${vCell2}" Close Sum = ${sameColCloseSum} → Projects Cut Target Total ${sameColCutCloseSum}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
