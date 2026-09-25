@@ -34,7 +34,14 @@ export const parseSequenceInput = (input) => {
  * @param {String|Array} sequenceInput User input e.g. "5, 3, 2"
  * @returns {Object} { targetSeq: ['5', '3', '2'], totalMatches: N, matches: [...] }
  */
-export const findSequenceMatches = (grid, sequenceInput) => {
+/**
+ * Main sequence finder function
+ * @param {Array} grid 2D array of cells [{val: "53"}, ...]
+ * @param {String|Array} sequenceInput User input e.g. "5, 3, 2" or "1, 4, 5"
+ * @param {Object} options Options for filtering (digitTypeFilter, directionFilter, selectedGap, matchMode)
+ * @returns {Object} { targetSeq: ['5', '3', '2'], totalMatches: N, matches: [...] }
+ */
+export const findSequenceMatches = (grid, sequenceInput, options = {}) => {
   const targetSeq = Array.isArray(sequenceInput) 
     ? sequenceInput.map(String) 
     : parseSequenceInput(sequenceInput);
@@ -43,18 +50,42 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     return { targetSeq: [], totalMatches: 0, matches: [] };
   }
 
+  const {
+    digitTypeFilter = 'all', // 'all', 'opens_only', 'closes_only'
+    directionFilter = 'all', // 'all', 'horizontal', 'vertical', 'diagonal'
+    selectedGap = 'all',      // 'all' (gaps 0..5), or '0', '1', '2', '3', '4', '5'
+    matchMode = 'all'        // 'all' (exact or cut), 'exact_only', 'cut_only'
+  } = options;
+
   const rows = grid.length;
   const cols = grid[0] ? grid[0].length : 7;
   const seqLen = targetSeq.length;
   const rawMatches = [];
 
-  // Direction vectors strictly restricted to adjacent cells:
-  // 1. Horizontal (Same Row, consecutive columns: Col 1 -> Col 2 -> Col 3)
-  // 2. Vertical (Same Column, consecutive rows: Row 3 -> Row 4 -> Row 5)
-  const directions = [
-    [0, 1, 'Horizontal (Same Row)'],
-    [1, 0, 'Vertical (Same Column)']
+  // Direction vectors
+  const allDirections = [
+    [0, 1, 'Horizontal (Same Row)', 'horizontal'],
+    [1, 0, 'Vertical (Same Column)', 'vertical'],
+    [1, 1, 'Diagonal Down-Right', 'diagonal'],
+    [1, -1, 'Diagonal Down-Left', 'diagonal']
   ];
+
+  const directions = allDirections.filter(([,, , category]) => {
+    if (directionFilter === 'all') return true;
+    if (directionFilter === 'horizontal') return category === 'horizontal';
+    if (directionFilter === 'vertical') return category === 'vertical';
+    if (directionFilter === 'diagonal') return category === 'diagonal';
+    return true;
+  });
+
+  // Gap step multipliers (Gap 0 = dist 1, Gap 1 = dist 2, ..., Gap 5 = dist 6)
+  let gapsToTest = [0, 1, 2, 3, 4, 5];
+  if (selectedGap !== 'all' && selectedGap !== undefined && selectedGap !== null) {
+    const parsedG = parseInt(selectedGap, 10);
+    if (!isNaN(parsedG) && parsedG >= 0 && parsedG <= 5) {
+      gapsToTest = [parsedG];
+    }
+  }
 
   // Helper to extract digit from cell ('open' = index 0, 'close' = index 1)
   const getCellDigit = (r, c, digitType) => {
@@ -64,14 +95,15 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     return digitType === 'open' ? val[0] : val[1];
   };
 
-  // Helper to check if a specific step combination matches targetSeq (Exact Same or Opposite/Cut digit)
-  const checkSequenceAlongPath = (rStart, cStart, rStep, cStep, digitTypeCombo, dirName) => {
+  // Helper to check if a specific step combination matches targetSeq
+  const checkSequenceAlongPath = (rStart, cStart, dr, dc, gap, digitTypeCombo, dirName) => {
     const matchedCells = [];
     let isCutMatch = false;
+    const stepDist = gap + 1; // Gap 0 => stepDist 1
 
     for (let i = 0; i < seqLen; i++) {
-      const r = rStart + i * rStep;
-      const c = cStart + i * cStep;
+      const r = rStart + i * dr * stepDist;
+      const c = cStart + i * dc * stepDist;
 
       if (r < 0 || r >= rows || c < 0 || c >= cols) return null;
 
@@ -83,9 +115,9 @@ export const findSequenceMatches = (grid, sequenceInput) => {
       const cutD = String((parseInt(targetD, 10) + 5) % 10);
 
       if (digit === targetD) {
-        // Exact digit match
+        if (matchMode === 'cut_only') return null;
       } else if (digit === cutD) {
-        // Cut digit match
+        if (matchMode === 'exact_only') return null;
         isCutMatch = true;
       } else {
         return null; // Sequence broken
@@ -100,24 +132,26 @@ export const findSequenceMatches = (grid, sequenceInput) => {
       });
     }
 
+    const gapLabel = gap === 0 ? 'Gap 0' : `Gap ${gap}`;
     return {
-      direction: dirName,
-      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Equal)'),
+      direction: `${dirName} (${gapLabel})`,
+      gap,
+      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Exact)'),
       cells: matchedCells
     };
   };
 
   // Helper to check partial setups (e.g. 2 digits filled + 3rd step lands on EMPTY cell)
-  const checkPartialSequenceAlongPath = (rStart, cStart, rStep, cStep, digitTypeCombo, dirName) => {
+  const checkPartialSequenceAlongPath = (rStart, cStart, dr, dc, gap, digitTypeCombo, dirName) => {
     if (seqLen < 3) return null;
 
     const matchedCells = [];
     let isCutMatch = false;
+    const stepDist = gap + 1;
 
-    // Check first (seqLen - 1) steps match targetSeq
     for (let i = 0; i < seqLen - 1; i++) {
-      const r = rStart + i * rStep;
-      const c = cStart + i * cStep;
+      const r = rStart + i * dr * stepDist;
+      const c = cStart + i * dc * stepDist;
       if (r < 0 || r >= rows || c < 0 || c >= cols) return null;
 
       const digitType = digitTypeCombo[i];
@@ -128,8 +162,9 @@ export const findSequenceMatches = (grid, sequenceInput) => {
       const cutD = String((parseInt(targetD, 10) + 5) % 10);
 
       if (digit === targetD) {
-        // Same
+        if (matchMode === 'cut_only') return null;
       } else if (digit === cutD) {
+        if (matchMode === 'exact_only') return null;
         isCutMatch = true;
       } else {
         return null;
@@ -145,8 +180,8 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     }
 
     // Step (seqLen - 1) must land on an EMPTY cell (unfilled)
-    const targetR = rStart + (seqLen - 1) * rStep;
-    const targetC = cStart + (seqLen - 1) * cStep;
+    const targetR = rStart + (seqLen - 1) * dr * stepDist;
+    const targetC = cStart + (seqLen - 1) * dc * stepDist;
     if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols) return null;
 
     const targetVal = grid[targetR][targetC]?.val || '';
@@ -156,9 +191,11 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     const cutDigit = String((parseInt(predictedDigit) + 5) % 10);
     const predictedDigitType = digitTypeCombo[seqLen - 1];
 
+    const gapLabel = gap === 0 ? 'Gap 0' : `Gap ${gap}`;
     return {
-      direction: dirName,
-      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Equal)'),
+      direction: `${dirName} (${gapLabel})`,
+      gap,
+      digitTypeLabel: digitTypeCombo.map(d => d.toUpperCase()).join(' → ') + (isCutMatch ? ' (Cut/Equal)' : ' (Exact)'),
       cells: matchedCells,
       isPartialSetup: true,
       emptyCell: {
@@ -171,16 +208,22 @@ export const findSequenceMatches = (grid, sequenceInput) => {
     };
   };
 
-  // Digit type combinations to evaluate:
-  // All combinations of Open & Close digits (Open->Open, Close->Close, Open->Close, Close->Open, etc.)
-  const digitCombos = [];
-  const numCombos = Math.pow(2, seqLen);
-  for (let i = 0; i < numCombos; i++) {
-    const combo = [];
-    for (let j = 0; j < seqLen; j++) {
-      combo.push((i & (1 << j)) ? 'close' : 'open');
+  // Digit type combinations based on filter
+  let digitCombos = [];
+  if (digitTypeFilter === 'opens_only') {
+    digitCombos = [Array(seqLen).fill('open')];
+  } else if (digitTypeFilter === 'closes_only') {
+    digitCombos = [Array(seqLen).fill('close')];
+  } else {
+    // Generate all open & close combinations
+    const numCombos = Math.pow(2, seqLen);
+    for (let i = 0; i < numCombos; i++) {
+      const combo = [];
+      for (let j = 0; j < seqLen; j++) {
+        combo.push((i & (1 << j)) ? 'close' : 'open');
+      }
+      digitCombos.push(combo);
     }
-    digitCombos.push(combo);
   }
 
   // Deduplication tracker
@@ -190,53 +233,52 @@ export const findSequenceMatches = (grid, sequenceInput) => {
   // Scan entire grid
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      for (const [rStep, cStep, dirName] of directions) {
-        for (const combo of digitCombos) {
-          const matchResult = checkSequenceAlongPath(r, c, rStep, cStep, combo, dirName);
-          if (matchResult) {
-            // Path key for deduplication
-            const pathKey = matchResult.cells.map(cell => `${cell.r}:${cell.c}:${cell.digitType}`).join('|');
-            if (!seenPaths.has(pathKey)) {
-              seenPaths.add(pathKey);
-              
-              // Calculate immediate subsequent cell (the outcome cell after pattern completes)
-              const lastCell = matchResult.cells[matchResult.cells.length - 1];
-              let nextR = lastCell.r + (dirName.includes('Vertical') ? 1 : 0);
-              let nextC = lastCell.c + (dirName.includes('Horizontal') ? 1 : 0);
-              if (dirName.includes('Horizontal') && nextC >= cols) {
-                nextC = 0;
-                nextR = lastCell.r + 1;
-              }
-
-              let subsequentOutcome = null;
-              if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols) {
-                const nextVal = grid[nextR][nextC]?.val || '';
-                if (nextVal && nextVal !== '**' && /^\d{2}$/.test(nextVal)) {
-                  subsequentOutcome = {
-                    nextR,
-                    nextC,
-                    nextVal,
-                    nextOpen: nextVal[0],
-                    nextClose: nextVal[1]
-                  };
+      for (const [dr, dc, dirName] of directions) {
+        for (const gap of gapsToTest) {
+          for (const combo of digitCombos) {
+            const matchResult = checkSequenceAlongPath(r, c, dr, dc, gap, combo, dirName);
+            if (matchResult) {
+              const pathKey = matchResult.cells.map(cell => `${cell.r}:${cell.c}:${cell.digitType}`).join('|');
+              if (!seenPaths.has(pathKey)) {
+                seenPaths.add(pathKey);
+                
+                const lastCell = matchResult.cells[matchResult.cells.length - 1];
+                let nextR = lastCell.r + (dirName.includes('Vertical') || dirName.includes('Diagonal') ? (gap + 1) : 0);
+                let nextC = lastCell.c + (dirName.includes('Horizontal') || dirName.includes('Diagonal') ? (gap + 1) : 0);
+                if (dirName.includes('Horizontal') && nextC >= cols) {
+                  nextC = 0;
+                  nextR = lastCell.r + 1;
                 }
-              }
 
-              rawMatches.push({
-                ...matchResult,
-                startRow: matchResult.cells[0].r,
-                endRow: lastCell.r,
-                subsequentOutcome
-              });
-            }
-          } else {
-            // Check for partial setup (2 digits completed + 3rd empty cell)
-            const partialResult = checkPartialSequenceAlongPath(r, c, rStep, cStep, combo, dirName);
-            if (partialResult) {
-              const partialKey = `${partialResult.emptyCell.r}:${partialResult.emptyCell.c}:${partialResult.emptyCell.predictedDigitType}`;
-              if (!seenPaths.has(partialKey)) {
-                seenPaths.add(partialKey);
-                rawPartialSetups.push(partialResult);
+                let subsequentOutcome = null;
+                if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols) {
+                  const nextVal = grid[nextR][nextC]?.val || '';
+                  if (nextVal && nextVal !== '**' && /^\d{2}$/.test(nextVal)) {
+                    subsequentOutcome = {
+                      nextR,
+                      nextC,
+                      nextVal,
+                      nextOpen: nextVal[0],
+                      nextClose: nextVal[1]
+                    };
+                  }
+                }
+
+                rawMatches.push({
+                  ...matchResult,
+                  startRow: matchResult.cells[0].r,
+                  endRow: lastCell.r,
+                  subsequentOutcome
+                });
+              }
+            } else {
+              const partialResult = checkPartialSequenceAlongPath(r, c, dr, dc, gap, combo, dirName);
+              if (partialResult) {
+                const partialKey = `${partialResult.emptyCell.r}:${partialResult.emptyCell.c}:${partialResult.emptyCell.predictedDigitType}`;
+                if (!seenPaths.has(partialKey)) {
+                  seenPaths.add(partialKey);
+                  rawPartialSetups.push(partialResult);
+                }
               }
             }
           }

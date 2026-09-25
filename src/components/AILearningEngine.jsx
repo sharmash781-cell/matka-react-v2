@@ -51,6 +51,10 @@ export const AILearningEngine = () => {
   // FORWARD SEQUENCE SEARCH INPUT
   const [sequenceInput, setSequenceInput] = useState('');
   const [activeMatchFilter, setActiveMatchFilter] = useState('all');
+  const [seqDigitTypeFilter, setSeqDigitTypeFilter] = useState('all'); // 'all', 'opens_only', 'closes_only'
+  const [seqDirectionFilter, setSeqDirectionFilter] = useState('all'); // 'all', 'horizontal', 'vertical', 'diagonal'
+  const [seqSelectedGap, setSeqSelectedGap] = useState('all'); // 'all', '0', '1', '2', '3', '4', '5'
+  const [seqMatchMode, setSeqMatchMode] = useState('all'); // 'all', 'exact_only', 'cut_only'
 
   // CONTROLS & TABLE UI OPTIONS
   const [showControls, setShowControls] = useState(false);
@@ -196,8 +200,13 @@ export const AILearningEngine = () => {
   // RUN UNIVERSAL SEQUENCE SCANNING ENGINE
   const sequenceResults = useMemo(() => {
     if (!showOpenFinder || !isOpenFinderActive) return { targetSeq: [], totalMatches: 0, matches: [], partialSetups: [], predictions: {} };
-    return findSequenceMatches(grid, sequenceInput);
-  }, [grid, sequenceInput, showOpenFinder, isOpenFinderActive]);
+    return findSequenceMatches(grid, sequenceInput, {
+      digitTypeFilter: seqDigitTypeFilter,
+      directionFilter: seqDirectionFilter,
+      selectedGap: seqSelectedGap,
+      matchMode: seqMatchMode
+    });
+  }, [grid, sequenceInput, showOpenFinder, isOpenFinderActive, seqDigitTypeFilter, seqDirectionFilter, seqSelectedGap, seqMatchMode]);
 
   const visibleMatches = useMemo(() => {
     if (!sequenceResults || !sequenceResults.matches) return [];
@@ -1270,14 +1279,14 @@ export const AILearningEngine = () => {
                   type="text"
                   value={sequenceInput}
                   onChange={(e) => setSequenceInput(e.target.value)}
-                  placeholder="e.g. 5, 8, 0"
+                  placeholder="e.g. 1, 4, 5"
                   className="w-full bg-slate-900 border-2 border-cyan-500/80 focus:border-cyan-400 text-white text-xs sm:text-sm font-mono font-black px-3 py-1.5 rounded-xl outline-none shadow-inner"
                 />
               </div>
 
               <div className="flex items-center gap-1 pt-3 flex-wrap">
                 <span className="text-[9px] text-slate-400 font-bold">Quick:</span>
-                {['5, 8, 0', '1, 2, 3', '0, 5, 0', '7, 8, 9'].map((preset) => (
+                {['1, 4, 5', '5, 8, 0', '1, 2, 3', '0, 5, 0', '7, 8, 9'].map((preset) => (
                   <button
                     key={preset}
                     onClick={() => {
@@ -1295,6 +1304,79 @@ export const AILearningEngine = () => {
                 ))}
               </div>
             </div>
+
+            {/* OPEN FINDER OPTION CONTROLS (Digit Scope, Direction, Gaps, Match Mode) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono pt-1">
+              {/* 1. DIGIT POSITION FILTER */}
+              <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+                <label className="text-[9px] text-cyan-400 font-bold block uppercase tracking-wider mb-0.5">
+                  Digit Positions:
+                </label>
+                <select
+                  value={seqDigitTypeFilter}
+                  onChange={(e) => setSeqDigitTypeFilter(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="all">All (Open & Close)</option>
+                  <option value="opens_only">Opens Only (Open → Open → Open)</option>
+                  <option value="closes_only">Closes Only (Close → Close → Close)</option>
+                </select>
+              </div>
+
+              {/* 2. DIRECTION FILTER */}
+              <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+                <label className="text-[9px] text-purple-400 font-bold block uppercase tracking-wider mb-0.5">
+                  Directions:
+                </label>
+                <select
+                  value={seqDirectionFilter}
+                  onChange={(e) => setSeqDirectionFilter(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-purple-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="all">All (Rows, Cols, Diagonals)</option>
+                  <option value="horizontal">Horizontal (Same Row)</option>
+                  <option value="vertical">Vertical (Same Column)</option>
+                  <option value="diagonal">Diagonals (Slanted)</option>
+                </select>
+              </div>
+
+              {/* 3. GAP STEP FILTER */}
+              <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+                <label className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider mb-0.5">
+                  Gap Distance:
+                </label>
+                <select
+                  value={seqSelectedGap}
+                  onChange={(e) => setSeqSelectedGap(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="all">All Gaps (0 to 5 Gaps)</option>
+                  <option value="0">Gap 0 (Adjacent Cells)</option>
+                  <option value="1">Gap 1 (Every 2nd Cell)</option>
+                  <option value="2">Gap 2 (Every 3rd Cell)</option>
+                  <option value="3">Gap 3 (Every 4th Cell)</option>
+                  <option value="4">Gap 4 (Every 5th Cell)</option>
+                  <option value="5">Gap 5 (Every 6th Cell)</option>
+                </select>
+              </div>
+
+              {/* 4. MATCH MODE */}
+              <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+                <label className="text-[9px] text-amber-400 font-bold block uppercase tracking-wider mb-0.5">
+                  Match Mode:
+                </label>
+                <select
+                  value={seqMatchMode}
+                  onChange={(e) => setSeqMatchMode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs"
+                >
+                  <option value="all">Equal or Cut (+5 Opposite)</option>
+                  <option value="exact_only">Exact Digits Only</option>
+                  <option value="cut_only">Cut / Opposite Only</option>
+                </select>
+              </div>
+            </div>
+
 
             {sequenceResults && sequenceResults.totalMatches > 0 && (
               <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono bg-slate-900/90 border border-slate-800 p-2 rounded-xl">
