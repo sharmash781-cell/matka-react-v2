@@ -7,8 +7,6 @@ import milanDayyPreset from '../data/milan_dayy_preset.json';
 import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
-import kalyanNightPreset from '../data/kalyan_night_preset.json';
-import rajadhaniNightPreset from '../data/rajadhani_night_preset.json';
 import timeBazarPreset from '../data/time_bazar_preset.json';
 import { fetchLiveChartData } from '../utils/dpbossSync';
 
@@ -22,8 +20,6 @@ export const MARKET_ORDER = [
   "MILAN DAYY",
   "KALYAN",
   "SRIDEVI NIGHT",
-  "KALYAN NIGHT",
-  "RAJADHANI NIGHT",
   "MILAN NIGHTT",
   "MAIN BAZAR"
 ];
@@ -81,8 +77,6 @@ export const DEFAULT_PUBLISHED_CHARTS = {
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
-  "KALYAN NIGHT": kalyanNightPreset,
-  "RAJADHANI NIGHT": rajadhaniNightPreset,
   "MILAN NIGHTT": milanNighttPreset,
   "MAIN BAZAR": mainBazarPreset
 };
@@ -93,8 +87,6 @@ export const DEFAULT_PRESETS = {
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
   "SRIDEVI NIGHT": srideviNightPreset,
-  "KALYAN NIGHT": kalyanNightPreset,
-  "RAJADHANI NIGHT": rajadhaniNightPreset,
   "MILAN NIGHTT": milanNighttPreset,
   "MAIN BAZAR": mainBazarPreset
 };
@@ -109,7 +101,7 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "SRIDEVI PANEL"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "SRIDEVI PANEL", "KALYAN NIGHT", "RAJADHANI NIGHT"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
@@ -118,8 +110,6 @@ const getInitialCharts = () => {
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
     "SRIDEVI NIGHT": srideviNightPreset,
-    "KALYAN NIGHT": kalyanNightPreset,
-    "RAJADHANI NIGHT": rajadhaniNightPreset,
     "MILAN NIGHTT": milanNighttPreset,
     "MAIN BAZAR": mainBazarPreset
   };
