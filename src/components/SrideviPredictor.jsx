@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useChart, isRedPair, RED_PAIRS } from '../context/ChartContext';
 import { Zap, Trophy, Brain, Sparkles, Play, Clock, Flame, Palette, Link2 } from 'lucide-react';
-import { SrideviPredictor } from './SrideviPredictor';
 
 const LOOKBACK_WINDOW = 120; // Rolling lookback window for optimal performance
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 
-export const PredictorEngine = () => {
+export const SrideviPredictor = () => {
   const { charts, activeChartName, setActiveChartName, activeChart, learnedModels, activeModelName, customAIPatterns } = useChart();
-
-  // Route strictly to dedicated SrideviPredictor ONLY for SRIDEVI chart
-  const isSrideviChart = activeChartName && activeChartName.trim().toUpperCase() === 'SRIDEVI';
-  if (isSrideviChart) {
-    return <SrideviPredictor />;
-  }
 
   const [targetRow, setTargetRow] = useState(10);
   const [targetCol, setTargetCol] = useState(1);
@@ -2594,7 +2587,8 @@ export const PredictorEngine = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
+              <h2 className="text-2xl font-black text-white">Sridevi Dedicated Predictor Engine</h2>
+              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Sridevi Chart</p>
             </div>
           </div>
 
