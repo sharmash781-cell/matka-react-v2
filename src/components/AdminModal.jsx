@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useChart } from '../context/ChartContext';
 import { Lock, ShieldCheck, ShieldAlert, X, PlusCircle, Trash2, Table, Save, FileText, Download, Upload, LogOut, CheckCircle, RefreshCw, Key, Copy, Edit3, Plus, Share2 } from 'lucide-react';
 
@@ -363,9 +364,9 @@ export const AdminModal = () => {
               {activeAdminTab === 'manage' && (
                 <div className="space-y-3">
                   {/* DELETE SINGLE CHART CONFIRMATION OVERLAY */}
-                  {chartToDelete && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+                  {chartToDelete && createPortal(
+                    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center my-auto">
                         <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
                           <Trash2 className="w-7 h-7" />
                         </div>
@@ -394,13 +395,14 @@ export const AdminModal = () => {
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
 
                   {/* WIPE ALL CHARTS CONFIRMATION OVERLAY */}
-                  {showClearAllConfirm && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+                  {showClearAllConfirm && createPortal(
+                    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center my-auto">
                         <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
                           <Trash2 className="w-7 h-7" />
                         </div>
@@ -429,7 +431,8 @@ export const AdminModal = () => {
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
 
                   <div className="flex items-center justify-between bg-slate-950 p-2.5 border border-slate-800 rounded-xl text-xs font-bold text-slate-300">

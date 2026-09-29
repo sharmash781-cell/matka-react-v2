@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useChart, sortChartsByMarketTime } from '../context/ChartContext';
 import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X } from 'lucide-react';
 
@@ -48,9 +49,9 @@ export const ChartStore = () => {
     <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins relative">
       
       {/* DELETE SINGLE CHART CONFIRMATION MODAL INTERFACE */}
-      {chartToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+      {chartToDelete && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center my-auto">
             <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
               <Trash2 className="w-7 h-7" />
             </div>
@@ -79,13 +80,14 @@ export const ChartStore = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* WIPE ALL CHARTS CONFIRMATION MODAL INTERFACE */}
-      {showClearAllConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+      {showClearAllConfirm && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center my-auto">
             <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
               <Trash2 className="w-7 h-7" />
             </div>
@@ -114,7 +116,8 @@ export const ChartStore = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Store Header */}
