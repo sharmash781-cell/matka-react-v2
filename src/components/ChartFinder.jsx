@@ -347,19 +347,13 @@ export const ChartFinder = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              if (e.target.value.toLowerCase().includes('open-close')) {
-                setOpenCloseMode(true);
-                runOriginAnalysis(grid.length - 1, 0);
-              }
-            }}
-            placeholder='Type search in English e.g. "open-close finder", "sequence totals", "master game"...'
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder='Type search in English e.g. "sequence totals", "master game", "03 family"...'
             className="w-full pl-9 pr-24 py-2.5 bg-slate-900 border-2 border-pink-500/80 focus:border-pink-400 rounded-xl text-xs sm:text-sm font-mono text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-pink-500/40 shadow-inner transition"
           />
           {searchQuery && (
             <button
-              onClick={() => { setSearchQuery(''); setOriginResult(null); setOpenCloseMode(false); }}
+              onClick={() => { setSearchQuery(''); setOriginResult(null); }}
               className="absolute inset-y-0 right-2 my-auto text-[10px] font-bold text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded-md h-6"
             >
               Clear
@@ -371,18 +365,12 @@ export const ChartFinder = () => {
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" /> Try:
           </span>
-          {presetQueries.map((preset, idx) => (
+          {presetQueries.filter(p => p !== 'open-close finder').map((preset, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setSearchQuery(preset);
-                if (preset === 'open-close finder') {
-                  setOpenCloseMode(true);
-                  runOriginAnalysis(grid.length - 1, 0);
-                }
-              }}
+              onClick={() => setSearchQuery(preset)}
               className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full transition whitespace-nowrap border ${
-                searchQuery === preset || (preset === 'open-close finder' && openCloseMode)
+                searchQuery === preset
                   ? 'bg-pink-600 text-white border-pink-400 shadow-md'
                   : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -451,76 +439,6 @@ export const ChartFinder = () => {
                   </button>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* OPEN-CLOSE FINDER SELECTOR BAR */}
-        {openCloseMode && (
-          <div className="bg-slate-900 border border-cyan-500/50 rounded-xl p-3 space-y-2 shadow-xl animate-fadeIn">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
-                <span className="text-xs font-black text-cyan-300 uppercase tracking-wider font-mono">
-                  Open-Close Pattern Origin Finder
-                </span>
-              </div>
-              <button
-                onClick={() => { setOpenCloseMode(false); setOriginResult(null); }}
-                className="text-[10px] font-bold bg-slate-800 text-slate-400 hover:text-white px-2 py-0.5 rounded border border-slate-700"
-              >
-                Close Finder ✕
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
-              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                <span className="text-slate-400 font-bold">Row #:</span>
-                <input
-                  type="number"
-                  min="1"
-                  max={grid.length}
-                  value={selectedTargetRow}
-                  onChange={(e) => {
-                    const rVal = parseInt(e.target.value, 10);
-                    if (!isNaN(rVal) && rVal >= 1 && rVal <= grid.length) {
-                      setSelectedTargetRow(rVal);
-                    }
-                  }}
-                  className="w-16 bg-slate-900 text-amber-300 font-black font-mono text-center rounded px-1 border border-slate-700"
-                />
-              </div>
-
-              <div className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                <span className="text-slate-400 font-bold">Day:</span>
-                {['Mo', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].slice(0, colsInput).map((dName, dIdx) => (
-                  <button
-                    key={dIdx}
-                    onClick={() => {
-                      setSelectedTargetCol(dIdx);
-                      runOriginAnalysis(selectedTargetRow - 1, dIdx);
-                    }}
-                    className={`px-2 py-0.5 rounded font-black text-[11px] transition ${
-                      selectedTargetCol === dIdx
-                        ? 'bg-cyan-500 text-slate-950 shadow-md font-extrabold'
-                        : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    {dName}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => runOriginAnalysis(selectedTargetRow - 1, selectedTargetCol)}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3.5 py-1 rounded-lg shadow-md transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>🔍 Analyze Pattern Origin</span>
-              </button>
-            </div>
-
-            <div className="text-[10px] text-cyan-400/90 font-mono">
-              💡 <strong>Tip:</strong> Click ANY cell directly in the table below to instantly analyze how its Open & Close digits were formed!
             </div>
           </div>
         )}
@@ -691,7 +609,7 @@ export const ChartFinder = () => {
       <div className="bg-slate-950 p-1 sm:p-2 rounded-2xl shadow-2xl space-y-2 border border-slate-800 relative">
         <div className="flex items-center justify-between gap-1.5 px-1 pb-1 flex-wrap">
           <span className="text-[9px] text-slate-400 font-mono">
-            💡 <span className="text-cyan-400 font-bold">Click any cell</span> → inspect pattern origin | <span className="text-pink-400 font-bold">Hold 1s</span> → toggle family
+            💡 <span className="text-pink-400 font-bold">Hold cell 1s</span> → toggle family highlight
           </span>
           {pressingCell && (
             <span className="text-[9px] text-cyan-400 font-bold animate-pulse">
