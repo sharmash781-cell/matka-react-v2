@@ -36,7 +36,7 @@ export const ChartEditor = () => {
   const { charts = {}, activeChartName, setActiveChartName, activeChart, saveChart, syncLiveChart, setActiveTab } = useChart();
 
   const [nameInput, setNameInput] = useState(activeChartName || 'NEW CHART');
-  const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 20);
+  const [rowsInput, setRowsInput] = useState(activeChart ? activeChart.rows : 500);
   const [colsInput, setColsInput] = useState(activeChart ? activeChart.cols : 7);
   const [grid, setGrid] = useState([]);
   const [quickInput, setQuickInput] = useState('');
@@ -83,7 +83,7 @@ export const ChartEditor = () => {
       setColsInput(activeChart.cols);
       setGrid(activeChart.data || []);
     } else {
-      initEmptyGrid(20, 7);
+      initEmptyGrid(500, 7);
     }
   }, [activeChartName, activeChart]);
 
@@ -113,15 +113,15 @@ export const ChartEditor = () => {
   const handleCreateNewBlank = () => {
     const newName = `MY CHART ${Object.keys(charts).length + 1}`;
     setNameInput(newName);
-    setRowsInput(20);
+    setRowsInput(500);
     setColsInput(7);
-    initEmptyGrid(20, 7);
+    initEmptyGrid(500, 7);
     setSaveSuccessMsg(`Created blank grid for "${newName}". Fill numbers & click Save to Store!`);
     setTimeout(() => setSaveSuccessMsg(''), 4000);
   };
 
   const handleApplyResize = () => {
-    const r = Math.max(1, parseInt(rowsInput) || 20);
+    const r = Math.max(1, parseInt(rowsInput) || 500);
     const c = Math.min(8, Math.max(1, parseInt(colsInput) || 7));
     setColsInput(c);
     setRowsInput(r);

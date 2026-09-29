@@ -14,8 +14,10 @@ export const ChartStore = () => {
   } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newRows, setNewRows] = useState(20);
+  const [newRows, setNewRows] = useState(500);
   const [newCols, setNewCols] = useState(7);
+  const [chartToDelete, setChartToDelete] = useState(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   const safeCharts = charts && typeof charts === 'object' ? charts : {};
   const chartKeys = sortChartsByMarketTime(Object.keys(safeCharts));
@@ -30,12 +32,12 @@ export const ChartStore = () => {
   const handleCreateNew = () => {
     const cleanName = newName.trim().toUpperCase();
     if (!cleanName) return;
-    const r = Math.max(1, parseInt(newRows) || 20);
+    const r = Math.max(1, parseInt(newRows) || 500);
     const c = Math.min(8, Math.max(5, parseInt(newCols) || 7));
     const emptyData = Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' })));
     saveChart(cleanName, r, c, emptyData);
     setNewName('');
-    setNewRows(20);
+    setNewRows(500);
     setNewCols(7);
     setShowNewForm(false);
     setActiveChartName(cleanName);
@@ -43,8 +45,78 @@ export const ChartStore = () => {
   };
 
   return (
-    <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins">
+    <div className="space-y-4 px-2 py-2 max-w-5xl mx-auto min-h-[80vh] font-poppins relative">
       
+      {/* DELETE SINGLE CHART CONFIRMATION MODAL INTERFACE */}
+      {chartToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider">Confirm Delete Chart</h3>
+              <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                Are you sure you want to delete <span className="text-amber-400 font-extrabold">{chartToDelete}</span> chart?
+              </p>
+              <p className="text-xs text-slate-400 mt-1">This chart and all its data will be permanently removed.</p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setChartToDelete(null)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteChart(chartToDelete);
+                  setChartToDelete(null);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-lg flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" /> Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WIPE ALL CHARTS CONFIRMATION MODAL INTERFACE */}
+      {showClearAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider">Wipe Entire Chart Store</h3>
+              <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                Are you sure you want to delete <span className="text-red-400 font-extrabold">ALL market charts</span> permanently from your store?
+              </p>
+              <p className="text-xs text-slate-400 mt-1">All saved grids and records will be deleted.</p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setShowClearAllConfirm(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  clearAllCharts();
+                  setShowClearAllConfirm(false);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-lg flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" /> Yes, Wipe All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Store Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
         <div className="flex items-center gap-3">
@@ -62,7 +134,7 @@ export const ChartStore = () => {
         <div className="flex items-center gap-2 ml-auto flex-wrap">
           {chartKeys.length > 0 && (
             <button
-              onClick={clearAllCharts}
+              onClick={() => setShowClearAllConfirm(true)}
               className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800"
               title="Wipe all charts permanently"
             >
@@ -150,7 +222,7 @@ export const ChartStore = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-10">
           {chartKeys.map((name) => {
             const chart = safeCharts[name] || {};
-            const rows = chart.rows || (chart.data ? chart.data.length : 20);
+            const rows = chart.rows || (chart.data ? chart.data.length : 500);
             const cols = chart.cols || (chart.data && chart.data[0] ? chart.data[0].length : 7);
             
             let filledCount = 0;
@@ -166,7 +238,7 @@ export const ChartStore = () => {
               <div key={name}
                 className="bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-xl transition-all duration-200"
               >
-                {/* Chart Name & Instant Delete Button */}
+                {/* Chart Name & Delete Button */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-base font-black text-amber-400 tracking-wide uppercase leading-snug">{name}</h3>
@@ -175,7 +247,7 @@ export const ChartStore = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => deleteChart(name)}
+                    onClick={() => setChartToDelete(name)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition bg-slate-950 border-slate-800 text-red-400 hover:bg-red-950 hover:border-red-600 active:scale-95"
                     title={`Delete ${name}`}
                   >
@@ -216,3 +288,4 @@ export const ChartStore = () => {
     </div>
   );
 };
+

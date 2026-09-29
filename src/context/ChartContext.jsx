@@ -8,6 +8,7 @@ import milanNighttPreset from '../data/milan_nightt_preset.json';
 import kalyanPreset from '../data/kalyan_preset.json';
 import srideviNightPreset from '../data/sridevi_night_preset.json';
 import timeBazarPreset from '../data/time_bazar_preset.json';
+import srideviPanelPreset from '../data/sridevi_panel_preset.json';
 import { fetchLiveChartData } from '../utils/dpbossSync';
 
 const ChartContext = createContext();
@@ -16,6 +17,7 @@ export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3,
 
 export const MARKET_ORDER = [
   "SRIDEVI",
+  "SRIDEVI PANEL",
   "TIME BAZAR",
   "MILAN DAYY",
   "KALYAN",
@@ -83,6 +85,7 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 
 export const DEFAULT_PRESETS = {
   "SRIDEVI": srideviPreset,
+  "SRIDEVI PANEL": srideviPanelPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
@@ -101,11 +104,12 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "SRIDEVI PANEL", "KALYAN NIGHT", "RAJADHANI NIGHT"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT"]);
 
 const getInitialCharts = () => {
   const baseCharts = {
     "SRIDEVI": srideviPreset,
+    "SRIDEVI PANEL": srideviPanelPreset,
     "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
@@ -274,23 +278,26 @@ export const ChartProvider = ({ children }) => {
     }
   }, [charts]);
 
-  const saveChart = useCallback((name, rows, cols, data, chartType = 'jodi') => {
+  const saveChart = useCallback((name, rows, cols, data, chartType = 'jodi', dates = []) => {
     const cleanName = name.trim().toUpperCase() || 'CUSTOM CHART';
     const isPanaType = chartType === 'pana' || cleanName.includes('PANA') || cleanName.includes('PANEL') ||
       (data && data.some(row => row && row.some(c => c && c.val && c.val.includes('-'))));
 
-    const finalRows = Math.max(parseInt(rows) || 0, data ? data.length : 20);
+    const finalRows = Math.max(parseInt(rows) || 0, data ? data.length : 500);
     const finalCols = parseInt(cols) || (data && data[0] ? data[0].length : 7);
 
     setCharts((prevCharts) => {
+      const existing = prevCharts[cleanName] || {};
       const updated = {
         ...prevCharts,
         [cleanName]: {
+          ...existing,
           rows: finalRows,
           cols: finalCols,
-          chartType: isPanaType ? 'pana' : 'jodi',
+          chartType: isPanaType ? 'pana' : (chartType || 'jodi'),
           updatedAt: new Date().toISOString(),
-          data: data || []
+          data: data || [],
+          dates: (dates && dates.length > 0) ? dates : (existing.dates || [])
         }
       };
       try {
@@ -468,9 +475,9 @@ export const ChartProvider = ({ children }) => {
   }, [charts, learnedModels]);
 
   const currentChart = charts[activeChartName] || {
-    rows: 20,
+    rows: 500,
     cols: 7,
-    data: Array.from({ length: 20 }, () => Array.from({ length: 7 }, () => ({ val: '' })))
+    data: Array.from({ length: 500 }, () => Array.from({ length: 7 }, () => ({ val: '' })))
   };
 
   return (

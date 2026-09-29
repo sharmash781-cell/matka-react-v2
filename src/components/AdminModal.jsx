@@ -25,11 +25,13 @@ export const AdminModal = () => {
 
   // Create Chart Form State
   const [chartName, setChartName] = useState('');
-  const [rows, setRows] = useState(25);
+  const [rows, setRows] = useState(500);
   const [cols, setCols] = useState(7);
   const [rawText, setRawText] = useState('');
   const [isImportMode, setIsImportMode] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
+  const [chartToDelete, setChartToDelete] = useState(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   // Editing / Renaming Modal State
   const [editingChartName, setEditingChartName] = useState(null);
@@ -71,7 +73,7 @@ export const AdminModal = () => {
         setAdminMsg('❌ Failed to extract Jodi pairs from raw text.');
       }
     } else {
-      const r = Math.max(1, parseInt(rows) || 20);
+      const r = Math.max(1, parseInt(rows) || 500);
       const c = Math.min(8, Math.max(5, parseInt(cols) || 7));
       const emptyGrid = Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' })));
       saveChart(cleanName, r, c, emptyGrid);
@@ -360,10 +362,80 @@ export const AdminModal = () => {
               {/* TAB 2: MANAGE STORE CHARTS & ADMIN TOOLS */}
               {activeAdminTab === 'manage' && (
                 <div className="space-y-3">
+                  {/* DELETE SINGLE CHART CONFIRMATION OVERLAY */}
+                  {chartToDelete && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+                        <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
+                          <Trash2 className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-white uppercase tracking-wider">Confirm Delete Chart</h3>
+                          <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                            Are you sure you want to delete <span className="text-amber-400 font-extrabold">{chartToDelete}</span> chart?
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">This chart and all its data will be permanently removed.</p>
+                        </div>
+                        <div className="flex items-center gap-3 pt-2">
+                          <button
+                            onClick={() => setChartToDelete(null)}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteChart(chartToDelete);
+                              setChartToDelete(null);
+                            }}
+                            className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-lg flex items-center justify-center gap-1.5"
+                          >
+                            <Trash2 className="w-4 h-4" /> Yes, Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* WIPE ALL CHARTS CONFIRMATION OVERLAY */}
+                  {showClearAllConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+                      <div className="bg-slate-900 border-2 border-red-500/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+                        <div className="w-14 h-14 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-400">
+                          <Trash2 className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-white uppercase tracking-wider">Wipe Entire Chart Store</h3>
+                          <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                            Are you sure you want to delete <span className="text-red-400 font-extrabold">ALL market charts</span> permanently from your store?
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">All saved grids and records will be deleted.</p>
+                        </div>
+                        <div className="flex items-center gap-3 pt-2">
+                          <button
+                            onClick={() => setShowClearAllConfirm(false)}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              clearAllCharts();
+                              setShowClearAllConfirm(false);
+                            }}
+                            className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-lg flex items-center justify-center gap-1.5"
+                          >
+                            <Trash2 className="w-4 h-4" /> Yes, Wipe All
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between bg-slate-950 p-2.5 border border-slate-800 rounded-xl text-xs font-bold text-slate-300">
                     <span>Total Market Charts: {chartKeys.length}</span>
                     <button
-                      onClick={clearAllCharts}
+                      onClick={() => setShowClearAllConfirm(true)}
                       className="flex items-center gap-1 text-[11px] text-red-400 hover:underline"
                     >
                       <Trash2 className="w-3 h-3" /> Clear All Store
@@ -376,7 +448,7 @@ export const AdminModal = () => {
                     <div className="space-y-2 max-h-72 overflow-y-auto p-1">
                       {chartKeys.map((name) => {
                         const chart = charts[name];
-                        const rCount = chart?.rows || (chart?.data ? chart.data.length : 20);
+                        const rCount = chart?.rows || (chart?.data ? chart.data.length : 500);
                         const cCount = chart?.cols || 7;
                         const isEditingThis = editingChartName === name;
 
@@ -442,8 +514,9 @@ export const AdminModal = () => {
                                   <Copy className="w-3 h-3" /> Clone
                                 </button>
                                 <button
-                                  onClick={() => deleteChart(name)}
+                                  onClick={() => setChartToDelete(name)}
                                   className="bg-red-950 text-red-400 hover:bg-red-900 text-[10px] font-bold p-1 rounded-lg"
+                                  title={`Delete ${name}`}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
