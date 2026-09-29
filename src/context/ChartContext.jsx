@@ -92,6 +92,17 @@ export const DEFAULT_PRESETS = {
   "MAIN BAZAR": mainBazarPreset
 };
 
+export const BUILTIN_PRESETS_LIBRARY = {
+  "SRIDEVI": srideviPreset,
+  "SRIDEVI PANEL": srideviPanelPreset,
+  "TIME BAZAR": timeBazarPreset,
+  "MILAN DAYY": milanDayyPreset,
+  "KALYAN": kalyanPreset,
+  "SRIDEVI NIGHT": srideviNightPreset,
+  "MILAN NIGHTT": milanNighttPreset,
+  "MAIN BAZAR": mainBazarPreset
+};
+
 const STORAGE_KEY = 'adminPublishedCharts_v12';
 
 const POSSIBLE_STORAGE_KEYS = [
@@ -361,21 +372,55 @@ export const ChartProvider = ({ children }) => {
     return syncedData;
   }, [activeChartName]);
 
+  const [recentlyDeleted, setRecentlyDeleted] = useState(() => {
+    try {
+      const saved = localStorage.getItem('recentlyDeletedCharts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+    return {};
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('recentlyDeletedCharts', JSON.stringify(recentlyDeleted));
+    } catch (e) {}
+  }, [recentlyDeleted]);
+
   const deleteChart = useCallback((name) => {
     const cleanName = name.trim().toUpperCase();
     
-    // Record deletion so page refresh won't restore base presets
-    try {
-      const savedDeleted = localStorage.getItem('deletedChartNames');
-      const arr = savedDeleted ? JSON.parse(savedDeleted) : [];
-      const set = new Set(Array.isArray(arr) ? arr : []);
-      set.add(cleanName);
-      localStorage.setItem('deletedChartNames', JSON.stringify(Array.from(set)));
-    } catch (e) {}
-
     setCharts((prevCharts) => {
+      const chartToDeleteObj = prevCharts[cleanName];
+      if (chartToDeleteObj) {
+        setRecentlyDeleted((prevTrash) => {
+          const updatedTrash = {
+            ...prevTrash,
+            [cleanName]: {
+              ...chartToDeleteObj,
+              deletedAt: new Date().toISOString()
+            }
+          };
+          try {
+            localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updatedTrash));
+          } catch (e) {}
+          return updatedTrash;
+        });
+      }
+
       const updated = { ...prevCharts };
       delete updated[cleanName];
+
+      // Record deletion so page refresh won't restore base presets
+      try {
+        const savedDeleted = localStorage.getItem('deletedChartNames');
+        const arr = savedDeleted ? JSON.parse(savedDeleted) : [];
+        const set = new Set(Array.isArray(arr) ? arr : []);
+        set.add(cleanName);
+        localStorage.setItem('deletedChartNames', JSON.stringify(Array.from(set)));
+      } catch (e) {}
 
       // Purge deleted chart from all storage keys
       try {
@@ -400,6 +445,81 @@ export const ChartProvider = ({ children }) => {
       return updated;
     });
   }, []);
+
+  const restoreDeletedChart = useCallback((name) => {
+    const cleanName = name.trim().toUpperCase();
+    const targetChart = recentlyDeleted[cleanName] || BUILTIN_PRESETS_LIBRARY[cleanName];
+    if (!targetChart) return false;
+
+    saveChart(
+      cleanName,
+      targetChart.rows || (targetChart.data ? targetChart.data.length : 500),
+      targetChart.cols || (targetChart.data && targetChart.data[0] ? targetChart.data[0].length : 7),
+      targetChart.data,
+      targetChart.chartType || 'jodi',
+      targetChart.dates || []
+    );
+
+    setRecentlyDeleted((prev) => {
+      const updated = { ...prev };
+      delete updated[cleanName];
+      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch(e){}
+      return updated;
+    });
+
+    try {
+      const savedDeleted = localStorage.getItem('deletedChartNames');
+      if (savedDeleted) {
+        const arr = JSON.parse(savedDeleted);
+        if (Array.isArray(arr)) {
+          const updatedArr = arr.filter(n => n.trim().toUpperCase() !== cleanName);
+          localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
+        }
+      }
+    } catch (e) {}
+
+    setActiveChartName(cleanName);
+    return true;
+  }, [recentlyDeleted, saveChart]);
+
+  const permanentDeleteFromTrash = useCallback((name) => {
+    const cleanName = name.trim().toUpperCase();
+    setRecentlyDeleted((prev) => {
+      const updated = { ...prev };
+      delete updated[cleanName];
+      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch(e){}
+      return updated;
+    });
+  }, []);
+
+  const importPresetChart = useCallback((presetName) => {
+    const cleanName = presetName.trim().toUpperCase();
+    const presetObj = BUILTIN_PRESETS_LIBRARY[cleanName];
+    if (!presetObj) return false;
+
+    saveChart(
+      cleanName,
+      presetObj.rows || (presetObj.data ? presetObj.data.length : 500),
+      presetObj.cols || (presetObj.data && presetObj.data[0] ? presetObj.data[0].length : 7),
+      presetObj.data,
+      presetObj.chartType || 'jodi',
+      presetObj.dates || []
+    );
+
+    try {
+      const savedDeleted = localStorage.getItem('deletedChartNames');
+      if (savedDeleted) {
+        const arr = JSON.parse(savedDeleted);
+        if (Array.isArray(arr)) {
+          const updatedArr = arr.filter(n => n.trim().toUpperCase() !== cleanName);
+          localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
+        }
+      }
+    } catch (e) {}
+
+    setActiveChartName(cleanName);
+    return true;
+  }, [saveChart]);
 
   const resetToDefaultCharts = useCallback(() => {
     setCharts({});
@@ -550,7 +670,12 @@ export const ChartProvider = ({ children }) => {
       loginAdmin,
       logoutAdmin,
       showAdminModal,
-      setShowAdminModal
+      setShowAdminModal,
+      recentlyDeleted: recentlyDeleted || {},
+      restoreDeletedChart,
+      permanentDeleteFromTrash,
+      importPresetChart,
+      BUILTIN_PRESETS_LIBRARY
     }}>
       {children}
     </ChartContext.Provider>

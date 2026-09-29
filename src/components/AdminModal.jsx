@@ -17,12 +17,17 @@ export const AdminModal = () => {
     clearAllCharts,
     setActiveChartName,
     setActiveTab,
-    importRawData
+    importRawData,
+    recentlyDeleted = {},
+    restoreDeletedChart,
+    permanentDeleteFromTrash,
+    importPresetChart,
+    BUILTIN_PRESETS_LIBRARY = {}
   } = useChart();
 
   const [passcode, setPasscode] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [activeAdminTab, setActiveAdminTab] = useState('create'); // 'create', 'manage', 'backup'
+  const [activeAdminTab, setActiveAdminTab] = useState('create'); // 'create', 'manage', 'presets', 'trash', 'backup'
 
   // Create Chart Form State
   const [chartName, setChartName] = useState('');
@@ -171,6 +176,8 @@ export const AdminModal = () => {
   };
 
   const chartKeys = Object.keys(charts || {});
+  const deletedKeys = Object.keys(recentlyDeleted || {});
+  const presetKeys = Object.keys(BUILTIN_PRESETS_LIBRARY || {});
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
@@ -187,7 +194,7 @@ export const AdminModal = () => {
                 Chart Repository &amp; Controls
               </h2>
               <p className="text-[10px] text-slate-400 font-mono">
-                Create, Manage, Export &amp; Sync Charts
+                Create, Manage, Preset Backups &amp; Trash Restore
               </p>
             </div>
           </div>
@@ -203,7 +210,7 @@ export const AdminModal = () => {
         {/* MODAL BODY */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
 
-            /* IF LOGGED IN: ADMIN CONTROL PANEL */
+            {/* IF LOGGED IN: ADMIN CONTROL PANEL */}
             <div className="space-y-4">
 
               {/* Admin Mode Header Badge & Logout */}
@@ -233,36 +240,56 @@ export const AdminModal = () => {
               )}
 
               {/* Admin Navigation Tabs */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto">
                 <button
                   onClick={() => setActiveAdminTab('create')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 shrink-0 ${
                     activeAdminTab === 'create'
                       ? 'bg-amber-500 text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <PlusCircle className="w-4 h-4" /> Create Chart
+                  <PlusCircle className="w-3.5 h-3.5" /> Create
                 </button>
                 <button
                   onClick={() => setActiveAdminTab('manage')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 shrink-0 ${
                     activeAdminTab === 'manage'
                       ? 'bg-amber-500 text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Table className="w-4 h-4" /> Manage ({chartKeys.length})
+                  <Table className="w-3.5 h-3.5" /> Manage ({chartKeys.length})
+                </button>
+                <button
+                  onClick={() => setActiveAdminTab('presets')}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 shrink-0 ${
+                    activeAdminTab === 'presets'
+                      ? 'bg-amber-500 text-slate-950 shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" /> Presets ({presetKeys.length})
+                </button>
+                <button
+                  onClick={() => setActiveAdminTab('trash')}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 shrink-0 ${
+                    activeAdminTab === 'trash'
+                      ? 'bg-amber-500 text-slate-950 shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Trash ({deletedKeys.length})
                 </button>
                 <button
                   onClick={() => setActiveAdminTab('backup')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1 shrink-0 ${
                     activeAdminTab === 'backup'
                       ? 'bg-amber-500 text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Download className="w-4 h-4" /> Backup JSON
+                  <Download className="w-3.5 h-3.5" /> Sync/JSON
                 </button>
               </div>
 
@@ -562,7 +589,125 @@ export const AdminModal = () => {
                 </div>
               )}
 
-              {/* TAB 3: BACKUP & RESTORE JSON */}
+              {/* TAB 3: DATA FOLDER PRESETS LIBRARY */}
+              {activeAdminTab === 'presets' && (
+                <div className="space-y-3">
+                  <div className="bg-slate-950 p-3 border border-slate-800 rounded-xl text-xs font-bold text-slate-300">
+                    <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Upload className="w-4 h-4 text-amber-400" /> Data Folder Preset Backup Library
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      All default market charts stored in the app data folder. Click "Clone / Import to Store" to restore or duplicate any chart anytime.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto p-1">
+                    {presetKeys.map((presetName) => {
+                      const preset = BUILTIN_PRESETS_LIBRARY[presetName];
+                      const isAlreadyInStore = !!charts[presetName];
+                      const rCount = preset?.rows || (preset?.data ? preset.data.length : 500);
+                      const cCount = preset?.cols || 7;
+
+                      return (
+                        <div key={presetName} className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2 shadow">
+                          <div>
+                            <div className="font-black text-amber-400 text-xs uppercase flex items-center gap-1.5">
+                              <span>{presetName}</span>
+                              {isAlreadyInStore && (
+                                <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                  Active in Store
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">{rCount} Rows × {cCount} Cols (Preset)</div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              importPresetChart(presetName);
+                              setAdminMsg(`✅ Imported preset "${presetName}" to your store!`);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 shadow active:scale-95 transition shrink-0"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{isAlreadyInStore ? 'Re-Import Preset' : 'Clone to Store'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: RECENTLY DELETED CHARTS TRASH BIN */}
+              {activeAdminTab === 'trash' && (
+                <div className="space-y-3">
+                  <div className="bg-slate-950 p-3 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-red-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
+                        <RefreshCw className="w-4 h-4 text-red-400" /> Recently Deleted Charts Trash Bin
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Restore any chart you created or deleted previously with all data intact.
+                      </p>
+                    </div>
+                    <span className="bg-red-950 text-red-300 font-mono font-bold text-xs px-2.5 py-1 rounded-lg border border-red-800">
+                      {deletedKeys.length} Items
+                    </span>
+                  </div>
+
+                  {deletedKeys.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs bg-slate-950/60 rounded-xl border border-slate-800/80">
+                      Trash bin is empty. Deleted charts will appear here for 1-click restore.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto p-1">
+                      {deletedKeys.map((deletedName) => {
+                        const item = recentlyDeleted[deletedName];
+                        const rCount = item?.rows || (item?.data ? item.data.length : 500);
+                        const cCount = item?.cols || 7;
+
+                        return (
+                          <div key={deletedName} className="bg-slate-950 border border-red-900/60 rounded-xl p-3 flex items-center justify-between gap-2 shadow">
+                            <div>
+                              <div className="font-black text-amber-400 text-xs uppercase flex items-center gap-1.5">
+                                <span>{deletedName}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Deleted: {item?.deletedAt ? new Date(item.deletedAt).toLocaleTimeString() : 'Recently'} ({rCount} × {cCount})
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  restoreDeletedChart(deletedName);
+                                  setAdminMsg(`✅ Restored "${deletedName}" chart to your store!`);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 shadow active:scale-95 transition"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" /> Restore
+                              </button>
+                              <button
+                                onClick={() => {
+                                  permanentDeleteFromTrash(deletedName);
+                                  setAdminMsg(`🗑️ Permanently removed "${deletedName}" from trash.`);
+                                }}
+                                className="bg-red-950 hover:bg-red-900 text-red-400 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-red-800 transition"
+                                title="Permanent Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 5: BACKUP & RESTORE JSON */}
               {activeAdminTab === 'backup' && (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-4">
                   <div>

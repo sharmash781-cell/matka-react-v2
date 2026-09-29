@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useChart, sortChartsByMarketTime } from '../context/ChartContext';
-import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X } from 'lucide-react';
+import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, Upload, RefreshCw, Download } from 'lucide-react';
 
 export const ChartStore = () => {
   const {
@@ -11,7 +11,12 @@ export const ChartStore = () => {
     clearAllCharts,
     setActiveTab,
     saveChart,
-    setShowAdminModal
+    setShowAdminModal,
+    recentlyDeleted = {},
+    restoreDeletedChart,
+    permanentDeleteFromTrash,
+    importPresetChart,
+    BUILTIN_PRESETS_LIBRARY = {}
   } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -60,7 +65,7 @@ export const ChartStore = () => {
               <p className="text-sm text-slate-300 mt-2 leading-relaxed">
                 Are you sure you want to delete <span className="text-amber-400 font-extrabold">{chartToDelete}</span> chart?
               </p>
-              <p className="text-xs text-slate-400 mt-1">This chart and all its data will be permanently removed.</p>
+              <p className="text-xs text-slate-400 mt-1">This chart will be moved to Recently Deleted Trash Bin.</p>
             </div>
             <div className="flex items-center gap-3 pt-2">
               <button
@@ -76,7 +81,7 @@ export const ChartStore = () => {
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-lg flex items-center justify-center gap-1.5"
               >
-                <Trash2 className="w-4 h-4" /> Yes, Delete
+                <Trash2 className="w-4 h-4" /> Move to Trash
               </button>
             </div>
           </div>
@@ -129,7 +134,7 @@ export const ChartStore = () => {
           <div>
             <h2 className="text-lg font-black text-white">Chart Store Repository</h2>
             <p className="text-[10px] text-slate-400 font-mono">
-              {chartKeys.length} saved market charts in storage
+              {chartKeys.length} active market charts in storage
             </p>
           </div>
         </div>
@@ -204,9 +209,9 @@ export const ChartStore = () => {
             <Archive className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="font-black text-white text-lg">No Saved Charts in Store</h3>
+            <h3 className="font-black text-white text-lg">No Active Charts in Store</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your chart repository is empty. Create your market charts below. All created charts persist in browser storage until deleted.
+              Your active chart repository is empty. Create a new chart or clone a preset from the backup library below!
             </p>
           </div>
           <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
@@ -222,7 +227,7 @@ export const ChartStore = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-4">
           {chartKeys.map((name) => {
             const chart = safeCharts[name] || {};
             const rows = chart.rows || (chart.data ? chart.data.length : 500);
@@ -288,6 +293,100 @@ export const ChartStore = () => {
           })}
         </div>
       )}
+
+      {/* RECENTLY DELETED CHARTS (TRASH BIN & RESTORE) */}
+      {Object.keys(recentlyDeleted).length > 0 && (
+        <div className="bg-slate-900 border border-red-900/60 rounded-2xl p-4 space-y-3 shadow-xl mt-6">
+          <div className="flex items-center justify-between border-b border-red-900/40 pb-2">
+            <h3 className="text-sm font-black text-red-400 uppercase tracking-wider flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Recently Deleted Charts (Trash Bin)
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">{Object.keys(recentlyDeleted).length} deleted item(s)</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Object.keys(recentlyDeleted).map((deletedName) => {
+              const item = recentlyDeleted[deletedName];
+              const rCount = item?.rows || (item?.data ? item.data.length : 500);
+              const cCount = item?.cols || 7;
+
+              return (
+                <div key={deletedName} className="bg-slate-950 border border-red-900/50 rounded-xl p-3 flex flex-col justify-between gap-2">
+                  <div>
+                    <h4 className="font-black text-amber-400 text-xs uppercase">{deletedName}</h4>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      Deleted: {item?.deletedAt ? new Date(item.deletedAt).toLocaleTimeString() : 'Recently'} ({rCount}×{cCount})
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-900">
+                    <button
+                      onClick={() => restoreDeletedChart(deletedName)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black py-1.5 rounded-lg flex items-center justify-center gap-1 shadow active:scale-95 transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Restore Chart
+                    </button>
+                    <button
+                      onClick={() => permanentDeleteFromTrash(deletedName)}
+                      className="bg-red-950 hover:bg-red-900 text-red-400 text-[11px] font-bold p-1.5 rounded-lg border border-red-800 transition"
+                      title="Delete Permanently"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* DATA FOLDER PRESET BACKUP LIBRARY */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl mt-6">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <Upload className="w-4 h-4 text-amber-400" /> Data Folder Preset Backup Library
+            </h3>
+            <p className="text-[10px] text-slate-400">Clone or import any default preset from your app data folder anytime</p>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">{Object.keys(BUILTIN_PRESETS_LIBRARY).length} Presets Available</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {Object.keys(BUILTIN_PRESETS_LIBRARY).map((presetName) => {
+            const preset = BUILTIN_PRESETS_LIBRARY[presetName];
+            const isAlreadyInStore = !!safeCharts[presetName];
+            const rCount = preset?.rows || (preset?.data ? preset.data.length : 500);
+            const cCount = preset?.cols || 7;
+
+            return (
+              <div key={presetName} className="bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3 flex flex-col justify-between gap-2 transition">
+                <div>
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="font-black text-amber-300 text-xs uppercase">{presetName}</h4>
+                    {isAlreadyInStore && (
+                      <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">{rCount} Rows × {cCount} Cols</p>
+                </div>
+
+                <button
+                  onClick={() => importPresetChart(presetName)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black py-1.5 rounded-lg flex items-center justify-center gap-1 shadow active:scale-95 transition"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{isAlreadyInStore ? 'Re-Import Preset' : 'Clone to Store'}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
     </div>
   );
 };
