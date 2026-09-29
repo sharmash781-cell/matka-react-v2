@@ -1145,6 +1145,238 @@ export const parseAndSearchChart = (queryStr, grid, cols = 7, options = {}) => {
     }
     return { matches, summary: `🏠 FOUND ${pCount - 1} INTER-WEEK FAMILY INTERVAL PATTERNS!`, matchMap };
   }
+  // --- 12. AUTO-DISCOVER WEEK GAP OPEN/CLOSE PATTERN (same or opposite) ---
+  // Queries (examples):
+  //   "week gap open same"        → auto-find ALL repeating open-same gaps (2-20w)
+  //   "gap open opposite mon"     → auto-find all open-opposite gaps on Monday
+  //   "8 week gap open same"      → pin to exactly 8-week gap
+  //   "week gap close to close opposite wed" → auto find close-opposite gaps on Wed
+  //   "5 week gap open to open same" → pin to 5-week gap, open→open same
+  const isWeekGapPattern =
+    /\b(gap\s*\d+|\d+\s*week\s*gap|week\s*gap|\d+\s*week|week\s+open|week\s+close|open\s+gap|close\s+gap)\b/i.test(q) ||
+    (/\b(gap|week)\b/i.test(q) && /\b(open|close)\b/i.test(q) && /\b(same|opposite|cut)\b/i.test(q));
+
+  if (isWeekGapPattern) {
+    const colsCount = grid[0] ? grid[0].length : 7;
+
+    // Did user specify an explicit gap?
+    const gapNumMatch = q.match(/(\d+)\s*week\s*gap|gap\s*(\d+)|(\d+)\s*week/i);
+    const userSpecifiedGap = !!gapNumMatch;
+    const pinnedGap = userSpecifiedGap
+      ? (parseInt(gapNumMatch[1] || gapNumMatch[2] || gapNumMatch[3], 10) || 8)
+      : null;
+
+    // Auto-discover range: 2 to 20 weeks (or pin to exact if specified)
+    const minGapScan = userSpecifiedGap ? pinnedGap : 2;
+    const maxGapScan = userSpecifiedGap ? pinnedGap : Math.min(20, Math.floor(grid.length / 2));
+
+    // What digit positions to compare?
+    const checkOpenToOpen   = /open\s*to\s*open|open\s+open|open\s+same|open\s+opposite|open\s+cut/i.test(q)
+                            || (/\bopen\b/i.test(q) && !/close\s+(to\s+)?close|close\s+same|close\s+opposite/i.test(q));
+    const checkCloseToClose = /close\s*to\s*close|close\s+close|close\s+same|close\s+opposite|close\s+cut/i.test(q);
+    const checkOpenToClose  = /open\s*to\s*close/i.test(q);
+    const checkCloseToOpen  = /close\s*to\s*open/i.test(q);
+
+    // Relation type
+    const wgRelStr = q.includes('opposite') || q.includes('cut') ? 'OPPOSITE' : 'SAME';
+
+    // Day filter
+    const wgDays = [];
+    q.split(/\s+/).forEach(w => {
+      const cw = w.replace(/[^a-z]/g, '');
+      if (DAY_MAP[cw] !== undefined && !wgDays.includes(DAY_MAP[cw])) wgDays.push(DAY_MAP[cw]);
+    });
+    const scanDays = wgDays.length > 0 ? wgDays : Array.from({ length: colsCount }, (_, i) => i);
+
+    const WGAP_COLORS = [
+      { color: '#10b981', border: '#059669', dot: '🟢' },
+      { color: '#06b6d4', border: '#0891b2', dot: '🔵' },
+      { color: '#a855f7', border: '#7e22ce', dot: '🟣' },
+      { color: '#ec4899', border: '#be185d', dot: '🩷' },
+      { color: '#f59e0b', border: '#d97706', dot: '🟡' },
+      { color: '#6366f1', border: '#4338ca', dot: '🔹' },
+      { color: '#f43f5e', border: '#be123c', dot: '🔴' },
+      { color: '#84cc16', border: '#4d7c0f', dot: '🟩' }
+    ];
+
+    const passesRel = (dA, dB) => {
+      if (wgRelStr === 'SAME') return dA === dB;
+      return dB === (dA + 5) % 10;
+    };
+
+    // Given two jodis, return which comparison labels pass the relation
+    const getMatchedLabels = (val1, val2) => {
+      const o1 = parseInt(val1[0], 10), cl1 = parseInt(val1[1], 10);
+      const o2 = parseInt(val2[0], 10), cl2 = parseInt(val2[1], 10);
+      const passed = [];
+      if (checkOpenToOpen   && passesRel(o1,  o2))  passed.push('Open\u2192Open');
+      if (checkCloseToClose && passesRel(cl1, cl2)) passed.push('Close\u2192Close');
+      if (checkOpenToClose  && passesRel(o1,  cl2)) passed.push('Open\u2192Close');
+      if (checkCloseToOpen  && passesRel(cl1, o2))  passed.push('Close\u2192Open');
+      // If user gave no explicit type, auto-check both open and close
+      if (!checkOpenToOpen && !checkCloseToClose && !checkOpenToClose && !checkCloseToOpen) {
+        if (passesRel(o1, o2))   passed.push('Open\u2192Open');
+        if (passesRel(cl1, cl2)) passed.push('Close\u2192Close');
+      }
+      return passed;
+    };
+
+    const lastDataRow = (() => {
+      for (let r = grid.length - 1; r >= 0; r--)
+        if (grid[r]?.some(cell => cell.val && /^\d{2}$/.test(cell.val))) return r;
+      return -1;
+    })();
+
+    // ── CORE: for every (gapSize, column) walk rows and find REPEATING CHAINS ──
+    // A chain = rows [r0, r0+g, r0+2g, ...] where each consecutive pair satisfies
+    // the relation. Require ≥3 rows (2 confirmed pairs) in auto-mode;
+    // ≥2 rows (1 pair) accepted when gap is user-pinned.
+    const minChainRows = userSpecifiedGap ? 2 : 3;
+    const allChains = [];
+
+    for (let gap = minGapScan; gap <= maxGapScan; gap++) {
+      scanDays.forEach(c => {
+        let chainRows = [];
+        let chainVals = [];
+        let chainLabels = [];
+
+        const flushChain = () => {
+          if (chainRows.length >= minChainRows && chainLabels.length > 0) {
+            allChains.push({ gap, c, rows: [...chainRows], vals: [...chainVals], matchedLabels: [...chainLabels] });
+          }
+          chainRows = []; chainVals = []; chainLabels = [];
+        };
+
+        for (let r = 0; r + gap <= lastDataRow; r++) {
+          const val1 = grid[r]?.[c]?.val;
+          const val2 = grid[r + gap]?.[c]?.val;
+          if (!val1 || !val2 || !/^\d{2}$/.test(val1) || !/^\d{2}$/.test(val2)) continue;
+
+          const ml = getMatchedLabels(val1, val2);
+          if (ml.length === 0) continue;
+
+          if (chainRows.length === 0) {
+            chainRows = [r, r + gap];
+            chainVals = [val1, val2];
+            chainLabels = ml;
+          } else {
+            // Chain extends when this pair's start equals the last chain row
+            if (r === chainRows[chainRows.length - 1]) {
+              chainRows.push(r + gap);
+              chainVals.push(val2);
+              chainLabels = chainLabels.filter(l => ml.includes(l));
+              if (chainLabels.length === 0) flushChain();
+            } else {
+              flushChain();
+              chainRows = [r, r + gap];
+              chainVals = [val1, val2];
+              chainLabels = ml;
+            }
+          }
+        }
+        flushChain();
+      });
+    }
+
+    // Deduplicate: remove shorter chains fully contained in longer ones (same gap+col)
+    const dedupedChains = allChains.filter((ch, i) =>
+      !allChains.some((oth, j) => {
+        if (i === j || oth.gap !== ch.gap || oth.c !== ch.c) return false;
+        if (oth.rows.length <= ch.rows.length) return false;
+        const os = new Set(oth.rows);
+        return ch.rows.every(r => os.has(r));
+      })
+    );
+
+    // Sort: longest chain first, then smallest gap, then earliest start row
+    dedupedChains.sort((a, b) => {
+      const ld = b.rows.length - a.rows.length;
+      if (ld !== 0) return ld;
+      if (a.gap !== b.gap) return a.gap - b.gap;
+      return a.rows[0] - b.rows[0];
+    });
+
+    let wGapPairCount = 0;
+
+    dedupedChains.forEach(chain => {
+      const { gap, c, rows, vals, matchedLabels } = chain;
+      const is3x = rows.length >= 3;
+      const palette = WGAP_COLORS[wGapPairCount % WGAP_COLORS.length];
+      const repeatTag = is3x ? ` ✦${rows.length - 0}X` : '';
+      const dayLabel = DAY_NAMES[c] || `Col ${c + 1}`;
+      const pId = `WG${wGapPairCount + 1} [Gap${gap}w${repeatTag} ${matchedLabels.join('+')} ${wgRelStr}]`;
+
+      rows.forEach((r, idx) => {
+        const isLast = idx === rows.length - 1;
+        const dot = isLast && is3x ? '\u2b50' : palette.dot;
+        const m = {
+          r, c, day: dayLabel, rowNum: r + 1, val: vals[idx],
+          pairId: pId, stepIndex: idx + 1,
+          color: palette.color, border: palette.border, dot,
+          reason: idx === 0
+            ? `\uD83D\uDDD3\uFE0F [GAP-${gap}W ORIGIN] ${dayLabel} Row #${r+1} (${vals[idx]}) — ${matchedLabels.join(' & ')} ${wgRelStr} every ${gap} week(s)`
+            : `\uD83D\uDD17 [GAP-${gap}W STEP ${idx + 1}${isLast && is3x ? ' \u2746CONFIRMED' : ''}] ${dayLabel} Row #${r+1} (${vals[idx]}) — ${matchedLabels.join(' & ')} ${wgRelStr}`
+        };
+        if (!matchMap[`${r}_${c}`]) { matches.push(m); matchMap[`${r}_${c}`] = m; }
+      });
+
+      // Project the next gap occurrence
+      const nextR = rows[rows.length - 1] + gap;
+      if (nextR < grid.length + 2 && c < colsCount) {
+        const srcVal = vals[vals.length - 1];
+        const srcO  = parseInt(srcVal[0], 10);
+        const srcCl = parseInt(srcVal[1], 10);
+        const projO  = wgRelStr === 'SAME' ? srcO  : (srcO  + 5) % 10;
+        const projCl = wgRelStr === 'SAME' ? srcCl : (srcCl + 5) % 10;
+        const projJodis = [];
+        for (let a = 0; a <= 9; a++) {
+          for (let b = 0; b <= 9; b++) {
+            const okO  = matchedLabels.some(l => l.startsWith('Open'))  ? a === projO  : true;
+            const okCl = matchedLabels.some(l => l.endsWith('Close'))   ? b === projCl : true;
+            if (okO && okCl) projJodis.push(`${a}${b}`);
+          }
+        }
+        const nextVal = (nextR < grid.length) ? grid[nextR]?.[c]?.val : null;
+        const isLive  = nextR > lastDataRow;
+        const projKey = `${nextR}_${c}`;
+        const pm = {
+          r: nextR, c, day: dayLabel, rowNum: nextR + 1,
+          val: nextVal && /^\d{2}$/.test(nextVal) ? nextVal : `[O:${projO} C:${projCl}]`,
+          pairId: pId,
+          isProjectionCell: !nextVal || !/^\d{2}$/.test(nextVal),
+          isTarget:         !nextVal || !/^\d{2}$/.test(nextVal),
+          color:  isLive ? '#ec4899' : palette.color,
+          border: isLive ? '#be185d' : palette.border,
+          dot: '\uD83C\uDFAF',
+          reason: isLive
+            ? `\uD83C\uDFAF [LIVE PREDICTION — Gap${gap}w] ${dayLabel} Row #${nextR+1}: Open\u2248${projO}, Close\u2248${projCl} | Jodis: ${projJodis.slice(0, 6).join(', ')}`
+            : `\uD4A7 [NEXT GAP VERIFY — Gap${gap}w] ${dayLabel} Row #${nextR+1} (${nextVal || '?'}) — check ${matchedLabels.join(' & ')} ${wgRelStr}`
+        };
+        if (!matchMap[projKey]) { matches.push(pm); matchMap[projKey] = pm; }
+      }
+
+      wGapPairCount++;
+    });
+
+    const relLbl = wgRelStr === 'SAME' ? 'SAME' : 'OPPOSITE/CUT';
+    const digLbl = [
+      checkOpenToOpen   ? 'Open\u2192Open'   : '',
+      checkCloseToClose ? 'Close\u2192Close' : '',
+      checkOpenToClose  ? 'Open\u2192Close'  : '',
+      checkCloseToOpen  ? 'Close\u2192Open'  : ''
+    ].filter(Boolean).join(' & ') || 'Open/Close';
+
+    const modeDesc = userSpecifiedGap
+      ? `GAP-${pinnedGap}-WEEK (pinned)`
+      : `AUTO-DISCOVERED GAPs (2\u2013${maxGapScan}w)`;
+
+    const summary = wGapPairCount > 0
+      ? `\uD83D\uDDD3\uFE0F FOUND ${wGapPairCount} ${modeDesc} ${digLbl} ${relLbl} REPEATING CHAINS! \u2B50 = repeats 3+ times. \uD83C\uDFAF = next predicted cell. Sorted strongest first.`
+      : `No repeating ${digLbl} ${relLbl} chains found${userSpecifiedGap ? ` at gap-${pinnedGap}w` : ` in range 2\u2013${maxGapScan}w`}.`;
+
+    return { matches, summary, matchMap };
+  }
+
   if (q.includes('twin total') || q.includes('twin')) {
     const colsCount = grid[0] ? grid[0].length : 7;
     let pCount = 1;

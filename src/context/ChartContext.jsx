@@ -17,7 +17,6 @@ export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3,
 
 export const MARKET_ORDER = [
   "SRIDEVI",
-  "SRIDEVI PANEL",
   "TIME BAZAR",
   "MILAN DAYY",
   "KALYAN",
@@ -85,7 +84,6 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 
 export const DEFAULT_PRESETS = {
   "SRIDEVI": srideviPreset,
-  "SRIDEVI PANEL": srideviPanelPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
   "KALYAN": kalyanPreset,
@@ -104,12 +102,22 @@ const POSSIBLE_STORAGE_KEYS = [
   'chartHistory'
 ];
 
-const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT"]);
+const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
 const getInitialCharts = () => {
+  const deletedSet = new Set();
+  try {
+    const savedDeleted = localStorage.getItem('deletedChartNames');
+    if (savedDeleted) {
+      const arr = JSON.parse(savedDeleted);
+      if (Array.isArray(arr)) {
+        arr.forEach(n => deletedSet.add(n.trim().toUpperCase()));
+      }
+    }
+  } catch (e) {}
+
   const baseCharts = {
     "SRIDEVI": srideviPreset,
-    "SRIDEVI PANEL": srideviPanelPreset,
     "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
     "KALYAN": kalyanPreset,
@@ -129,7 +137,7 @@ const getInitialCharts = () => {
           let dirty = false;
           Object.keys(parsed).forEach((chartName) => {
             const cleanName = chartName.trim().toUpperCase();
-            if (REMOVED_CHARTS.has(cleanName)) {
+            if (REMOVED_CHARTS.has(cleanName) || deletedSet.has(cleanName)) {
               delete parsed[chartName];
               dirty = true;
             } else {
@@ -153,6 +161,9 @@ const getInitialCharts = () => {
 
   REMOVED_CHARTS.forEach((removedName) => {
     delete finalCharts[removedName];
+  });
+  deletedSet.forEach((deletedName) => {
+    delete finalCharts[deletedName];
   });
 
   return finalCharts;
@@ -286,6 +297,18 @@ export const ChartProvider = ({ children }) => {
     const finalRows = Math.max(parseInt(rows) || 0, data ? data.length : 500);
     const finalCols = parseInt(cols) || (data && data[0] ? data[0].length : 7);
 
+    // If user re-creates a deleted chart, remove it from deletedChartNames
+    try {
+      const savedDeleted = localStorage.getItem('deletedChartNames');
+      if (savedDeleted) {
+        const arr = JSON.parse(savedDeleted);
+        if (Array.isArray(arr)) {
+          const updatedArr = arr.filter(n => n.trim().toUpperCase() !== cleanName);
+          localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
+        }
+      }
+    } catch (e) {}
+
     setCharts((prevCharts) => {
       const existing = prevCharts[cleanName] || {};
       const updated = {
@@ -340,12 +363,34 @@ export const ChartProvider = ({ children }) => {
 
   const deleteChart = useCallback((name) => {
     const cleanName = name.trim().toUpperCase();
+    
+    // Record deletion so page refresh won't restore base presets
+    try {
+      const savedDeleted = localStorage.getItem('deletedChartNames');
+      const arr = savedDeleted ? JSON.parse(savedDeleted) : [];
+      const set = new Set(Array.isArray(arr) ? arr : []);
+      set.add(cleanName);
+      localStorage.setItem('deletedChartNames', JSON.stringify(Array.from(set)));
+    } catch (e) {}
+
     setCharts((prevCharts) => {
       const updated = { ...prevCharts };
       delete updated[cleanName];
+
+      // Purge deleted chart from all storage keys
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        POSSIBLE_STORAGE_KEYS.forEach((key) => {
+          const saved = localStorage.getItem(key);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object' && parsed[cleanName]) {
+              delete parsed[cleanName];
+              localStorage.setItem(key, JSON.stringify(parsed));
+            }
+          }
+        });
       } catch (e) {}
+
       const keys = Object.keys(updated);
       if (keys.length > 0) {
         setActiveChartName(keys[0]);
