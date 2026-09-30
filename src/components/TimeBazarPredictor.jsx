@@ -2657,6 +2657,65 @@ export const TimeBazarPredictor = () => {
       }
     }
 
+    // --- PASS 37: ARITHMETIC OPEN-TO-OPEN STEPPING DELTA PROGRESSION SCANNER (+190 PTS HIGH PRIORITY) ---
+    // Specifically identifies cross-column Open-to-Open stepping deltas (+3 Up -> +4 Up -> +5 Up progression) across consecutive rows
+    // Example from user pattern diagram:
+    // Row -2: Left Open 1 (18) -> Right Open 4 (49) [Delta = +3]
+    // Row -1: Left Open 6 (61) -> Right Open 0 (00) [Delta = +4]
+    // Target Row: Left Open 9 (97) -> Right Target Open = 9 + 5 = 4 (44) [Delta = +5]
+    if (targetRowIdx >= 2) {
+      for (let cLeft = 0; cLeft < activeChart.cols; cLeft++) {
+        if (cLeft === colVal) continue;
+
+        const r1 = targetRowIdx - 2;
+        const r2 = targetRowIdx - 1;
+        const r3 = targetRowIdx;
+
+        const cell1_L = grid[r1]?.[cLeft]?.val, cell1_R = grid[r1]?.[colVal]?.val;
+        const cell2_L = grid[r2]?.[cLeft]?.val, cell2_R = grid[r2]?.[colVal]?.val;
+        const cell3_L = grid[r3]?.[cLeft]?.val;
+
+        if (
+          cell1_L && /^\d{2}$/.test(cell1_L) && cell1_R && /^\d{2}$/.test(cell1_R) &&
+          cell2_L && /^\d{2}$/.test(cell2_L) && cell2_R && /^\d{2}$/.test(cell2_R) &&
+          cell3_L && /^\d{2}$/.test(cell3_L)
+        ) {
+          const o1_L = parseInt(cell1_L[0], 10), o1_R = parseInt(cell1_R[0], 10);
+          const o2_L = parseInt(cell2_L[0], 10), o2_R = parseInt(cell2_R[0], 10);
+          const o3_L = parseInt(cell3_L[0], 10);
+
+          const delta1 = (o1_R - o1_L + 10) % 10;
+          const delta2 = (o2_R - o2_L + 10) % 10;
+          const deltaStep = (delta2 - delta1 + 10) % 10;
+
+          const projDelta3 = (delta2 + deltaStep) % 10;
+          const projTargetOpen = (o3_L + projDelta3) % 10;
+          const projCutTargetOpen = getCut(projTargetOpen);
+
+          for (let c = 0; c <= 9; c++) {
+            const candJodi = `${projTargetOpen}${c}`;
+            const candCutJodi = `${projCutTargetOpen}${c}`;
+
+            addPoints(
+              candJodi,
+              190,
+              activeModel.conditionWeight * 2.3,
+              1.0,
+              `📐🔥 [STEPPING DELTA OPEN-TO-OPEN ENGINE] Stepping Open Delta (+${delta1}➔+${delta2}, Step +${deltaStep}) from Col #${cLeft + 1} "${cell3_L}" Open ${o3_L} + ${projDelta3} Up → Projects Target Open ${projTargetOpen}`
+            );
+
+            addPoints(
+              candCutJodi,
+              150,
+              activeModel.conditionWeight * 1.8,
+              1.0,
+              `📐⚡ [STEPPING DELTA CUT-OPEN ENGINE] Projects Cut Target Open ${projCutTargetOpen}`
+            );
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
