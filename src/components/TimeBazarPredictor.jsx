@@ -2657,7 +2657,7 @@ export const TimeBazarPredictor = () => {
       }
     }
 
-    // Calculate aggregated Cut-Family probabilities for Open, Close, and Total digits
+    // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
     const totalScores = Array(10).fill(0);
@@ -2674,53 +2674,23 @@ export const TimeBazarPredictor = () => {
     const sumClose = closeScores.reduce((a, b) => a + b, 0) || 1;
     const sumTotal = totalScores.reduce((a, b) => a + b, 0) || 1;
 
-    // Group Open Scores into 5 Cut Families (0/5, 1/6, 2/7, 3/8, 4/9) so Direct & Cut share combined family score
-    const openFamilies = [0, 1, 2, 3, 4].map(base => {
-      const cut = base + 5;
-      const sBase = openScores[base] || 0;
-      const sCut = openScores[cut] || 0;
-      const totalFamScore = sBase + sCut;
-      const primaryDigit = sBase >= sCut ? base : cut;
-      const secondaryDigit = sBase >= sCut ? cut : base;
-      return {
-        base,
-        cut,
-        primaryDigit,
-        secondaryDigit,
-        score: totalFamScore
-      };
-    }).sort((a, b) => b.score - a.score);
+    const topOpens = openScores
+      .map((score, digit) => ({
+        digit,
+        cutDigit: getCut(digit),
+        prob: ((score / sumOpen) * 100).toFixed(1)
+      }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 3);
 
-    // Group Close Scores into 5 Cut Families
-    const closeFamilies = [0, 1, 2, 3, 4].map(base => {
-      const cut = base + 5;
-      const sBase = closeScores[base] || 0;
-      const sCut = closeScores[cut] || 0;
-      const totalFamScore = sBase + sCut;
-      const primaryDigit = sBase >= sCut ? base : cut;
-      const secondaryDigit = sBase >= sCut ? cut : base;
-      return {
-        base,
-        cut,
-        primaryDigit,
-        secondaryDigit,
-        score: totalFamScore
-      };
-    }).sort((a, b) => b.score - a.score);
-
-    // Pick top 3 Open Cut Families
-    const topOpens = openFamilies.slice(0, 3).map(fam => ({
-      digit: fam.primaryDigit,
-      cutDigit: fam.secondaryDigit,
-      prob: (((openScores[fam.primaryDigit] + openScores[fam.secondaryDigit]) / sumOpen) * 100).toFixed(1)
-    }));
-
-    // Pick top 3 Close Cut Families
-    const topCloses = closeFamilies.slice(0, 3).map(fam => ({
-      digit: fam.primaryDigit,
-      cutDigit: fam.secondaryDigit,
-      prob: (((closeScores[fam.primaryDigit] + closeScores[fam.secondaryDigit]) / sumClose) * 100).toFixed(1)
-    }));
+    const topCloses = closeScores
+      .map((score, digit) => ({
+        digit,
+        cutDigit: getCut(digit),
+        prob: ((score / sumClose) * 100).toFixed(1)
+      }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 3);
 
     const topTotals = totalScores
       .map((score, digit) => ({
@@ -2953,15 +2923,12 @@ export const TimeBazarPredictor = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> TOP OPEN FAMILIES (3 DIRECT + 3 CUT)</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> OPEN</span>
               </span>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topOpens.map((item, i) => (
-                  <div key={i} className="bg-slate-900/90 border border-emerald-500/30 p-2 rounded-xl text-center">
-                    <span className="block text-xl font-black text-emerald-300">
-                      {item.digit} <span className="text-xs text-emerald-400/70 font-semibold">({item.cutDigit})</span>
-                    </span>
-                    <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{item.prob}% Match</span>
+                  <div key={i} className="bg-slate-900/90 border border-emerald-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-2xl font-black text-emerald-300">{item.digit}</span>
                   </div>
                 ))}
               </div>
@@ -2969,15 +2936,12 @@ export const TimeBazarPredictor = () => {
 
             <div className="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-blue-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> TOP CLOSE FAMILIES (3 DIRECT + 3 CUT)</span>
+                <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> CLOSE</span>
               </span>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {predictionResult.topCloses.map((item, i) => (
-                  <div key={i} className="bg-slate-900/90 border border-blue-500/30 p-2 rounded-xl text-center">
-                    <span className="block text-xl font-black text-blue-300">
-                      {item.digit} <span className="text-xs text-blue-400/70 font-semibold">({item.cutDigit})</span>
-                    </span>
-                    <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{item.prob}% Match</span>
+                  <div key={i} className="bg-slate-900/90 border border-blue-500/30 p-2.5 rounded-xl text-center">
+                    <span className="block text-2xl font-black text-blue-300">{item.digit}</span>
                   </div>
                 ))}
               </div>
