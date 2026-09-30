@@ -1,40 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useChart, isRedPair, RED_PAIRS } from '../context/ChartContext';
 import { Zap, Trophy, Brain, Sparkles, Play, Clock, Flame, Palette, Link2 } from 'lucide-react';
-import { SrideviPredictor } from './SrideviPredictor';
-import { TimeBazarPredictor } from './TimeBazarPredictor';
-import { MilanDayPredictor } from './MilanDayPredictor';
-import { MilanNightPredictor } from './MilanNightPredictor';
-import { KalyanPredictor } from './KalyanPredictor';
-import { MainBazarPredictor } from './MainBazarPredictor';
+
 
 const LOOKBACK_WINDOW = 120; // Rolling lookback window for optimal performance
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 
-export const PredictorEngine = () => {
+export const KalyanPredictor = () => {
   const { charts, activeChartName, setActiveChartName, activeChart, learnedModels, activeModelName, customAIPatterns } = useChart();
 
-  // Route strictly to dedicated isolated predictor components for major market charts
-  const chartNameUpper = (activeChartName || '').trim().toUpperCase();
 
-  if (chartNameUpper === 'SRIDEVI') {
-    return <SrideviPredictor />;
-  }
-  if (chartNameUpper === 'TIME BAZAR' || chartNameUpper === 'TIME BAZAAR') {
-    return <TimeBazarPredictor />;
-  }
-  if (chartNameUpper.includes('MILAN DAY')) {
-    return <MilanDayPredictor />;
-  }
-  if (chartNameUpper.includes('MILAN NIGHT')) {
-    return <MilanNightPredictor />;
-  }
-  if (chartNameUpper === 'KALYAN') {
-    return <KalyanPredictor />;
-  }
-  if (chartNameUpper === 'MAIN BAZAR' || chartNameUpper === 'MAIN BAZAAR') {
-    return <MainBazarPredictor />;
-  }
 
   const [targetRow, setTargetRow] = useState(10);
   const [targetCol, setTargetCol] = useState(1);
