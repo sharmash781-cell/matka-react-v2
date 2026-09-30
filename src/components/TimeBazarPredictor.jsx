@@ -716,15 +716,40 @@ export const TimeBazarPredictor = () => {
         const nCutTotal = getCut(nTotal);
 
         for (let d = 0; d <= 9; d++) {
-          // Total becomes Open
-          addPoints(`${nTotal}${d}`, 36, activeModel.conditionWeight, 1.0, `🎯 [TOTAL-TO-OPEN TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Open ${nTotal}`);
-          addPoints(`${nCutTotal}${d}`, 22, activeModel.conditionWeight, 0.95, `🎯 [TOTAL-TO-OPEN CUT] ${nbr.label} Jodi "${nbr.val}" Cut-Total ${nCutTotal} becomes today's Open ${nCutTotal}`);
+          // Total becomes Open (High Priority: e.g. Yesterday 76 Total 3 -> Today Open 3)
+          addPoints(`${nTotal}${d}`, 60, activeModel.conditionWeight * 1.3, 1.0, `🎯 [TOTAL-TO-OPEN TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Open ${nTotal}`);
+          addPoints(`${nCutTotal}${d}`, 40, activeModel.conditionWeight * 1.1, 0.95, `🎯 [TOTAL-TO-OPEN CUT] ${nbr.label} Jodi "${nbr.val}" Cut-Total ${nCutTotal} becomes today's Open ${nCutTotal}`);
 
           // Total becomes Close
-          addPoints(`${d}${nTotal}`, 30, activeModel.conditionWeight, 1.0, `🎯 [TOTAL-TO-CLOSE TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Close ${nTotal}`);
+          addPoints(`${d}${nTotal}`, 50, activeModel.conditionWeight * 1.2, 1.0, `🎯 [TOTAL-TO-CLOSE TRANSITION] ${nbr.label} Jodi "${nbr.val}" Total ${nTotal} becomes today's Close ${nTotal}`);
         }
       }
     });
+
+    // --- PASS 13: TIME BAZAR COLUMN CUT-MIRROR & PAST-WEEK CLOSE CROSS SCANNER ---
+    // Scans 1-week and 2-week past cells in the same column to extract Cut digits (e.g. 28 Close 8 -> Cut 3, 05 Close 5 -> Cut 0 -> Jodi 30)
+    if (targetRowIdx >= 2) {
+      const pastCol1 = grid[targetRowIdx - 1] ? grid[targetRowIdx - 1][colVal]?.val : null;
+      const pastCol2 = grid[targetRowIdx - 2] ? grid[targetRowIdx - 2][colVal]?.val : null;
+
+      if (pastCol1 && /^\d{2}$/.test(pastCol1) && pastCol2 && /^\d{2}$/.test(pastCol2)) {
+        const pO1 = parseInt(pastCol1[0], 10), pC1 = parseInt(pastCol1[1], 10);
+        const pO2 = parseInt(pastCol2[0], 10), pC2 = parseInt(pastCol2[1], 10);
+
+        const cutC1 = getCut(pC1); // 1-week ago Close Cut (e.g. 28 Close 8 -> Cut 3)
+        const cutC2 = getCut(pC2); // 2-weeks ago Close Cut (e.g. 05 Close 5 -> Cut 0)
+
+        // Combination 1: CutC1 as Open, CutC2 as Close (gives 30!)
+        addPoints(`${cutC1}${cutC2}`, 75, activeModel.columnWeight * 1.4, 1.0, `🌟 [TIME BAZAR CUT-MIRROR COMBINATION] 1-Wk Close Cut ${cutC1} (from ${pastCol1}) + 2-Wk Close Cut ${cutC2} (from ${pastCol2}) -> Projected Jodi ${cutC1}${cutC2}`);
+        addPoints(`${cutC1}${pC2}`, 50, activeModel.columnWeight * 1.2, 0.95, `🌟 [TIME BAZAR CUT-MIRROR] 1-Wk Close Cut ${cutC1} + Direct 2-Wk Close ${pC2}`);
+
+        // Combination 2: Direct Open/Close Cut variations
+        for (let d = 0; d <= 9; d++) {
+          addPoints(`${cutC1}${d}`, 45, activeModel.columnWeight, 1.0, `🌟 [COLUMN 1-WK CUT-CLOSE OPEN] Cut of 1-Wk Close ${pC1} (${pastCol1}) projects Open ${cutC1}`);
+          addPoints(`${d}${cutC2}`, 45, activeModel.columnWeight, 1.0, `🌟 [COLUMN 2-WK CUT-CLOSE CLOSE] Cut of 2-Wk Close ${pC2} (${pastCol2}) projects Close ${cutC2}`);
+        }
+      }
+    }
 
     // --- PASS 11: DAY-OF-WEEK (COLUMN) HISTORICAL FREQUENCY HEATMAP ---
     // Scans all historical weeks specifically for this column (day of week)
