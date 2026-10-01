@@ -2632,6 +2632,93 @@ export const MilanDayPredictor = () => {
       }
     }
 
+    // --- PASS 37: MILAN DAY TWO-JODI TOTAL-SUM TO TARGET CLOSE & OPEN ENGINE (SAME & OPPOSITE/CUT) ---
+    // Scans pairs of preceding cells in current target row or recent historical rows.
+    // Calculates Sum of their Jodi Totals: (Total1 + Total2) % 10.
+    // Predicts Target Close and Target Open as Direct (Same) or Opposite (Cut).
+    // User pattern examples from Milan Day chart:
+    // 1) 24 (Total 6) + 40 (Total 4) = 0 -> Projects Opposite Close 5 (for Jodi 15)
+    // 2) 00 (Total 0) + 71 (Total 8) = 8 -> Projects Opposite Close 3 (for Jodi 43)
+    // 3) 10 (Total 1) + 47 (Total 1) = 2 -> Projects Opposite Close 7 (for Jodi 47)
+    for (let rBack = 0; rBack <= Math.min(targetRowIdx, 6); rBack++) {
+      const pR = targetRowIdx - rBack;
+      if (!grid[pR]) continue;
+
+      const recency = Math.pow(0.96, rBack);
+      const maxCol = rBack === 0 ? colVal : activeChart.cols;
+
+      for (let c1 = 0; c1 < maxCol - 1; c1++) {
+        const cell1 = grid[pR]?.[c1]?.val;
+        if (!cell1 || !/^\d{2}$/.test(cell1)) continue;
+
+        for (let c2 = c1 + 1; c2 < maxCol; c2++) {
+          if (rBack === 0 && c2 >= colVal) continue;
+
+          const cell2 = grid[pR]?.[c2]?.val;
+          if (!cell2 || !/^\d{2}$/.test(cell2)) continue;
+
+          const tot1 = (parseInt(cell1[0], 10) + parseInt(cell1[1], 10)) % 10;
+          const tot2 = (parseInt(cell2[0], 10) + parseInt(cell2[1], 10)) % 10;
+          const combinedTotalSum = (tot1 + tot2) % 10;
+          const cutCombinedTotalSum = getCut(combinedTotalSum);
+
+          const isAdjacent = (c2 === c1 + 1);
+          const isTargetRow = (rBack === 0);
+          const proximityWeight = (isTargetRow ? 1.4 : 1.0) * (isAdjacent ? 1.2 : 1.0);
+
+          for (let o = 0; o <= 9; o++) {
+            for (let c = 0; c <= 9; c++) {
+              const candJodi = `${o}${c}`;
+
+              // 1. Target Close = Opposite/Cut of Combined Total Sum
+              if (c === cutCombinedTotalSum) {
+                addPoints(
+                  candJodi,
+                  Math.round(185 * recency * proximityWeight),
+                  activeModel.conditionWeight * 2.2,
+                  recency,
+                  `🔥 [TWO-JODI TOTAL-SUM TO CUT CLOSE] Row #${pR + 1} "${cell1}" (Tot ${tot1}) + "${cell2}" (Tot ${tot2}) Total Sum = ${combinedTotalSum} → Projects Opposite (Cut) Target Close ${cutCombinedTotalSum}`
+                );
+              }
+
+              // 2. Target Close = Direct Same of Combined Total Sum
+              if (c === combinedTotalSum) {
+                addPoints(
+                  candJodi,
+                  Math.round(175 * recency * proximityWeight),
+                  activeModel.conditionWeight * 2.1,
+                  recency,
+                  `🔥 [TWO-JODI TOTAL-SUM TO SAME CLOSE] Row #${pR + 1} "${cell1}" (Tot ${tot1}) + "${cell2}" (Tot ${tot2}) Total Sum = ${combinedTotalSum} → Projects Direct Same Target Close ${combinedTotalSum}`
+                );
+              }
+
+              // 3. Target Open Transposition = Opposite/Cut of Combined Total Sum
+              if (o === cutCombinedTotalSum) {
+                addPoints(
+                  candJodi,
+                  Math.round(155 * recency * proximityWeight),
+                  activeModel.conditionWeight * 1.8,
+                  recency,
+                  `⚡ [TWO-JODI TOTAL-SUM TO CUT OPEN] Row #${pR + 1} "${cell1}" + "${cell2}" Total Sum = ${combinedTotalSum} → Projects Opposite (Cut) Target Open ${cutCombinedTotalSum}`
+                );
+              }
+
+              // 4. Target Open Transposition = Direct Same of Combined Total Sum
+              if (o === combinedTotalSum) {
+                addPoints(
+                  candJodi,
+                  Math.round(145 * recency * proximityWeight),
+                  activeModel.conditionWeight * 1.7,
+                  recency,
+                  `⚡ [TWO-JODI TOTAL-SUM TO SAME OPEN] Row #${pR + 1} "${cell1}" + "${cell2}" Total Sum = ${combinedTotalSum} → Projects Direct Same Target Open ${combinedTotalSum}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
