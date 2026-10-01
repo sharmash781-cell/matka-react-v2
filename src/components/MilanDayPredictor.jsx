@@ -2899,6 +2899,124 @@ export const MilanDayPredictor = () => {
       }
     }
 
+    // --- PASS 40: DUAL-LOCK CROSS-COLUMN STEPPING ENGINE (FIXED DIGIT LOCK + STEPPING DIGIT SHIFT - SAME & CUT) ---
+    // Target user pattern examples from Milan Day chart:
+    // Set 1: 00 (Col 1) -> 70 (Col 3)  [Close 0 = Same Close 0, Open 0 -> 3 Down / 7 Up = Open 7]
+    // Set 2: 10 (Col 1) -> 80 (Col 3)  [Close 0 = Same Close 0, Open 1 -> 3 Down / 7 Up = Open 8]
+    for (let rBack = 0; rBack <= Math.min(targetRowIdx, 6); rBack++) {
+      const pR = targetRowIdx - rBack;
+      if (!grid[pR]) continue;
+
+      const recency = Math.pow(0.96, rBack);
+      const maxCol = rBack === 0 ? colVal : activeChart.cols;
+
+      for (let cHist = 0; cHist < maxCol; cHist++) {
+        if (rBack === 0 && cHist === colVal) continue;
+
+        const hCell = grid[pR]?.[cHist]?.val;
+        if (!hCell || !/^\d{2}$/.test(hCell)) continue;
+
+        const hO = parseInt(hCell[0], 10);
+        const hC = parseInt(hCell[1], 10);
+        const hCutC = getCut(hC);
+        const hCutO = getCut(hO);
+
+        const stepShifts = [7, 3, 2, 8, 5];
+
+        stepShifts.forEach(shift => {
+          const isUser3DownShift = (shift === 7 || shift === 3);
+          const shiftBonus = isUser3DownShift ? 1.35 : 1.0;
+
+          const projShiftOpen = (hO + shift) % 10;
+          const projShiftCutOpen = getCut(projShiftOpen);
+
+          const projShiftClose = (hC + shift) % 10;
+          const projShiftCutClose = getCut(projShiftClose);
+
+          const dualJodi1 = `${projShiftOpen}${hC}`;
+          addPoints(
+            dualJodi1,
+            Math.round(210 * recency * shiftBonus),
+            activeModel.conditionWeight * 2.6,
+            recency,
+            `💎🔥 [DUAL-LOCK OPEN-STEP & CLOSE-SAME] "${hCell}" (Row #${pR + 1}) Close ${hC} Locked AND Open ${hO} - 3 Down (${shift} Up) projects Open ${projShiftOpen} → Target Jodi ${dualJodi1}`
+          );
+
+          const dualJodi2 = `${projShiftOpen}${hCutC}`;
+          addPoints(
+            dualJodi2,
+            Math.round(185 * recency * shiftBonus),
+            activeModel.conditionWeight * 2.3,
+            recency,
+            `💎⚡ [DUAL-LOCK OPEN-STEP & CUT-CLOSE] Open ${hO} - 3 Down (${projShiftOpen}) + Cut Close ${hCutC} → Target Jodi ${dualJodi2}`
+          );
+
+          const dualJodi3 = `${projShiftCutOpen}${hC}`;
+          addPoints(
+            dualJodi3,
+            Math.round(185 * recency * shiftBonus),
+            activeModel.conditionWeight * 2.3,
+            recency,
+            `💎⚡ [DUAL-LOCK CUT-OPEN-STEP & CLOSE-SAME] Cut Shift Open ${projShiftCutOpen} + Close ${hC} Locked → Target Jodi ${dualJodi3}`
+          );
+
+          const dualJodi4 = `${hO}${projShiftClose}`;
+          addPoints(
+            dualJodi4,
+            Math.round(210 * recency * shiftBonus),
+            activeModel.conditionWeight * 2.6,
+            recency,
+            `💎🔥 [DUAL-LOCK OPEN-SAME & CLOSE-STEP] "${hCell}" Open ${hO} Locked AND Close ${hC} - 3 Down (${shift} Up) projects Close ${projShiftClose} → Target Jodi ${dualJodi4}`
+          );
+
+          const dualJodi5 = `${hCutO}${projShiftClose}`;
+          addPoints(
+            dualJodi5,
+            Math.round(185 * recency * shiftBonus),
+            activeModel.conditionWeight * 2.3,
+            recency,
+            `💎⚡ [DUAL-LOCK CUT-OPEN & CLOSE-STEP] Cut Open ${hCutO} + Close Shift ${projShiftClose} → Target Jodi ${dualJodi5}`
+          );
+
+          for (let c = 0; c <= 9; c++) {
+            addPoints(
+              `${projShiftOpen}${c}`,
+              Math.round(170 * recency * shiftBonus),
+              activeModel.conditionWeight * 2.1,
+              recency,
+              `⚡ [OPEN 3-DOWN STEP SHIFT ENGINE] "${hCell}" Open ${hO} - 3 Down (${shift} Up) → Projects Target Open ${projShiftOpen}`
+            );
+
+            addPoints(
+              `${projShiftCutOpen}${c}`,
+              Math.round(140 * recency * shiftBonus),
+              activeModel.conditionWeight * 1.8,
+              recency,
+              `⚡ [CUT OPEN 3-DOWN STEP SHIFT ENGINE] Projects Cut Target Open ${projShiftCutOpen}`
+            );
+          }
+
+          for (let o = 0; o <= 9; o++) {
+            addPoints(
+              `${o}${hC}`,
+              Math.round(170 * recency),
+              activeModel.conditionWeight * 2.1,
+              recency,
+              `⚡ [CLOSE-SAME DIGIT LOCK ENGINE] "${hCell}" Close ${hC} Locked → Projects Target Close ${hC}`
+            );
+
+            addPoints(
+              `${o}${hCutC}`,
+              Math.round(140 * recency),
+              activeModel.conditionWeight * 1.8,
+              recency,
+              `⚡ [CUT-CLOSE DIGIT LOCK ENGINE] Projects Cut Target Close ${hCutC}`
+            );
+          }
+        });
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
