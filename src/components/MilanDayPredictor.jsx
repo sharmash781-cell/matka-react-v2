@@ -2858,42 +2858,6 @@ export const MilanDayPredictor = () => {
               recency,
               `🌟⚡ [2-SET HARMONIC PAIR CUT-OPEN] Cut Open ${leftCutTotal} + Direct Close ${projClose} → Jodi ${harmJodiCutOpen}`
             );
-
-            for (let c = 0; c <= 9; c++) {
-              addPoints(
-                `${leftTotal}${c}`,
-                Math.round(160 * recency),
-                activeModel.conditionWeight * 2.0,
-                recency,
-                `🎯 [ROW TOTAL-TO-OPEN ENGINE] "${cellLeft}" Total ${leftTotal} → Projects Target Open ${leftTotal}`
-              );
-
-              addPoints(
-                `${leftCutTotal}${c}`,
-                Math.round(135 * recency),
-                activeModel.conditionWeight * 1.7,
-                recency,
-                `🎯 [ROW TOTAL-TO-CUT-OPEN ENGINE] "${cellLeft}" Cut Total ${leftCutTotal} → Projects Target Cut Open ${leftCutTotal}`
-              );
-            }
-
-            for (let o = 0; o <= 9; o++) {
-              addPoints(
-                `${o}${projClose}`,
-                Math.round(160 * recency * stepBonus),
-                activeModel.conditionWeight * 2.0,
-                recency,
-                `🎯 [PRECEDING CLOSE + ${step} UP ENGINE] "${cellPrev}" Close ${prevClose} + ${step} Up → Projects Target Close ${projClose}`
-              );
-
-              addPoints(
-                `${o}${projCutClose}`,
-                Math.round(135 * recency * stepBonus),
-                activeModel.conditionWeight * 1.7,
-                recency,
-                `🎯 [PRECEDING CLOSE + ${step} UP CUT ENGINE] Projects Cut Target Close ${projCutClose}`
-              );
-            }
           });
         }
       }
@@ -2977,42 +2941,6 @@ export const MilanDayPredictor = () => {
             recency,
             `💎⚡ [DUAL-LOCK CUT-OPEN & CLOSE-STEP] Cut Open ${hCutO} + Close Shift ${projShiftClose} → Target Jodi ${dualJodi5}`
           );
-
-          for (let c = 0; c <= 9; c++) {
-            addPoints(
-              `${projShiftOpen}${c}`,
-              Math.round(170 * recency * shiftBonus),
-              activeModel.conditionWeight * 2.1,
-              recency,
-              `⚡ [OPEN 3-DOWN STEP SHIFT ENGINE] "${hCell}" Open ${hO} - 3 Down (${shift} Up) → Projects Target Open ${projShiftOpen}`
-            );
-
-            addPoints(
-              `${projShiftCutOpen}${c}`,
-              Math.round(140 * recency * shiftBonus),
-              activeModel.conditionWeight * 1.8,
-              recency,
-              `⚡ [CUT OPEN 3-DOWN STEP SHIFT ENGINE] Projects Cut Target Open ${projShiftCutOpen}`
-            );
-          }
-
-          for (let o = 0; o <= 9; o++) {
-            addPoints(
-              `${o}${hC}`,
-              Math.round(170 * recency),
-              activeModel.conditionWeight * 2.1,
-              recency,
-              `⚡ [CLOSE-SAME DIGIT LOCK ENGINE] "${hCell}" Close ${hC} Locked → Projects Target Close ${hC}`
-            );
-
-            addPoints(
-              `${o}${hCutC}`,
-              Math.round(140 * recency),
-              activeModel.conditionWeight * 1.8,
-              recency,
-              `⚡ [CUT-CLOSE DIGIT LOCK ENGINE] Projects Cut Target Close ${hCutC}`
-            );
-          }
         });
       }
     }
