@@ -2945,6 +2945,123 @@ export const MilanDayPredictor = () => {
       }
     }
 
+    // --- PASS 41: DIAGONAL CROSS DIGIT REPEAT & CONTINUATION ENGINE (SAME & CUT - ZERO LAG) ---
+    // Specifically targets diagonal cross relationships matching user examples:
+    // 46 (Row 1, Col 1) Close 6 -> 56 (Row 2, Col 2) Close 6  [Diagonal Cross Close-to-Close Same]
+    // 83 (Row 2, Col 1) Close 3 -> 73 (Row 3, Col 2) Close 3  [Diagonal Cross Close-to-Close Same]
+    // 90 (Row 3, Col 1) Close 0 -> 80 (Row 4, Col 2) Close 0  [Diagonal Cross Close-to-Close Same]
+    // 47 (Row 4, Col 1) Close 7 -> 57 (Row 5, Col 2) Close 7  [Diagonal Cross Close-to-Close Same]
+    if (targetRowIdx >= 1) {
+      const curCol = colVal;
+      const curRow = targetRowIdx;
+
+      if (curCol > 0) {
+        const diagSrcCell1 = grid[curRow - 1]?.[curCol - 1]?.val;
+        if (diagSrcCell1 && /^\d{2}$/.test(diagSrcCell1)) {
+          const diagSrcC = parseInt(diagSrcCell1[1], 10);
+          const diagSrcCutC = getCut(diagSrcC);
+
+          let streakCount = 1;
+          for (let s = 2; s <= Math.min(curRow, 4); s++) {
+            const prevSrc = grid[curRow - s]?.[curCol - s]?.val;
+            const prevDst = grid[curRow - s + 1]?.[curCol - s + 1]?.val;
+            if (prevSrc && /^\d{2}$/.test(prevSrc) && prevDst && /^\d{2}$/.test(prevDst)) {
+              if (isDigitEqualOrCut(parseInt(prevSrc[1], 10), parseInt(prevDst[1], 10))) {
+                streakCount++;
+              } else break;
+            } else break;
+          }
+
+          const streakWeight = Math.min(2.5, 1.0 + (streakCount - 1) * 0.4);
+
+          addPoints(
+            `*${diagSrcC}`,
+            Math.round(190 * streakWeight),
+            activeModel.conditionWeight * 2.4,
+            1.0,
+            `⚔️🔥 [DIAGONAL CROSS CLOSE-SAME] "${diagSrcCell1}" (Row #${curRow}, Col #${curCol}) Close ${diagSrcC} Crosses Down-Right (Streak x${streakCount}) → Projects Target Close ${diagSrcC}`
+          );
+
+          addPoints(
+            `*${diagSrcCutC}`,
+            Math.round(165 * streakWeight),
+            activeModel.conditionWeight * 2.1,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS CUT-CLOSE] Crosses Down-Right → Projects Opposite (Cut) Target Close ${diagSrcCutC}`
+          );
+
+          addPoints(
+            `${diagSrcC}*`,
+            Math.round(170 * streakWeight),
+            activeModel.conditionWeight * 2.1,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS OPEN-TRANSPOSITION] Crosses Down-Right → Projects Target Open ${diagSrcC}`
+          );
+
+          addPoints(
+            `${diagSrcCutC}*`,
+            Math.round(145 * streakWeight),
+            activeModel.conditionWeight * 1.8,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS CUT-OPEN-TRANSPOSITION] Projects Target Cut Open ${diagSrcCutC}`
+          );
+        }
+      }
+
+      if (curCol < activeChart.cols - 1) {
+        const diagSrcCell2 = grid[curRow - 1]?.[curCol + 1]?.val;
+        if (diagSrcCell2 && /^\d{2}$/.test(diagSrcCell2)) {
+          const diagSrcC2 = parseInt(diagSrcCell2[1], 10);
+          const diagSrcCutC2 = getCut(diagSrcC2);
+
+          let streakCount2 = 1;
+          for (let s = 2; s <= Math.min(curRow, 4); s++) {
+            const prevSrc = grid[curRow - s]?.[curCol + s]?.val;
+            const prevDst = grid[curRow - s + 1]?.[curCol + s - 1]?.val;
+            if (prevSrc && /^\d{2}$/.test(prevSrc) && prevDst && /^\d{2}$/.test(prevDst)) {
+              if (isDigitEqualOrCut(parseInt(prevSrc[1], 10), parseInt(prevDst[1], 10))) {
+                streakCount2++;
+              } else break;
+            } else break;
+          }
+
+          const streakWeight2 = Math.min(2.5, 1.0 + (streakCount2 - 1) * 0.4);
+
+          addPoints(
+            `*${diagSrcC2}`,
+            Math.round(190 * streakWeight2),
+            activeModel.conditionWeight * 2.4,
+            1.0,
+            `⚔️🔥 [DIAGONAL CROSS CLOSE-SAME] "${diagSrcCell2}" (Row #${curRow}, Col #${curCol + 2}) Close ${diagSrcC2} Crosses Down-Left (Streak x${streakCount2}) → Projects Target Close ${diagSrcC2}`
+          );
+
+          addPoints(
+            `*${diagSrcCutC2}`,
+            Math.round(165 * streakWeight2),
+            activeModel.conditionWeight * 2.1,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS CUT-CLOSE] Crosses Down-Left → Projects Opposite (Cut) Target Close ${diagSrcCutC2}`
+          );
+
+          addPoints(
+            `${diagSrcC2}*`,
+            Math.round(170 * streakWeight2),
+            activeModel.conditionWeight * 2.1,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS OPEN-TRANSPOSITION] Crosses Down-Left → Projects Target Open ${diagSrcC2}`
+          );
+
+          addPoints(
+            `${diagSrcCutC2}*`,
+            Math.round(145 * streakWeight2),
+            activeModel.conditionWeight * 1.8,
+            1.0,
+            `⚔️⚡ [DIAGONAL CROSS CUT-OPEN-TRANSPOSITION] Projects Target Cut Open ${diagSrcCutC2}`
+          );
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
