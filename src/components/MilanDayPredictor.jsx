@@ -2696,8 +2696,8 @@ export const MilanDayPredictor = () => {
               if (o === cutCombinedTotalSum) {
                 addPoints(
                   candJodi,
-                  Math.round(155 * recency * proximityWeight),
-                  activeModel.conditionWeight * 1.8,
+                  Math.round(185 * recency * proximityWeight),
+                  activeModel.conditionWeight * 2.2,
                   recency,
                   `⚡ [TWO-JODI TOTAL-SUM TO CUT OPEN] Row #${pR + 1} "${cell1}" + "${cell2}" Total Sum = ${combinedTotalSum} → Projects Opposite (Cut) Target Open ${cutCombinedTotalSum}`
                 );
@@ -2707,8 +2707,8 @@ export const MilanDayPredictor = () => {
               if (o === combinedTotalSum) {
                 addPoints(
                   candJodi,
-                  Math.round(145 * recency * proximityWeight),
-                  activeModel.conditionWeight * 1.7,
+                  Math.round(175 * recency * proximityWeight),
+                  activeModel.conditionWeight * 2.1,
                   recency,
                   `⚡ [TWO-JODI TOTAL-SUM TO SAME OPEN] Row #${pR + 1} "${cell1}" + "${cell2}" Total Sum = ${combinedTotalSum} → Projects Direct Same Target Open ${combinedTotalSum}`
                 );
