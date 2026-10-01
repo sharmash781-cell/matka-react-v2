@@ -2753,69 +2753,6 @@ export const MilanDayPredictor = () => {
       }
     }
 
-    // --- PASS 39: 2-SET HARMONIC MATRIX ENGINE (HISTORICAL TOTAL TO TARGET OPEN & PRECEDING CLOSE + STEP TO TARGET CLOSE) ---
-    // Specifically targets 2-Set cross-row / cross-column structural relationships matching user examples:
-    // Set 1: 46 (Total 0) -> 11 (Close 1) -> 03 (Open 0 = Total 46, Close 3 = 11 Close + 2 Up)
-    // Set 2: 90 (Total 9) -> 79 (Close 9) -> 91 (Open 9 = Total 90, Close 1 = 79 Close + 2 Up)
-    for (let rBack = 0; rBack <= Math.min(targetRowIdx, 6); rBack++) {
-      const pR = targetRowIdx - rBack;
-      if (!grid[pR]) continue;
-
-      const recency = Math.pow(0.96, rBack);
-      const maxCol = rBack === 0 ? colVal : activeChart.cols;
-
-      for (let cLeft = 0; cLeft < maxCol - 1; cLeft++) {
-        const cellLeft = grid[pR]?.[cLeft]?.val;
-        if (!cellLeft || !/^\d{2}$/.test(cellLeft)) continue;
-
-        const leftOpen = parseInt(cellLeft[0], 10), leftClose = parseInt(cellLeft[1], 10);
-        const leftTotal = (leftOpen + leftClose) % 10;
-        const leftCutTotal = getCut(leftTotal);
-
-        const cPrev = colVal > 0 ? colVal - 1 : (activeChart.cols - 1);
-        const cellPrev = grid[targetRowIdx]?.[cPrev]?.val || grid[pR]?.[maxCol - 1]?.val;
-
-        if (cellPrev && /^\d{2}$/.test(cellPrev)) {
-          const prevClose = parseInt(cellPrev[1], 10);
-          const testSteps = [2, 1, 0, 3, 4, 8, 9];
-
-          testSteps.forEach(step => {
-            const projClose = (prevClose + step) % 10;
-            const projCutClose = getCut(projClose);
-            const isUserPrimary2Up = (step === 2);
-            const stepBonus = isUserPrimary2Up ? 1.3 : 1.0;
-
-            const harmJodiDirect = `${leftTotal}${projClose}`;
-            addPoints(
-              harmJodiDirect,
-              Math.round(200 * recency * stepBonus),
-              activeModel.conditionWeight * 2.5,
-              recency,
-              `🌟🔥 [2-SET HARMONIC COMBINATION PAIR] "${cellLeft}" (Total ${leftTotal}) projects Open ${leftTotal} AND "${cellPrev}" (Close ${prevClose}) + ${step} Up projects Close ${projClose} → Jodi ${harmJodiDirect}`
-            );
-
-            const harmJodiCutClose = `${leftTotal}${projCutClose}`;
-            addPoints(
-              harmJodiCutClose,
-              Math.round(180 * recency * stepBonus),
-              activeModel.conditionWeight * 2.3,
-              recency,
-              `🌟⚡ [2-SET HARMONIC PAIR CUT-CLOSE] Total ${leftTotal} Open + Cut Close ${projCutClose} → Jodi ${harmJodiCutClose}`
-            );
-
-            const harmJodiCutOpen = `${leftCutTotal}${projClose}`;
-            addPoints(
-              harmJodiCutOpen,
-              Math.round(180 * recency * stepBonus),
-              activeModel.conditionWeight * 2.3,
-              recency,
-              `🌟⚡ [2-SET HARMONIC PAIR CUT-OPEN] Cut Open ${leftCutTotal} + Direct Close ${projClose} → Jodi ${harmJodiCutOpen}`
-            );
-          });
-        }
-      }
-    }
-
     // --- PASS 40: DUAL-LOCK CROSS-COLUMN STEPPING ENGINE (FIXED DIGIT LOCK + STEPPING DIGIT SHIFT - SAME & CUT) ---
     // Target user pattern examples from Milan Day chart:
     // Set 1: 00 (Col 1) -> 70 (Col 3)  [Close 0 = Same Close 0, Open 0 -> 3 Down / 7 Up = Open 7]
