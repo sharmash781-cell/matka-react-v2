@@ -2719,6 +2719,87 @@ export const MilanDayPredictor = () => {
       }
     }
 
+    // --- PASS 38: 3-CELL VERTICAL SEQUENCE TRIPLET MATCH SCANNER (SAME & CUT/OPPOSITE) ---
+    // Scans historical 3-cell vertical blocks across all columns.
+    // Matches 2-cell vertical prefixes (Row-2, Row-1) in current column against historical 2-cell prefixes (Same or Cut).
+    // Predicts 3rd Cell (Row 0 Target) Open and Close as Direct (Same) or Opposite (Cut).
+    // User pattern example from Milan Day chart:
+    // Historical block: 43 (Close 3) -> 91 (Close 1) -> 47 (Close 7)  [Sequence: 3 -> 1 -> 7]
+    // Current block:    13 (Close 3) -> 01 (Close 1) -> Target Close 2 [Sequence: 3 -> 1 -> 2 (Cut of 7)]
+    if (targetRowIdx >= 2) {
+      const curCell1 = grid[targetRowIdx - 2]?.[colVal]?.val;
+      const curCell2 = grid[targetRowIdx - 1]?.[colVal]?.val;
+
+      if (curCell1 && /^\d{2}$/.test(curCell1) && curCell2 && /^\d{2}$/.test(curCell2)) {
+        const curO1 = parseInt(curCell1[0], 10), curC1 = parseInt(curCell1[1], 10);
+        const curO2 = parseInt(curCell2[0], 10), curC2 = parseInt(curCell2[1], 10);
+
+        for (let rHist = 0; rHist < targetRowIdx - 2; rHist++) {
+          for (let cHist = 0; cHist < activeChart.cols; cHist++) {
+            const hCell1 = grid[rHist]?.[cHist]?.val;
+            const hCell2 = grid[rHist + 1]?.[cHist]?.val;
+            const hCell3 = grid[rHist + 2]?.[cHist]?.val;
+
+            if (hCell1 && /^\d{2}$/.test(hCell1) && hCell2 && /^\d{2}$/.test(hCell2) && hCell3 && /^\d{2}$/.test(hCell3)) {
+              const hO1 = parseInt(hCell1[0], 10), hC1 = parseInt(hCell1[1], 10);
+              const hO2 = parseInt(hCell2[0], 10), hC2 = parseInt(hCell2[1], 10);
+              const hO3 = parseInt(hCell3[0], 10), hC3 = parseInt(hCell3[1], 10);
+
+              const recency = Math.pow(0.97, (targetRowIdx - rHist) / 5);
+
+              // 1. Close-to-Close Vertical Triplet Match
+              if (isDigitEqualOrCut(curC1, hC1) && isDigitEqualOrCut(curC2, hC2)) {
+                const sameClose = hC3;
+                const cutClose = getCut(hC3);
+
+                for (let o = 0; o <= 9; o++) {
+                  addPoints(
+                    `${o}${sameClose}`,
+                    Math.round(180 * recency),
+                    activeModel.conditionWeight * 2.2,
+                    recency,
+                    `🎯🔥 [3-CELL VERTICAL CLOSE TRIPLET SAME] Historical (${hC1}➔${hC2}➔${hC3}) matches Current (${curC1}➔${curC2}) → Projects Direct Target Close ${sameClose}`
+                  );
+
+                  addPoints(
+                    `${o}${cutClose}`,
+                    Math.round(180 * recency),
+                    activeModel.conditionWeight * 2.2,
+                    recency,
+                    `🎯🔥 [3-CELL VERTICAL CLOSE TRIPLET CUT] Historical (${hC1}➔${hC2}➔${hC3}) matches Current (${curC1}➔${curC2}) → Projects Opposite (Cut) Target Close ${cutClose}`
+                  );
+                }
+              }
+
+              // 2. Open-to-Open Vertical Triplet Match
+              if (isDigitEqualOrCut(curO1, hO1) && isDigitEqualOrCut(curO2, hO2)) {
+                const sameOpen = hO3;
+                const cutOpen = getCut(hO3);
+
+                for (let c = 0; c <= 9; c++) {
+                  addPoints(
+                    `${sameOpen}${c}`,
+                    Math.round(180 * recency),
+                    activeModel.conditionWeight * 2.2,
+                    recency,
+                    `🎯🔥 [3-CELL VERTICAL OPEN TRIPLET SAME] Historical (${hO1}➔${hO2}➔${hO3}) matches Current (${curO1}➔${curO2}) → Projects Direct Target Open ${sameOpen}`
+                  );
+
+                  addPoints(
+                    `${cutOpen}${c}`,
+                    Math.round(180 * recency),
+                    activeModel.conditionWeight * 2.2,
+                    recency,
+                    `🎯🔥 [3-CELL VERTICAL OPEN TRIPLET CUT] Historical (${hO1}➔${hO2}➔${hO3}) matches Current (${curO1}➔${curO2}) → Projects Opposite (Cut) Target Open ${cutOpen}`
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);
