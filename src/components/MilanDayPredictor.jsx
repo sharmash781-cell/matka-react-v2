@@ -2268,9 +2268,9 @@ export const MilanDayPredictor = () => {
       }
     }
 
-    // --- PASS 34: MULTI-STEP CROSS-POSITION EQUAL & CUT TRANSPOSITION TOUCH ENGINE ---
-    // Scans recent vertical & horizontal cells for Open-to-Open, Open-to-Close, Close-to-Open, Close-to-Close Equal & Cut matches
-    for (let rBack = 1; rBack <= 8; rBack++) {
+    // --- PASS 34: RECENT CELL EQUAL & CUT TRANSPOSITION TOUCH ENGINE (OPTIMIZED, UNBIASED) ---
+    // Evaluates recent vertical & horizontal cells for targeted Equal & Cut matches using direct digit indexing.
+    for (let rBack = 1; rBack <= Math.min(targetRowIdx, 6); rBack++) {
       const pR = targetRowIdx - rBack;
       if (pR >= 0 && grid[pR]) {
         for (let c = 0; c < activeChart.cols; c++) {
@@ -2282,59 +2282,12 @@ export const MilanDayPredictor = () => {
             const cutC = getCut(pC);
             const recency = Math.pow(0.96, rBack);
 
-            for (let o = 0; o <= 9; o++) {
-              for (let closeD = 0; closeD <= 9; closeD++) {
-                const candJodi = `${o}${closeD}`;
+            // Targeted Open and Close points without 100-jodi nested flushes
+            addPoints(`*${pC}`, Math.round(45 * recency), activeModel.conditionWeight * 1.3, recency, `🎯 [RECENT CLOSE EQUAL] Row #${pR + 1} Col #${c + 1} Close ${pC} → Target Close ${pC}`);
+            addPoints(`*${cutC}`, Math.round(35 * recency), activeModel.conditionWeight * 1.1, recency, `🎯 [RECENT CLOSE CUT] Row #${pR + 1} Col #${c + 1} Cut Close ${cutC} → Target Close ${cutC}`);
 
-                // 1. Close-to-Close Equal & Cut (e.g. Close 1 in Thu matches Close 1 in Mon, or Close 6 cut=1)
-                if (closeD === pC || closeD === cutC) {
-                  const label = closeD === pC ? 'Equal' : 'Cut';
-                  addPoints(
-                    candJodi,
-                    Math.round(45 * recency),
-                    activeModel.conditionWeight * 1.3,
-                    recency,
-                    `🎯 [MULTI-STEP CLOSE-TO-CLOSE ${label.toUpperCase()}] Row #${pR + 1} Col #${c + 1} Jodi "${val}" Close ${pC} projects ${label} Target Close ${closeD}`
-                  );
-                }
-
-                // 2. Open-to-Open Equal & Cut
-                if (o === pO || o === cutO) {
-                  const label = o === pO ? 'Equal' : 'Cut';
-                  addPoints(
-                    candJodi,
-                    Math.round(45 * recency),
-                    activeModel.conditionWeight * 1.3,
-                    recency,
-                    `🎯 [MULTI-STEP OPEN-TO-OPEN ${label.toUpperCase()}] Row #${pR + 1} Col #${c + 1} Jodi "${val}" Open ${pO} projects ${label} Target Open ${o}`
-                  );
-                }
-
-                // 3. Open-to-Close Transposition (Open of historical Jodi becomes candidate Close)
-                if (closeD === pO || closeD === cutO) {
-                  const label = closeD === pO ? 'Equal' : 'Cut';
-                  addPoints(
-                    candJodi,
-                    Math.round(40 * recency),
-                    activeModel.conditionWeight * 1.2,
-                    recency,
-                    `🔄 [MULTI-STEP OPEN-TO-CLOSE ${label.toUpperCase()} TRANSPOSITION] Row #${pR + 1} Col #${c + 1} Open ${pO} transposes to ${label} Target Close ${closeD}`
-                  );
-                }
-
-                // 4. Close-to-Open Transposition (Close of historical Jodi becomes candidate Open)
-                if (o === pC || o === cutC) {
-                  const label = o === pC ? 'Equal' : 'Cut';
-                  addPoints(
-                    candJodi,
-                    Math.round(40 * recency),
-                    activeModel.conditionWeight * 1.2,
-                    recency,
-                    `🔄 [MULTI-STEP CLOSE-TO-OPEN ${label.toUpperCase()} TRANSPOSITION] Row #${pR + 1} Col #${c + 1} Close ${pC} transposes to ${label} Target Open ${o}`
-                  );
-                }
-              }
-            }
+            addPoints(`${pO}*`, Math.round(45 * recency), activeModel.conditionWeight * 1.3, recency, `🎯 [RECENT OPEN EQUAL] Row #${pR + 1} Col #${c + 1} Open ${pO} → Target Open ${pO}`);
+            addPoints(`${cutO}*`, Math.round(35 * recency), activeModel.conditionWeight * 1.1, recency, `🎯 [RECENT OPEN CUT] Row #${pR + 1} Col #${c + 1} Cut Open ${cutO} → Target Open ${cutO}`);
           }
         }
       }
