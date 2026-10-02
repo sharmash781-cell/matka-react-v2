@@ -2510,8 +2510,10 @@ export const SitaNightPredictor = () => {
           const leftTotal = (lO + lC) % 10;
           const leftCutTotal = getCut(leftTotal);
 
-          // Calculate historical streak for Left-Total -> Target-Close match line
-          let streakCount = 0;
+          // Separately calculate historical streaks for Direct Same Total vs Cut Total matches
+          let directStreakCount = 0;
+          let cutStreakCount = 0;
+
           for (let rBack = 1; rBack <= 5; rBack++) {
             const hR = targetRowIdx - rBack;
             if (hR >= 0 && grid[hR]?.[cLeft]?.val && grid[hR]?.[colVal]?.val) {
@@ -2520,8 +2522,10 @@ export const SitaNightPredictor = () => {
               if (/^\d{2}$/.test(hL) && /^\d{2}$/.test(hTarget)) {
                 const hLTot = (parseInt(hL[0], 10) + parseInt(hL[1], 10)) % 10;
                 const hTClose = parseInt(hTarget[1], 10);
-                if (hTClose === hLTot || hTClose === getCut(hLTot)) {
-                  streakCount++;
+                if (hTClose === hLTot) {
+                  directStreakCount++;
+                } else if (hTClose === getCut(hLTot)) {
+                  cutStreakCount++;
                 } else {
                   break;
                 }
@@ -2529,25 +2533,26 @@ export const SitaNightPredictor = () => {
             }
           }
 
-          const streakBonus = streakCount * 35; // 3x = +105, 4x = +140, 5x = +175!
+          const directBonus = directStreakCount * 45;
+          const cutBonus = cutStreakCount * 25;
 
           for (let o = 0; o <= 9; o++) {
-            // Direct Same Total -> Target Close
+            // Direct Same Total -> Target Close (Primary Weight: 240 pts)
             addPoints(
               `${o}${leftTotal}`,
-              195 + streakBonus,
-              activeModel.rowWeight * 2.3,
+              240 + directBonus,
+              activeModel.rowWeight * 2.5,
               1.0,
-              `✨🔥 [SITA NIGHT LEFT-JODI TOTAL TO SAME CLOSE] Left cell "${leftVal}" Total = ${leftTotal} → Projects Direct Target Close ${leftTotal}${streakCount >= 3 ? ` (🔥 ${streakCount}-Row Pattern Streak Bonus +${streakBonus} pts!)` : ''}`
+              `✨🔥 [SITA NIGHT LEFT-JODI TOTAL TO SAME CLOSE] Left cell "${leftVal}" Total = ${leftTotal} → Projects Direct Target Close ${leftTotal}${directStreakCount >= 2 ? ` (🔥 ${directStreakCount}-Row Direct Streak Bonus +${directBonus} pts!)` : ''}`
             );
 
-            // Cut Total -> Target Close
+            // Cut Total -> Target Close (Secondary Weight: 100 pts)
             addPoints(
               `${o}${leftCutTotal}`,
-              180 + streakBonus,
-              activeModel.rowWeight * 2.1,
-              1.0,
-              `✨🔥 [SITA NIGHT LEFT-JODI TOTAL TO CUT CLOSE] Left cell "${leftVal}" Total = ${leftTotal} (Cut=${leftCutTotal}) → Projects Opposite/Cut Target Close ${leftCutTotal}${streakCount >= 3 ? ` (🔥 ${streakCount}-Row Pattern Streak Bonus +${streakBonus} pts!)` : ''}`
+              100 + cutBonus,
+              activeModel.rowWeight * 1.5,
+              0.95,
+              `✨⚡ [SITA NIGHT LEFT-JODI TOTAL TO CUT CLOSE] Left cell "${leftVal}" Total = ${leftTotal} (Cut=${leftCutTotal}) → Projects Cut Target Close ${leftCutTotal}${cutStreakCount >= 2 ? ` (⚡ ${cutStreakCount}-Row Cut Streak Bonus +${cutBonus} pts!)` : ''}`
             );
           }
         }
