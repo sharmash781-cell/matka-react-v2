@@ -179,6 +179,24 @@ const getInitialCharts = () => {
     ...loadedFromStorage
   };
 
+  // Ensure user's direct custom edits from 'userCustomChartEdits' always take ultimate precedence across all version bumps
+  try {
+    const userEdits = localStorage.getItem('userCustomChartEdits');
+    if (userEdits) {
+      const parsedEdits = JSON.parse(userEdits);
+      if (parsedEdits && typeof parsedEdits === 'object') {
+        Object.keys(parsedEdits).forEach((chartName) => {
+          const cleanName = chartName.trim().toUpperCase();
+          if (!REMOVED_CHARTS.has(cleanName) && !deletedSet.has(cleanName)) {
+            if (parsedEdits[chartName] && parsedEdits[chartName].data) {
+              finalCharts[cleanName] = parsedEdits[chartName];
+            }
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
   REMOVED_CHARTS.forEach((removedName) => {
     delete finalCharts[removedName];
   });
@@ -247,6 +265,7 @@ export const ChartProvider = ({ children }) => {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(charts));
+      localStorage.setItem('userCustomChartEdits', JSON.stringify(charts));
     } catch (e) {}
   }, [charts]);
 
@@ -347,6 +366,7 @@ export const ChartProvider = ({ children }) => {
         POSSIBLE_STORAGE_KEYS.forEach((key) => {
           localStorage.setItem(key, JSON.stringify(updated));
         });
+        localStorage.setItem('userCustomChartEdits', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -443,6 +463,14 @@ export const ChartProvider = ({ children }) => {
             }
           }
         });
+        const userEdits = localStorage.getItem('userCustomChartEdits');
+        if (userEdits) {
+          const parsed = JSON.parse(userEdits);
+          if (parsed && typeof parsed === 'object' && parsed[cleanName]) {
+            delete parsed[cleanName];
+            localStorage.setItem('userCustomChartEdits', JSON.stringify(parsed));
+          }
+        }
       } catch (e) {}
 
       const keys = Object.keys(updated);
