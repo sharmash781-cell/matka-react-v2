@@ -108,9 +108,10 @@ export const BUILTIN_PRESETS_LIBRARY = {
   "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v17';
+const STORAGE_KEY = 'adminPublishedCharts_v18';
 
 const POSSIBLE_STORAGE_KEYS = [
+  'adminPublishedCharts_v18',
   'adminPublishedCharts_v17',
   'adminPublishedCharts_v16',
   'adminPublishedCharts_v15',
