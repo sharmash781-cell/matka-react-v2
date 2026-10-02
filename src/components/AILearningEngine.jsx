@@ -1397,6 +1397,14 @@ export const AILearningEngine = () => {
                   📐 Diagonal Scanner: {showDiagonalScanner ? 'ENABLED' : 'DISABLED'}
                 </button>
                 <button
+                  onClick={() => setShowCustomSumScanner(v => !v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    showCustomSumScanner ? 'bg-pink-950 border-pink-500 text-pink-300' : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  ⚡ Digit-Sum Scanner: {showCustomSumScanner ? 'ENABLED' : 'DISABLED'}
+                </button>
+                <button
                   onClick={() => setShowTotalOpenMatcher(v => !v)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                     showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400'
