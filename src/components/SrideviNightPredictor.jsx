@@ -2587,8 +2587,8 @@ export const SrideviNightPredictor = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">Sridevi Dedicated Predictor Engine</h2>
-              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Sridevi Chart</p>
+              <h2 className="text-2xl font-black text-white">Sridevi Night Dedicated Predictor Engine</h2>
+              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Sridevi Night Chart</p>
             </div>
           </div>
 

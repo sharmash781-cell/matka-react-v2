@@ -2762,7 +2762,8 @@ export const PredictorEngine = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
+              <h2 className="text-2xl font-black text-white">{activeChartName || 'Custom Chart'} Dedicated Predictor Engine</h2>
+              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Dynamic Pattern Matrix Engine for {activeChartName || 'User Chart'}</p>
             </div>
           </div>
 

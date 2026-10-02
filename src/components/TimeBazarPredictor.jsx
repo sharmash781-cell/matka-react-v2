@@ -2812,9 +2812,10 @@ export const TimeBazarPredictor = () => {
             <div className="p-3 bg-pink-500/20 border border-pink-500/30 rounded-2xl">
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
-            <div>
-              <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
-            </div>
+              <div>
+                <h2 className="text-2xl font-black text-white">Time Bazar Dedicated Predictor Engine</h2>
+                <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Time Bazar Chart</p>
+              </div>
           </div>
 
           <div className="flex items-center gap-2 bg-purple-950/60 border border-purple-500/40 px-3.5 py-1.5 rounded-full text-xs font-mono text-purple-300">
