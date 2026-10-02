@@ -8,8 +8,15 @@ const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 const gridData = lines.map((line, rIdx) => {
   const tokens = line.split(/\s+/);
   const row = [];
+  const isLastRow = (rIdx === lines.length - 1);
+
   for (let cIdx = 0; cIdx < 7; cIdx++) {
-    const val = tokens[cIdx] || '**';
+    let val = tokens[cIdx];
+    if (!val) {
+      val = isLastRow ? '' : '**';
+    } else if (val === '**' && isLastRow) {
+      val = '';
+    }
     row.push({ r: rIdx, c: cIdx, val });
   }
   return row;
@@ -25,4 +32,4 @@ const preset = {
 
 const outputPath = path.join(__dirname, 'sita_night_preset.json');
 fs.writeFileSync(outputPath, JSON.stringify(preset, null, 2));
-console.log(`Successfully generated SITA NIGHT preset with ${gridData.length} rows and 7 columns!`);
+console.log(`Successfully generated SITA NIGHT preset with ${gridData.length} rows and 7 columns! Last row trailing cells set to empty!`);

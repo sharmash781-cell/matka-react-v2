@@ -1,48 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useChart, isRedPair, RED_PAIRS } from '../context/ChartContext';
 import { Zap, Trophy, Brain, Sparkles, Play, Clock, Flame, Palette, Link2 } from 'lucide-react';
-import { SrideviPredictor } from './SrideviPredictor';
-import { SrideviNightPredictor } from './SrideviNightPredictor';
-import { SitaNightPredictor } from './SitaNightPredictor';
-import { TimeBazarPredictor } from './TimeBazarPredictor';
-import { MilanDayPredictor } from './MilanDayPredictor';
-import { MilanNightPredictor } from './MilanNightPredictor';
-import { KalyanPredictor } from './KalyanPredictor';
-import { MainBazarPredictor } from './MainBazarPredictor';
 
 const LOOKBACK_WINDOW = 120; // Rolling lookback window for optimal performance
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 
-export const PredictorEngine = () => {
+export const SitaNightPredictor = () => {
   const { charts, activeChartName, setActiveChartName, activeChart, learnedModels, activeModelName, customAIPatterns } = useChart();
-
-  // Route strictly to dedicated isolated predictor components for major market charts
-  const chartNameUpper = (activeChartName || '').trim().toUpperCase();
-
-  if (chartNameUpper.includes('SITA NIGHT')) {
-    return <SitaNightPredictor />;
-  }
-  if (chartNameUpper.includes('SRIDEVI NIGHT')) {
-    return <SrideviNightPredictor />;
-  }
-  if (chartNameUpper.includes('SRIDEVI')) {
-    return <SrideviPredictor />;
-  }
-  if (chartNameUpper === 'TIME BAZAR' || chartNameUpper === 'TIME BAZAAR') {
-    return <TimeBazarPredictor />;
-  }
-  if (chartNameUpper.includes('MILAN DAY')) {
-    return <MilanDayPredictor />;
-  }
-  if (chartNameUpper.includes('MILAN NIGHT')) {
-    return <MilanNightPredictor />;
-  }
-  if (chartNameUpper === 'KALYAN') {
-    return <KalyanPredictor />;
-  }
-  if (chartNameUpper === 'MAIN BAZAR' || chartNameUpper === 'MAIN BAZAAR') {
-    return <MainBazarPredictor />;
-  }
 
   const [targetRow, setTargetRow] = useState(10);
   const [targetCol, setTargetCol] = useState(1);
@@ -463,145 +427,6 @@ export const PredictorEngine = () => {
         }
       }
     });
-
-    // --- PASS 11: CROSS-CHAIN DIGIT HARMONIC SCANNER (Open/Close Same-or-Opposite Linked Sequence) ---
-    // User Pattern Example: 77 (Tue), 73 (Wed), 27 (Thu) vs 32 (Sat w1), 92 (Sat w2), 92 (Sat w3)
-    // Matches 3-step linked sequence patterns where Source Chain digits (Open or Close) match Target Chain digits
-    // either directly (Same, d1 == d2) or via Cut/Opposite (d1 % 5 == d2 % 5).
-    if (grid && grid.length > 0) {
-      const isSameOrCut = (d1, d2) => (d1 % 5) === (d2 % 5);
-      const colsCount = activeChart.cols || 7;
-      const maxLookbackRows = Math.min(grid.length, 35);
-      const startLookbackR = Math.max(0, targetRowIdx - maxLookbackRows);
-
-      // Check for 3-step vertical target chain ending at targetRowIdx in colVal:
-      // Cell B1: targetRowIdx - 2, colVal
-      // Cell B2: targetRowIdx - 1, colVal
-      // Target Cell B3: targetRowIdx, colVal
-      if (targetRowIdx >= 2) {
-        const cellB1 = grid[targetRowIdx - 2] ? grid[targetRowIdx - 2][colVal]?.val : null;
-        const cellB2 = grid[targetRowIdx - 1] ? grid[targetRowIdx - 1][colVal]?.val : null;
-
-        if (cellB1 && /^\d{2}$/.test(cellB1) && cellB2 && /^\d{2}$/.test(cellB2)) {
-          const oB1 = parseInt(cellB1[0], 10), cB1 = parseInt(cellB1[1], 10);
-          const oB2 = parseInt(cellB2[0], 10), cB2 = parseInt(cellB2[1], 10);
-
-          // Scan all horizontal 3-cell source chains (A1, A2, A3) across past rows
-          for (let rSrc = startLookbackR; rSrc < targetRowIdx; rSrc++) {
-            if (!grid[rSrc]) continue;
-
-            for (let cSrc = 0; cSrc <= colsCount - 3; cSrc++) {
-              const cellA1 = grid[rSrc][cSrc]?.val;
-              const cellA2 = grid[rSrc][cSrc + 1]?.val;
-              const cellA3 = grid[rSrc][cSrc + 2]?.val;
-
-              if (!cellA1 || !/^\d{2}$/.test(cellA1) ||
-                  !cellA2 || !/^\d{2}$/.test(cellA2) ||
-                  !cellA3 || !/^\d{2}$/.test(cellA3)) continue;
-
-              const oA1 = parseInt(cellA1[0], 10), cA1 = parseInt(cellA1[1], 10);
-              const oA2 = parseInt(cellA2[0], 10), cA2 = parseInt(cellA2[1], 10);
-              const oA3 = parseInt(cellA3[0], 10), cA3 = parseInt(cellA3[1], 10);
-
-              const dayChainStr = `${COL_HEADERS[cSrc] || 'Col'+(cSrc+1)}-${COL_HEADERS[cSrc+1] || 'Col'+(cSrc+2)}-${COL_HEADERS[cSrc+2] || 'Col'+(cSrc+3)}`;
-
-              // MODE 1: Open(A) <-> Close(B) (User's pattern: 77, 73, 27 vs 32, 92 -> target close 2 / 7)
-              if (isSameOrCut(oA1, cB1) && isSameOrCut(oA2, cB2)) {
-                const projClose = oA3;
-                const cutProjClose = (projClose + 5) % 10;
-
-                for (let o = 0; o <= 9; o++) {
-                  addPoints(
-                    `${o}${projClose}`,
-                    55,
-                    activeModel.conditionWeight * 1.3,
-                    1.0,
-                    `🔗 [CROSS-CHAIN HARMONIC] 3-Step Open->Close Chain from Row #${rSrc + 1} (${cellA1}, ${cellA2}, ${cellA3} [${dayChainStr}]) -> Target Close ${projClose}`
-                  );
-                  addPoints(
-                    `${o}${cutProjClose}`,
-                    35,
-                    activeModel.conditionWeight * 1.1,
-                    0.95,
-                    `🔗 [CROSS-CHAIN HARMONIC CUT] Cut-Close ${cutProjClose} derived from 3-Step Open->Close Chain (${cellA3})`
-                  );
-                }
-              }
-
-              // MODE 2: Open(A) <-> Open(B)
-              if (isSameOrCut(oA1, oB1) && isSameOrCut(oA2, oB2)) {
-                const projOpen = oA3;
-                const cutProjOpen = (projOpen + 5) % 10;
-
-                for (let c = 0; c <= 9; c++) {
-                  addPoints(
-                    `${projOpen}${c}`,
-                    55,
-                    activeModel.conditionWeight * 1.3,
-                    1.0,
-                    `🔗 [CROSS-CHAIN HARMONIC] 3-Step Open->Open Chain from Row #${rSrc + 1} (${cellA1}, ${cellA2}, ${cellA3} [${dayChainStr}]) -> Target Open ${projOpen}`
-                  );
-                  addPoints(
-                    `${cutProjOpen}${c}`,
-                    35,
-                    activeModel.conditionWeight * 1.1,
-                    0.95,
-                    `🔗 [CROSS-CHAIN HARMONIC CUT] Cut-Open ${cutProjOpen} derived from 3-Step Open->Open Chain (${cellA3})`
-                  );
-                }
-              }
-
-              // MODE 3: Close(A) <-> Close(B)
-              if (isSameOrCut(cA1, cB1) && isSameOrCut(cA2, cB2)) {
-                const projClose = cA3;
-                const cutProjClose = (projClose + 5) % 10;
-
-                for (let o = 0; o <= 9; o++) {
-                  addPoints(
-                    `${o}${projClose}`,
-                    55,
-                    activeModel.conditionWeight * 1.3,
-                    1.0,
-                    `🔗 [CROSS-CHAIN HARMONIC] 3-Step Close->Close Chain from Row #${rSrc + 1} (${cellA1}, ${cellA2}, ${cellA3} [${dayChainStr}]) -> Target Close ${projClose}`
-                  );
-                  addPoints(
-                    `${o}${cutProjClose}`,
-                    35,
-                    activeModel.conditionWeight * 1.1,
-                    0.95,
-                    `🔗 [CROSS-CHAIN HARMONIC CUT] Cut-Close ${cutProjClose} derived from 3-Step Close->Close Chain (${cellA3})`
-                  );
-                }
-              }
-
-              // MODE 4: Close(A) <-> Open(B)
-              if (isSameOrCut(cA1, oB1) && isSameOrCut(cA2, oB2)) {
-                const projOpen = cA3;
-                const cutProjOpen = (projOpen + 5) % 10;
-
-                for (let c = 0; c <= 9; c++) {
-                  addPoints(
-                    `${projOpen}${c}`,
-                    55,
-                    activeModel.conditionWeight * 1.3,
-                    1.0,
-                    `🔗 [CROSS-CHAIN HARMONIC] 3-Step Close->Open Chain from Row #${rSrc + 1} (${cellA1}, ${cellA2}, ${cellA3} [${dayChainStr}]) -> Target Open ${projOpen}`
-                  );
-                  addPoints(
-                    `${cutProjOpen}${c}`,
-                    35,
-                    activeModel.conditionWeight * 1.1,
-                    0.95,
-                    `🔗 [CROSS-CHAIN HARMONIC CUT] Cut-Open ${cutProjOpen} derived from 3-Step Close->Open Chain (${cellA3})`
-                  );
-                }
-              }
-
-            }
-          }
-        }
-      }
-    }
 
     // --- PASS 6: Rolling Lookback Matrix Scan with Exponential Recency Weighting ---
     for (let r = startRowIdx; r < targetRowIdx; r++) {
@@ -2762,7 +2587,8 @@ export const PredictorEngine = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
+              <h2 className="text-2xl font-black text-white">Sita Night Dedicated Predictor Engine</h2>
+              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Algorithm for Sita Night Chart</p>
             </div>
           </div>
 
