@@ -2320,7 +2320,10 @@ export const AILearningEngine = () => {
               </div>
 
               {/* Scrollable list showing 5-8 items max */}
-              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-950">
+              <div
+                className="space-y-1.5 pr-1.5 scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-slate-950"
+                style={{ maxHeight: '220px', overflowY: 'auto' }}
+              >
                 {activeRules.map((rule) => (
                   <div
                     key={rule.id}
