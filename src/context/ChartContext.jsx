@@ -108,9 +108,10 @@ export const BUILTIN_PRESETS_LIBRARY = {
   "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v18';
+const STORAGE_KEY = 'adminPublishedCharts_v19';
 
 const POSSIBLE_STORAGE_KEYS = [
+  'adminPublishedCharts_v19',
   'adminPublishedCharts_v18',
   'adminPublishedCharts_v17',
   'adminPublishedCharts_v16',
@@ -149,7 +150,7 @@ const getInitialCharts = () => {
     "MAIN BAZAR": mainBazarPreset
   };
 
-  const loadedFromStorage = {};
+  const finalCharts = { ...baseCharts };
 
   POSSIBLE_STORAGE_KEYS.forEach((key) => {
     try {
@@ -157,32 +158,29 @@ const getInitialCharts = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          let dirty = false;
           Object.keys(parsed).forEach((chartName) => {
             const cleanName = chartName.trim().toUpperCase();
-            if (REMOVED_CHARTS.has(cleanName) || deletedSet.has(cleanName)) {
-              delete parsed[chartName];
-              dirty = true;
-            } else {
-              if (!loadedFromStorage[cleanName] && parsed[chartName] && parsed[chartName].data) {
-                loadedFromStorage[cleanName] = parsed[chartName];
+            if (!REMOVED_CHARTS.has(cleanName) && !deletedSet.has(cleanName)) {
+              if (baseCharts[cleanName]) {
+                const storedChart = parsed[chartName];
+                const baseChart = baseCharts[cleanName];
+                const storedTime = new Date(storedChart?.updatedAt || 0).getTime();
+                const baseTime = new Date(baseChart?.updatedAt || 0).getTime();
+                if (storedTime > baseTime && storedChart?.data && storedChart.data.length >= baseChart.data.length) {
+                  finalCharts[cleanName] = storedChart;
+                }
+              } else {
+                if (parsed[chartName] && parsed[chartName].data) {
+                  finalCharts[cleanName] = parsed[chartName];
+                }
               }
             }
           });
-          if (dirty) {
-            localStorage.setItem(key, JSON.stringify(parsed));
-          }
         }
       }
     } catch (e) {}
   });
 
-  const finalCharts = {
-    ...baseCharts,
-    ...loadedFromStorage
-  };
-
-  // Ensure user's direct custom edits from 'userCustomChartEdits' always take ultimate precedence across all version bumps
   try {
     const userEdits = localStorage.getItem('userCustomChartEdits');
     if (userEdits) {
@@ -191,8 +189,18 @@ const getInitialCharts = () => {
         Object.keys(parsedEdits).forEach((chartName) => {
           const cleanName = chartName.trim().toUpperCase();
           if (!REMOVED_CHARTS.has(cleanName) && !deletedSet.has(cleanName)) {
-            if (parsedEdits[chartName] && parsedEdits[chartName].data) {
-              finalCharts[cleanName] = parsedEdits[chartName];
+            if (baseCharts[cleanName]) {
+              const storedChart = parsedEdits[chartName];
+              const baseChart = baseCharts[cleanName];
+              const storedTime = new Date(storedChart?.updatedAt || 0).getTime();
+              const baseTime = new Date(baseChart?.updatedAt || 0).getTime();
+              if (storedTime > baseTime && storedChart?.data && storedChart.data.length >= baseChart.data.length) {
+                finalCharts[cleanName] = storedChart;
+              }
+            } else {
+              if (parsedEdits[chartName] && parsedEdits[chartName].data) {
+                finalCharts[cleanName] = parsedEdits[chartName];
+              }
             }
           }
         });
