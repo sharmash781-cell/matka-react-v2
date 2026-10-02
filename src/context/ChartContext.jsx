@@ -174,8 +174,8 @@ const getInitialCharts = () => {
   });
 
   const finalCharts = {
-    ...loadedFromStorage,
-    ...baseCharts
+    ...baseCharts,
+    ...loadedFromStorage
   };
 
   REMOVED_CHARTS.forEach((removedName) => {
