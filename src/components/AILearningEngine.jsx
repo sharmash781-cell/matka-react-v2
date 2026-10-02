@@ -2304,38 +2304,46 @@ export const AILearningEngine = () => {
           </div>
 
           {activeRules.length > 0 && (
-            <div className="flex items-center justify-between flex-wrap bg-slate-900 border border-slate-800 rounded-xl p-2 gap-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  ACTIVE RULES ({activeRules.length}):
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 space-y-2 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <span className="text-xs text-slate-300 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-pink-400" />
+                  <span>ACTIVE RULES ({activeRules.length})</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">(scrollable)</span>
                 </span>
+                <button
+                  onClick={clearAllRules}
+                  className="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-950/70 border border-red-800 px-2 py-0.5 rounded-md transition active:scale-95"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              {/* Scrollable list showing 5-8 items max */}
+              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-950">
                 {activeRules.map((rule) => (
                   <div
                     key={rule.id}
-                    className={`flex items-center gap-1.5 border ${rule.bg} ${rule.text} text-xs font-black font-mono px-2.5 py-1 rounded-lg shadow-sm`}
+                    className={`flex items-center justify-between gap-2 border ${rule.bg} ${rule.text} text-xs font-bold font-mono px-2.5 py-1.5 rounded-lg shadow-sm hover:border-slate-500 transition`}
                     style={{ borderColor: rule.borderColor }}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full inline-block border border-black/40"
-                      style={{ backgroundColor: rule.color, boxShadow: `0 0 6px ${rule.color}` }}
-                    />
-                    <span>{rule.label}</span>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0 inline-block border border-black/40"
+                        style={{ backgroundColor: rule.color, boxShadow: `0 0 6px ${rule.color}` }}
+                      />
+                      <span className="truncate text-[11px] sm:text-xs">{rule.label}</span>
+                    </div>
                     <button
                       onClick={() => removeRule(rule.id)}
-                      className="ml-1 text-slate-300 hover:text-white hover:bg-black/40 rounded-full p-0.5 transition"
-                      title="Remove filter"
+                      className="text-slate-400 hover:text-white hover:bg-slate-800 rounded-md p-1 transition shrink-0"
+                      title="Remove set"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={clearAllRules}
-                className="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-950/60 border border-red-800/80 px-2 py-0.5 rounded-md transition"
-              >
-                Clear All
-              </button>
             </div>
           )}
 
