@@ -18,7 +18,7 @@ export const PredictorEngine = () => {
   // Route strictly to dedicated isolated predictor components for major market charts
   const chartNameUpper = (activeChartName || '').trim().toUpperCase();
 
-  if (chartNameUpper.includes('SRIDEVI NIGHT')) {
+  if (chartNameUpper.includes('SRIDEVI NIGHT') || chartNameUpper.includes('SITA NIGHT')) {
     return <SrideviNightPredictor />;
   }
   if (chartNameUpper.includes('SRIDEVI')) {
