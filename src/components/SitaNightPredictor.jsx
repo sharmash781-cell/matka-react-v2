@@ -2490,6 +2490,101 @@ export const SitaNightPredictor = () => {
       }
     }
 
+    // --- PASS 38: SITA NIGHT LEFT JODI TOTAL TO TARGET CLOSE ENGINE (SAME & CUT TOTAL WITH STREAK MULTIPLIER) ---
+    // Evaluates Left-Cell (and Previous Row) Jodi Total predicting Target Close (Same Total or Opposite Cut Total).
+    // Pattern example from user Sita Night chart:
+    // 52 (Total 7) -> Right Close 7 (87) [Same Total]
+    // 19 (Total 0) -> Right Close 5 (25) [Cut Total: 0 cut=5]
+    // 81 (Total 9) -> Right Close 4 (34) [Cut Total: 9 cut=4]
+    // 66 (Total 2) -> Right Close 7 (57) [Cut Total: 2 cut=7]
+    // 70 (Total 7) -> Right Close 2 (92) [Cut Total: 7 cut=2]
+    // Streak multiplier: If Left-Total -> Target-Close pattern repeated 3, 4, or 5 consecutive rows, boost weight exponentially!
+
+    if (grid[targetRowIdx]) {
+      // 1. Same-Row Left Cells
+      for (let cLeft = 0; cLeft < colVal; cLeft++) {
+        const leftVal = grid[targetRowIdx][cLeft]?.val;
+        if (leftVal && /^\d{2}$/.test(leftVal)) {
+          const lO = parseInt(leftVal[0], 10);
+          const lC = parseInt(leftVal[1], 10);
+          const leftTotal = (lO + lC) % 10;
+          const leftCutTotal = getCut(leftTotal);
+
+          // Calculate historical streak for Left-Total -> Target-Close match line
+          let streakCount = 0;
+          for (let rBack = 1; rBack <= 5; rBack++) {
+            const hR = targetRowIdx - rBack;
+            if (hR >= 0 && grid[hR]?.[cLeft]?.val && grid[hR]?.[colVal]?.val) {
+              const hL = grid[hR][cLeft].val;
+              const hTarget = grid[hR][colVal].val;
+              if (/^\d{2}$/.test(hL) && /^\d{2}$/.test(hTarget)) {
+                const hLTot = (parseInt(hL[0], 10) + parseInt(hL[1], 10)) % 10;
+                const hTClose = parseInt(hTarget[1], 10);
+                if (hTClose === hLTot || hTClose === getCut(hLTot)) {
+                  streakCount++;
+                } else {
+                  break;
+                }
+              }
+            }
+          }
+
+          const streakBonus = streakCount * 35; // 3x = +105, 4x = +140, 5x = +175!
+
+          for (let o = 0; o <= 9; o++) {
+            // Direct Same Total -> Target Close
+            addPoints(
+              `${o}${leftTotal}`,
+              195 + streakBonus,
+              activeModel.rowWeight * 2.3,
+              1.0,
+              `✨🔥 [SITA NIGHT LEFT-JODI TOTAL TO SAME CLOSE] Left cell "${leftVal}" Total = ${leftTotal} → Projects Direct Target Close ${leftTotal}${streakCount >= 3 ? ` (🔥 ${streakCount}-Row Pattern Streak Bonus +${streakBonus} pts!)` : ''}`
+            );
+
+            // Cut Total -> Target Close
+            addPoints(
+              `${o}${leftCutTotal}`,
+              180 + streakBonus,
+              activeModel.rowWeight * 2.1,
+              1.0,
+              `✨🔥 [SITA NIGHT LEFT-JODI TOTAL TO CUT CLOSE] Left cell "${leftVal}" Total = ${leftTotal} (Cut=${leftCutTotal}) → Projects Opposite/Cut Target Close ${leftCutTotal}${streakCount >= 3 ? ` (🔥 ${streakCount}-Row Pattern Streak Bonus +${streakBonus} pts!)` : ''}`
+            );
+          }
+        }
+      }
+
+      // 2. Previous-Row Left & Same-Column Cells (Vertical Total to Close)
+      if (targetRowIdx >= 1) {
+        for (let cCheck = 0; cCheck <= colVal; cCheck++) {
+          const prevVal = grid[targetRowIdx - 1]?.[cCheck]?.val;
+          if (prevVal && /^\d{2}$/.test(prevVal)) {
+            const pO = parseInt(prevVal[0], 10);
+            const pC = parseInt(prevVal[1], 10);
+            const pTotal = (pO + pC) % 10;
+            const pCutTotal = getCut(pTotal);
+
+            for (let o = 0; o <= 9; o++) {
+              addPoints(
+                `${o}${pTotal}`,
+                165,
+                activeModel.columnWeight * 1.8,
+                0.96,
+                `✨⚡ [PREV-ROW JODI TOTAL TO SAME CLOSE] Row #${targetRowIdx} Col #${cCheck + 1} "${prevVal}" Total ${pTotal} → Projects Target Close ${pTotal}`
+              );
+
+              addPoints(
+                `${o}${pCutTotal}`,
+                150,
+                activeModel.columnWeight * 1.6,
+                0.96,
+                `✨⚡ [PREV-ROW JODI TOTAL TO CUT CLOSE] Row #${targetRowIdx} Col #${cCheck + 1} "${prevVal}" Total ${pTotal} (Cut=${pCutTotal}) → Projects Cut Target Close ${pCutTotal}`
+              );
+            }
+          }
+        }
+      }
+    }
+
     // Calculate aggregated probabilities for Open, Close, and Total digits
     const openScores = Array(10).fill(0);
     const closeScores = Array(10).fill(0);

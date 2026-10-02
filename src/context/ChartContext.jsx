@@ -132,7 +132,7 @@ const POSSIBLE_STORAGE_KEYS = [
 
 const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
-const CURRENT_PRESET_BUILD_VERSION = 'v25_20261002_predictor_headers_aligned';
+const CURRENT_PRESET_BUILD_VERSION = 'v26_20261002_chart_persistence_trash_sita_pattern';
 
 const getInitialCharts = () => {
   try {
@@ -141,7 +141,7 @@ const getInitialCharts = () => {
       POSSIBLE_STORAGE_KEYS.forEach(key => {
         try { localStorage.removeItem(key); } catch (e) {}
       });
-      try { localStorage.removeItem('userCustomChartEdits'); } catch (e) {}
+      // NOTE: Do NOT remove userCustomChartEdits or userCreatedCustomCharts to preserve user charts!
       try { localStorage.setItem('matka_preset_build_version', CURRENT_PRESET_BUILD_VERSION); } catch (e) {}
     }
   } catch (e) {}
@@ -199,6 +199,25 @@ const getInitialCharts = () => {
     } catch (e) {}
   });
 
+  // Permanently load user created custom charts
+  try {
+    const userCreated = localStorage.getItem('userCreatedCustomCharts');
+    if (userCreated) {
+      const parsedCreated = JSON.parse(userCreated);
+      if (parsedCreated && typeof parsedCreated === 'object') {
+        Object.keys(parsedCreated).forEach((chartName) => {
+          const cleanName = chartName.trim().toUpperCase();
+          if (!REMOVED_CHARTS.has(cleanName) && !deletedSet.has(cleanName)) {
+            if (parsedCreated[chartName] && parsedCreated[chartName].data) {
+              finalCharts[cleanName] = parsedCreated[chartName];
+            }
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
+  // Load custom chart edits
   try {
     const userEdits = localStorage.getItem('userCustomChartEdits');
     if (userEdits) {
@@ -379,23 +398,34 @@ export const ChartProvider = ({ children }) => {
 
     setCharts((prevCharts) => {
       const existing = prevCharts[cleanName] || {};
+      const updatedObj = {
+        ...existing,
+        name: cleanName,
+        rows: finalRows,
+        cols: finalCols,
+        chartType: isPanaType ? 'pana' : (chartType || 'jodi'),
+        updatedAt: new Date().toISOString(),
+        data: data || [],
+        dates: (dates && dates.length > 0) ? dates : (existing.dates || []),
+        isUserCreated: !BUILTIN_PRESETS_LIBRARY[cleanName]
+      };
       const updated = {
         ...prevCharts,
-        [cleanName]: {
-          ...existing,
-          rows: finalRows,
-          cols: finalCols,
-          chartType: isPanaType ? 'pana' : (chartType || 'jodi'),
-          updatedAt: new Date().toISOString(),
-          data: data || [],
-          dates: (dates && dates.length > 0) ? dates : (existing.dates || [])
-        }
+        [cleanName]: updatedObj
       };
       try {
         POSSIBLE_STORAGE_KEYS.forEach((key) => {
           localStorage.setItem(key, JSON.stringify(updated));
         });
         localStorage.setItem('userCustomChartEdits', JSON.stringify(updated));
+
+        // Persist non-builtin custom user charts permanently
+        if (!BUILTIN_PRESETS_LIBRARY[cleanName]) {
+          const uSaved = localStorage.getItem('userCreatedCustomCharts');
+          const uObj = uSaved ? JSON.parse(uSaved) : {};
+          uObj[cleanName] = updatedObj;
+          localStorage.setItem('userCreatedCustomCharts', JSON.stringify(uObj));
+        }
       } catch (e) {}
       return updated;
     });
