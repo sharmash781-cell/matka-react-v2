@@ -63,8 +63,18 @@ export const AILearningEngine = () => {
   const [isOpenFinderActive, setIsOpenFinderActive] = useState(true);
   const [showTotalOpenMatcher, setShowTotalOpenMatcher] = useState(false);
   const [showDiagonalScanner, setShowDiagonalScanner] = useState(false);
+  const [showCustomSumScanner, setShowCustomSumScanner] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
   const [showLocationList, setShowLocationList] = useState(true);
+
+  // ── CUSTOM DIGIT-SUM TO JODI TOTAL PATTERN SCANNER STATE ────────────────
+  const [customSumFromDay, setCustomSumFromDay] = useState(0); // 0 = Mon
+  const [customSumFromDigit, setCustomSumFromDigit] = useState('open'); // 'open' or 'close'
+  const [customSumToDay, setCustomSumToDay] = useState(2);   // 2 = Wed
+  const [customSumToDigit, setCustomSumToDigit] = useState('open'); // 'open' or 'close'
+  const [customSumWeekGap, setCustomSumWeekGap] = useState(0); // 0 = Same Wk, 1 = +1 Wk, 2 = +2 Wks
+  const [customSumMatchMode, setCustomSumMatchMode] = useState('same'); // 'same', 'opposite', 'both'
+  const [customSumScope, setCustomSumScope] = useState('entire_same_week'); // 'entire_same_week', 'after_to_day', 'next_week', 'after_or_next_week'
 
   // ── DIAGONAL TOTAL + OPEN PATTERN SCANNER STATE ───────────────────────────
   const [diagFromDay, setDiagFromDay] = useState(1); // 1 = Tue (e.g. 70)
@@ -761,6 +771,176 @@ export const AILearningEngine = () => {
     setScanSummary({ count: occurrences.length, label: patternTitle, occurrences });
   }, [grid, totOpenFromDay, totOpenToDay, totOpenMode, totOpenWeekGap, totTargetScope, colsInput]);
 
+  // ── CUSTOM DIGIT-SUM TO JODI TOTAL PATTERN SCANNER (MULTI-COLOR SETS) ────
+  const runCustomDigitSumScan = useCallback(() => {
+    if (!grid || grid.length === 0) return;
+
+    const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const occurrences = [];
+    const fromCol = customSumFromDay;
+    const toCol = customSumToDay;
+
+    const DISTINCT_PALETTE = [
+      { color: '#059669', bgHex: '#6ee7b7', border: '#047857', badge: 'bg-emerald-500 text-slate-950 border-emerald-300' }, // Mint Green
+      { color: '#db2777', bgHex: '#f472b6', border: '#be185d', badge: 'bg-pink-500 text-white border-pink-300' },          // Vibrant Pink
+      { color: '#4f46e5', bgHex: '#a5b4fc', border: '#3730a3', badge: 'bg-indigo-500 text-white border-indigo-300' },     // Indigo Blue
+      { color: '#d97706', bgHex: '#fcd34d', border: '#b45309', badge: 'bg-amber-500 text-slate-950 border-amber-300' },     // Soft Amber
+      { color: '#0891b2', bgHex: '#67e8f9', border: '#0e7490', badge: 'bg-cyan-500 text-slate-950 border-cyan-300' },        // Light Cyan
+      { color: '#9333ea', bgHex: '#c084fc', border: '#7e22ce', badge: 'bg-purple-500 text-white border-purple-300' },      // Soft Purple
+      { color: '#ea580c', bgHex: '#fb923c', border: '#c2410c', badge: 'bg-orange-500 text-slate-950 border-orange-300' },    // Soft Orange
+      { color: '#0d9488', bgHex: '#5eead4', border: '#0f766e', badge: 'bg-teal-500 text-slate-950 border-teal-300' },        // Soft Teal
+      { color: '#7c3aed', bgHex: '#a78bfa', border: '#5b21b6', badge: 'bg-violet-500 text-white border-violet-300' },      // Soft Violet
+      { color: '#ca8a04', bgHex: '#fde047', border: '#854d0e', badge: 'bg-yellow-500 text-slate-950 border-yellow-300' }   // Soft Yellow
+    ];
+
+    for (let r = 0; r < grid.length; r++) {
+      const cell1Val = grid[r]?.[fromCol]?.val || '';
+
+      const rowGapVal = typeof customSumWeekGap === 'number' ? customSumWeekGap : (parseInt(customSumWeekGap, 10) || 0);
+      const r2 = r + rowGapVal;
+      if (r2 >= grid.length) continue;
+
+      const cell2Val = grid[r2]?.[toCol]?.val || '';
+      if (!cell1Val || !cell2Val || !/^\d{2}$/.test(cell1Val) || !/^\d{2}$/.test(cell2Val)) continue;
+
+      const d1 = customSumFromDigit === 'open' ? parseInt(cell1Val[0], 10) : parseInt(cell1Val[1], 10);
+      const d2 = customSumToDigit === 'open' ? parseInt(cell2Val[0], 10) : parseInt(cell2Val[1], 10);
+      if (isNaN(d1) || isNaN(d2)) continue;
+
+      const sumVal = (d1 + d2) % 10;
+      const cutVal = (sumVal + 5) % 10;
+
+      const matchingTotalCells = [];
+
+      const checkCellForMatch = (rowIdx, colIdx) => {
+        if (rowIdx >= grid.length) return;
+        if (rowIdx === r && colIdx === fromCol) return;
+        if (rowIdx === r2 && colIdx === toCol) return;
+
+        const val = grid[rowIdx]?.[colIdx]?.val || '';
+        if (val && /^\d{2}$/.test(val)) {
+          const tot = (parseInt(val[0], 10) + parseInt(val[1], 10)) % 10;
+          let isMatch = false;
+          let matchLabel = '';
+
+          if (customSumMatchMode === 'same' && tot === sumVal) {
+            isMatch = true;
+            matchLabel = `Tot ${tot}`;
+          } else if (customSumMatchMode === 'opposite' && tot === cutVal) {
+            isMatch = true;
+            matchLabel = `CutTot ${tot}`;
+          } else if (customSumMatchMode === 'both') {
+            if (tot === sumVal) {
+              isMatch = true;
+              matchLabel = `Tot ${tot}`;
+            } else if (tot === cutVal) {
+              isMatch = true;
+              matchLabel = `CutTot ${tot}`;
+            }
+          }
+
+          if (isMatch) {
+            matchingTotalCells.push({ r: rowIdx, c: colIdx, badgeVal: matchLabel, cellVal: val, total: tot });
+          }
+        }
+      };
+
+      if (customSumScope === 'entire_same_week') {
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
+        }
+      } else if (customSumScope === 'after_to_day') {
+        for (let c = toCol + 1; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
+        }
+      } else if (customSumScope === 'next_week') {
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2 + 1, c);
+        }
+      } else if (customSumScope === 'after_or_next_week') {
+        for (let c = toCol + 1; c < colsInput; c++) {
+          checkCellForMatch(r2, c);
+        }
+        for (let c = 0; c < colsInput; c++) {
+          checkCellForMatch(r2 + 1, c);
+        }
+      }
+
+      if (matchingTotalCells.length > 0) {
+        occurrences.push({
+          row1: r,
+          col1: fromCol,
+          val1: cell1Val,
+          d1,
+          row2: r2,
+          col2: toCol,
+          val2: cell2Val,
+          d2,
+          sumVal,
+          cutVal,
+          extraCells: matchingTotalCells
+        });
+      }
+    }
+
+    if (occurrences.length === 0) {
+      setScanSummary({ count: 0, label: 'No Digit-Sum Total occurrences found on chart.' });
+      return;
+    }
+
+    const setRules = occurrences.map((occ, idx) => {
+      const p = DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length];
+      const fromDName = customSumFromDigit === 'open' ? 'Open' : 'Close';
+      const toDName = customSumToDigit === 'open' ? 'Open' : 'Close';
+
+      const setCells = [
+        { r: occ.row1, c: occ.col1, color: p.color, bgHex: p.bgHex, borderColor: p.border, occIdx: idx },
+        { r: occ.row2, c: occ.col2, color: p.color, bgHex: p.bgHex, borderColor: p.border, occIdx: idx },
+        ...occ.extraCells.map(ec => ({
+          r: ec.r,
+          c: ec.c,
+          color: p.color,
+          bgHex: p.bgHex,
+          borderColor: p.border,
+          occIdx: idx,
+          badgeVal: ec.badgeVal
+        }))
+      ];
+
+      return {
+        id: `custom_sum_set_${idx}_${Date.now()}`,
+        label: `Set #${idx + 1}: ${DAY_LABELS[fromCol]} ${occ.val1}[${fromDName} ${occ.d1}] + ${DAY_LABELS[toCol]} ${occ.val2}[${toDName} ${occ.d2}] = Sum ${occ.sumVal} → (${occ.extraCells.length}x Total Match)`,
+        color: p.color,
+        borderColor: p.border,
+        bg: 'bg-slate-900',
+        text: 'text-slate-100',
+        cells: setCells,
+        occIdx: idx
+      };
+    });
+
+    setActiveRules(setRules);
+    const fromDName = customSumFromDigit === 'open' ? 'Open' : 'Close';
+    const toDName = customSumToDigit === 'open' ? 'Open' : 'Close';
+    const matchTypeName = customSumMatchMode === 'same' ? 'Same Total' : customSumMatchMode === 'opposite' ? 'Opposite Cut Total' : 'Same & Cut Total';
+
+    setScanSummary({
+      count: occurrences.length,
+      label: `Digit-Sum (${DAY_LABELS[fromCol]} ${fromDName} + ${DAY_LABELS[toCol]} ${toDName}) → ${matchTypeName} (${occurrences.length} Sets Found)`,
+      occurrences: occurrences.map((occ, idx) => ({
+        ...occ,
+        occIdx: idx,
+        palette: DISTINCT_PALETTE[idx % DISTINCT_PALETTE.length]
+      }))
+    });
+
+    const lastOccIdx = occurrences.length - 1;
+    setHoveredOccIdx(lastOccIdx);
+    if (occurrences[lastOccIdx]) {
+      scrollToRowIndex(occurrences[lastOccIdx].row1);
+    }
+  }, [grid, customSumFromDay, customSumFromDigit, customSumToDay, customSumToDigit, customSumWeekGap, customSumMatchMode, customSumScope, colsInput, scrollToRowIndex]);
+
   const removeRule = (ruleId) => {
     setActiveRules(prev => prev.filter(r => r.id !== ruleId));
   };
@@ -1035,6 +1215,12 @@ export const AILearningEngine = () => {
     }
   }, [showDiagonalScanner, diagFromDay, diagToDay, diagWeekGap, diagDigitChoice, diagCheckDigit, diagPatternFilter, runDiagonalSumScan]);
 
+  useEffect(() => {
+    if (showCustomSumScanner) {
+      runCustomDigitSumScan();
+    }
+  }, [showCustomSumScanner, customSumFromDay, customSumFromDigit, customSumToDay, customSumToDigit, customSumWeekGap, customSumMatchMode, customSumScope, runCustomDigitSumScan]);
+
   const scanCellHighlightMap = useMemo(() => {
     const map = {};
     activeRules.forEach(rule => {
@@ -1137,6 +1323,16 @@ export const AILearningEngine = () => {
               </button>
 
               <button
+                onClick={() => setShowCustomSumScanner(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all duration-200 active:scale-95 border ${
+                  showCustomSumScanner ? 'bg-pink-950 border-pink-500 text-pink-300 ring-2 ring-pink-500/30' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-pink-400 animate-bounce" />
+                <span>DIGIT-SUM SCAN: {showCustomSumScanner ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <button
                 onClick={() => setShowTotalOpenMatcher(v => !v)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all duration-200 active:scale-95 border ${
                   showTotalOpenMatcher ? 'bg-amber-950 border-amber-500 text-amber-300 ring-2 ring-amber-500/30' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
@@ -1228,6 +1424,160 @@ export const AILearningEngine = () => {
             </div>
           )}
         </div>
+
+        {/* CUSTOM DIGIT-SUM TO JODI TOTAL PATTERN SCANNER PANEL */}
+        {showCustomSumScanner && (
+          <div className="bg-slate-950 border-2 border-pink-500/80 text-white rounded-2xl p-3.5 shadow-2xl space-y-3 animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-tr from-pink-600 to-rose-600 p-2 rounded-xl text-white shadow-lg shadow-pink-500/30">
+                  <Zap className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-pink-300">
+                    DIGIT-SUM ➔ JODI TOTAL PATTERN FINDER
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    (From Day Open/Close + To Day Open/Close = Sum) ➔ Highlights matching Jodi Totals in distinct colors per set!
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={runCustomDigitSumScan}
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow-lg hover:shadow-pink-500/40 transition-all active:scale-95"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>RUN PATTERN SCAN</span>
+                </button>
+                <button
+                  onClick={clearAllRules}
+                  className="flex items-center gap-1 bg-rose-950 border border-rose-700 hover:bg-rose-900 text-rose-300 px-2.5 py-1.5 rounded-xl text-xs font-black shadow transition-all active:scale-95"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>CLEAR</span>
+                </button>
+                <button
+                  onClick={() => setShowCustomSumScanner(false)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded-lg"
+                >
+                  Close ✕
+                </button>
+              </div>
+            </div>
+
+            {/* SCANNER CONFIGURATION GRID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 text-xs font-mono">
+              {/* 1. FROM DAY & DIGIT */}
+              <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] text-pink-400 font-black uppercase tracking-wider block">1. From Day &amp; Digit:</span>
+                <div className="space-y-1">
+                  <select
+                    value={customSumFromDay}
+                    onChange={(e) => setCustomSumFromDay(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-950 border border-slate-700 text-pink-300 font-bold p-1 rounded-lg text-xs"
+                  >
+                    {DAY_NAMES_FULL.map((d, i) => (
+                      <option key={i} value={i}>{d} ({COL_HEADERS[i]})</option>
+                    ))}
+                  </select>
+                  <select
+                    value={customSumFromDigit}
+                    onChange={(e) => setCustomSumFromDigit(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-pink-200 font-bold p-1 rounded-lg text-xs"
+                  >
+                    <option value="open">Open Digit (1st Jodi)</option>
+                    <option value="close">Close Digit (1st Jodi)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 2. TO DAY & DIGIT */}
+              <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] text-purple-400 font-black uppercase tracking-wider block">2. To Day &amp; Digit:</span>
+                <div className="space-y-1">
+                  <select
+                    value={customSumToDay}
+                    onChange={(e) => setCustomSumToDay(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-950 border border-slate-700 text-purple-300 font-bold p-1 rounded-lg text-xs"
+                  >
+                    {DAY_NAMES_FULL.map((d, i) => (
+                      <option key={i} value={i}>{d} ({COL_HEADERS[i]})</option>
+                    ))}
+                  </select>
+                  <select
+                    value={customSumToDigit}
+                    onChange={(e) => setCustomSumToDigit(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-purple-200 font-bold p-1 rounded-lg text-xs"
+                  >
+                    <option value="open">Open Digit (2nd Jodi)</option>
+                    <option value="close">Close Digit (2nd Jodi)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. WEEK GAP / SHIFT */}
+              <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider block">3. Week Distance:</span>
+                <div className="flex items-center gap-1 pt-1">
+                  <button
+                    onClick={() => setCustomSumWeekGap(prev => Math.max(0, (typeof prev === 'number' ? prev : parseInt(prev, 10) || 0) - 1))}
+                    className="w-7 h-7 bg-slate-950 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center border border-slate-700 active:scale-95 text-sm"
+                  >
+                    -
+                  </button>
+                  <select
+                    value={customSumWeekGap}
+                    onChange={(e) => setCustomSumWeekGap(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-950 border border-slate-700 text-amber-300 font-bold p-1 rounded-lg text-xs text-center"
+                  >
+                    <option value="0">0 Wks (Same Wk)</option>
+                    <option value="1">+1 Wk (+1 Row)</option>
+                    <option value="2">+2 Wks (+2 Rows)</option>
+                    <option value="3">+3 Wks (+3 Rows)</option>
+                    <option value="4">+4 Wks (+4 Rows)</option>
+                    <option value="5">+5 Wks (+5 Rows)</option>
+                  </select>
+                  <button
+                    onClick={() => setCustomSumWeekGap(prev => (typeof prev === 'number' ? prev : parseInt(prev, 10) || 0) + 1)}
+                    className="w-7 h-7 bg-slate-950 hover:bg-slate-800 text-amber-300 font-black rounded flex items-center justify-center border border-slate-700 active:scale-95 text-sm"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. TOTAL MATCH MODE */}
+              <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] text-cyan-400 font-black uppercase tracking-wider block">4. Total Match Type:</span>
+                <select
+                  value={customSumMatchMode}
+                  onChange={(e) => setCustomSumMatchMode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-cyan-300 font-bold p-1 rounded-lg text-xs mt-1"
+                >
+                  <option value="same">Same Total Only</option>
+                  <option value="opposite">Opposite / Cut Total Only</option>
+                  <option value="both">Both (Same &amp; Cut Total)</option>
+                </select>
+              </div>
+
+              {/* 5. SEARCH SCOPE */}
+              <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] text-emerald-400 font-black uppercase tracking-wider block">5. Search Location:</span>
+                <select
+                  value={customSumScope}
+                  onChange={(e) => setCustomSumScope(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-emerald-300 font-bold p-1 rounded-lg text-xs mt-1"
+                >
+                  <option value="entire_same_week">Entire Same Week (Any Day)</option>
+                  <option value="after_to_day">After To-Day (Remaining Days)</option>
+                  <option value="next_week">Next Week Row (+1 Wk)</option>
+                  <option value="after_or_next_week">After To-Day OR Next Wk</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* OPEN FINDER CONTROL PANEL */}
         {showOpenFinder && (
