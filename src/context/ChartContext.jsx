@@ -127,7 +127,20 @@ const POSSIBLE_STORAGE_KEYS = [
 
 const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
+const CURRENT_PRESET_BUILD_VERSION = 'v20_20261002_49_97';
+
 const getInitialCharts = () => {
+  try {
+    const savedBuildVer = localStorage.getItem('matka_preset_build_version');
+    if (savedBuildVer !== CURRENT_PRESET_BUILD_VERSION) {
+      POSSIBLE_STORAGE_KEYS.forEach(key => {
+        try { localStorage.removeItem(key); } catch (e) {}
+      });
+      try { localStorage.removeItem('userCustomChartEdits'); } catch (e) {}
+      try { localStorage.setItem('matka_preset_build_version', CURRENT_PRESET_BUILD_VERSION); } catch (e) {}
+    }
+  } catch (e) {}
+
   const deletedSet = new Set();
   try {
     const savedDeleted = localStorage.getItem('deletedChartNames');
