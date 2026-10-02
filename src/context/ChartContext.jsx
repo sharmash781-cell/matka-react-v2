@@ -108,9 +108,10 @@ export const BUILTIN_PRESETS_LIBRARY = {
   "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v12';
+const STORAGE_KEY = 'adminPublishedCharts_v13';
 
 const POSSIBLE_STORAGE_KEYS = [
+  'adminPublishedCharts_v13',
   'adminPublishedCharts_v12',
   'adminPublishedCharts_v11',
   'adminPublishedCharts_v10',
@@ -172,8 +173,8 @@ const getInitialCharts = () => {
   });
 
   const finalCharts = {
-    ...baseCharts,
-    ...loadedFromStorage
+    ...loadedFromStorage,
+    ...baseCharts
   };
 
   REMOVED_CHARTS.forEach((removedName) => {
