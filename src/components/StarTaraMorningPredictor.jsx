@@ -5,7 +5,7 @@ import { Zap, Trophy, Brain, Sparkles, Play, Clock, Flame, Palette, Link2 } from
 const LOOKBACK_WINDOW = 120; // Rolling lookback window for optimal performance
 const COL_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Col 8'];
 
-export const SrideviPredictor = () => {
+export const StarTaraMorningPredictor = () => {
   const { charts, activeChartName, setActiveChartName, activeChart, learnedModels, activeModelName, customAIPatterns } = useChart();
 
   const [targetRow, setTargetRow] = useState(10);
@@ -2587,8 +2587,8 @@ export const SrideviPredictor = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">Sridevi Dedicated Predictor Engine</h2>
-              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Sridevi Chart</p>
+              <h2 className="text-2xl font-black text-white">Star Tara Morning Dedicated Predictor Engine</h2>
+              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Isolated Proven Algorithm for Star Tara Morning Chart</p>
             </div>
           </div>
 

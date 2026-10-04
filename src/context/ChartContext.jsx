@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import publishedChartsData from '../data/published_charts.json';
 import srideviPreset from '../data/sridevi_preset.json';
+import starTaraMorningPreset from '../data/star_tara_morning_preset.json';
 
 import mainBazarPreset from '../data/main_bazar_preset.json';
 import milanDayyPreset from '../data/milan_dayy_preset.json';
@@ -17,6 +18,7 @@ const ChartContext = createContext();
 export const RED_PAIRS = { 0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4 };
 
 export const MARKET_ORDER = [
+  "STAR TARA MORNING",
   "SRIDEVI",
   "TIME BAZAR",
   "MILAN DAYY",
@@ -75,6 +77,7 @@ export const calculateDiffTotal = (val) => {
 };
 
 export const DEFAULT_PUBLISHED_CHARTS = {
+  "STAR TARA MORNING": starTaraMorningPreset,
   "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
@@ -86,6 +89,7 @@ export const DEFAULT_PUBLISHED_CHARTS = {
 };
 
 export const DEFAULT_PRESETS = {
+  "STAR TARA MORNING": starTaraMorningPreset,
   "SRIDEVI": srideviPreset,
   "TIME BAZAR": timeBazarPreset,
   "MILAN DAYY": milanDayyPreset,
@@ -97,6 +101,7 @@ export const DEFAULT_PRESETS = {
 };
 
 export const BUILTIN_PRESETS_LIBRARY = {
+  "STAR TARA MORNING": starTaraMorningPreset,
   "SRIDEVI": srideviPreset,
   "SRIDEVI PANEL": srideviPanelPreset,
   "TIME BAZAR": timeBazarPreset,
@@ -108,10 +113,9 @@ export const BUILTIN_PRESETS_LIBRARY = {
   "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v24';
+const STORAGE_KEY = 'adminPublishedCharts_v23';
 
 const POSSIBLE_STORAGE_KEYS = [
-  'adminPublishedCharts_v24',
   'adminPublishedCharts_v23',
   'adminPublishedCharts_v22',
   'adminPublishedCharts_v21',
@@ -132,19 +136,19 @@ const POSSIBLE_STORAGE_KEYS = [
 
 const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
-const CURRENT_PRESET_BUILD_VERSION = 'v26_20261002_chart_persistence_trash_sita_pattern';
+const CURRENT_PRESET_BUILD_VERSION = 'v25_20261004_star_tara_morning_added';
 
 const getInitialCharts = () => {
   try {
     const savedBuildVer = localStorage.getItem('matka_preset_build_version');
     if (savedBuildVer !== CURRENT_PRESET_BUILD_VERSION) {
       POSSIBLE_STORAGE_KEYS.forEach(key => {
-        try { localStorage.removeItem(key); } catch (e) {}
+        try { localStorage.removeItem(key); } catch (e) { }
       });
-      // NOTE: Do NOT remove userCustomChartEdits or userCreatedCustomCharts to preserve user charts!
-      try { localStorage.setItem('matka_preset_build_version', CURRENT_PRESET_BUILD_VERSION); } catch (e) {}
+      try { localStorage.removeItem('userCustomChartEdits'); } catch (e) { }
+      try { localStorage.setItem('matka_preset_build_version', CURRENT_PRESET_BUILD_VERSION); } catch (e) { }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const deletedSet = new Set();
   try {
@@ -155,7 +159,7 @@ const getInitialCharts = () => {
         arr.forEach(n => deletedSet.add(n.trim().toUpperCase()));
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const baseCharts = {
     "SRIDEVI": srideviPreset,
@@ -196,28 +200,9 @@ const getInitialCharts = () => {
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   });
 
-  // Permanently load user created custom charts
-  try {
-    const userCreated = localStorage.getItem('userCreatedCustomCharts');
-    if (userCreated) {
-      const parsedCreated = JSON.parse(userCreated);
-      if (parsedCreated && typeof parsedCreated === 'object') {
-        Object.keys(parsedCreated).forEach((chartName) => {
-          const cleanName = chartName.trim().toUpperCase();
-          if (!REMOVED_CHARTS.has(cleanName) && !deletedSet.has(cleanName)) {
-            if (parsedCreated[chartName] && parsedCreated[chartName].data) {
-              finalCharts[cleanName] = parsedCreated[chartName];
-            }
-          }
-        });
-      }
-    }
-  } catch (e) {}
-
-  // Load custom chart edits
   try {
     const userEdits = localStorage.getItem('userCustomChartEdits');
     if (userEdits) {
@@ -243,7 +228,7 @@ const getInitialCharts = () => {
         });
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   REMOVED_CHARTS.forEach((removedName) => {
     delete finalCharts[removedName];
@@ -268,7 +253,7 @@ export const ChartProvider = ({ children }) => {
   const [learnedModels, setLearnedModels] = useState(() => {
     const saved = localStorage.getItem('matkaLearnedModels');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return {
       "Default_AI_V1": {
@@ -292,7 +277,7 @@ export const ChartProvider = ({ children }) => {
   const [customAIPatterns, setCustomAIPatterns] = useState(() => {
     const saved = localStorage.getItem('matkaCustomAIPatterns');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return [];
   });
@@ -314,7 +299,7 @@ export const ChartProvider = ({ children }) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(charts));
       localStorage.setItem('userCustomChartEdits', JSON.stringify(charts));
-    } catch (e) {}
+    } catch (e) { }
   }, [charts]);
 
   // Sync state when storage changes across windows/tabs
@@ -326,7 +311,7 @@ export const ChartProvider = ({ children }) => {
           if (parsed && typeof parsed === 'object') {
             setCharts(parsed);
           }
-        } catch (err) {}
+        } catch (err) { }
       }
     };
     window.addEventListener('storage', handleStorage);
@@ -351,19 +336,19 @@ export const ChartProvider = ({ children }) => {
           }
         }
       }
-    } catch (err) {}
+    } catch (err) { }
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem('matkaLearnedModels', JSON.stringify(learnedModels));
-    } catch (e) {}
+    } catch (e) { }
   }, [learnedModels]);
 
   useEffect(() => {
     try {
       localStorage.setItem('matkaCustomAIPatterns', JSON.stringify(customAIPatterns));
-    } catch (e) {}
+    } catch (e) { }
   }, [customAIPatterns]);
 
   useEffect(() => {
@@ -372,7 +357,7 @@ export const ChartProvider = ({ children }) => {
         POSSIBLE_STORAGE_KEYS.forEach((key) => {
           localStorage.setItem(key, JSON.stringify(charts));
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [charts]);
 
@@ -394,39 +379,28 @@ export const ChartProvider = ({ children }) => {
           localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     setCharts((prevCharts) => {
       const existing = prevCharts[cleanName] || {};
-      const updatedObj = {
-        ...existing,
-        name: cleanName,
-        rows: finalRows,
-        cols: finalCols,
-        chartType: isPanaType ? 'pana' : (chartType || 'jodi'),
-        updatedAt: new Date().toISOString(),
-        data: data || [],
-        dates: (dates && dates.length > 0) ? dates : (existing.dates || []),
-        isUserCreated: !BUILTIN_PRESETS_LIBRARY[cleanName]
-      };
       const updated = {
         ...prevCharts,
-        [cleanName]: updatedObj
+        [cleanName]: {
+          ...existing,
+          rows: finalRows,
+          cols: finalCols,
+          chartType: isPanaType ? 'pana' : (chartType || 'jodi'),
+          updatedAt: new Date().toISOString(),
+          data: data || [],
+          dates: (dates && dates.length > 0) ? dates : (existing.dates || [])
+        }
       };
       try {
         POSSIBLE_STORAGE_KEYS.forEach((key) => {
           localStorage.setItem(key, JSON.stringify(updated));
         });
         localStorage.setItem('userCustomChartEdits', JSON.stringify(updated));
-
-        // Persist non-builtin custom user charts permanently
-        if (!BUILTIN_PRESETS_LIBRARY[cleanName]) {
-          const uSaved = localStorage.getItem('userCreatedCustomCharts');
-          const uObj = uSaved ? JSON.parse(uSaved) : {};
-          uObj[cleanName] = updatedObj;
-          localStorage.setItem('userCreatedCustomCharts', JSON.stringify(uObj));
-        }
-      } catch (e) {}
+      } catch (e) { }
       return updated;
     });
     setActiveChartName(cleanName);
@@ -435,7 +409,7 @@ export const ChartProvider = ({ children }) => {
   const syncLiveChart = useCallback(async (targetName) => {
     const chartName = (targetName || activeChartName).trim().toUpperCase();
     let syncedData = await fetchLiveChartData(chartName);
-    
+
     // Fallback to built-in default preset if live fetch fails or is offline
     if (!syncedData) {
       const preset = DEFAULT_PRESETS[chartName] || DEFAULT_PRESETS["MAIN BAZAR"];
@@ -454,7 +428,7 @@ export const ChartProvider = ({ children }) => {
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {}
+      } catch (e) { }
       return updated;
     });
     return syncedData;
@@ -467,19 +441,19 @@ export const ChartProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') return parsed;
       }
-    } catch (e) {}
+    } catch (e) { }
     return {};
   });
 
   useEffect(() => {
     try {
       localStorage.setItem('recentlyDeletedCharts', JSON.stringify(recentlyDeleted));
-    } catch (e) {}
+    } catch (e) { }
   }, [recentlyDeleted]);
 
   const deleteChart = useCallback((name) => {
     const cleanName = name.trim().toUpperCase();
-    
+
     setCharts((prevCharts) => {
       const chartToDeleteObj = prevCharts[cleanName];
       if (chartToDeleteObj) {
@@ -493,7 +467,7 @@ export const ChartProvider = ({ children }) => {
           };
           try {
             localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updatedTrash));
-          } catch (e) {}
+          } catch (e) { }
           return updatedTrash;
         });
       }
@@ -508,7 +482,7 @@ export const ChartProvider = ({ children }) => {
         const set = new Set(Array.isArray(arr) ? arr : []);
         set.add(cleanName);
         localStorage.setItem('deletedChartNames', JSON.stringify(Array.from(set)));
-      } catch (e) {}
+      } catch (e) { }
 
       // Purge deleted chart from all storage keys
       try {
@@ -530,7 +504,7 @@ export const ChartProvider = ({ children }) => {
             localStorage.setItem('userCustomChartEdits', JSON.stringify(parsed));
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const keys = Object.keys(updated);
       if (keys.length > 0) {
@@ -559,7 +533,7 @@ export const ChartProvider = ({ children }) => {
     setRecentlyDeleted((prev) => {
       const updated = { ...prev };
       delete updated[cleanName];
-      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch(e){}
+      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch (e) { }
       return updated;
     });
 
@@ -572,7 +546,7 @@ export const ChartProvider = ({ children }) => {
           localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     setActiveChartName(cleanName);
     return true;
@@ -583,7 +557,7 @@ export const ChartProvider = ({ children }) => {
     setRecentlyDeleted((prev) => {
       const updated = { ...prev };
       delete updated[cleanName];
-      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch(e){}
+      try { localStorage.setItem('recentlyDeletedCharts', JSON.stringify(updated)); } catch (e) { }
       return updated;
     });
   }, []);
@@ -611,7 +585,7 @@ export const ChartProvider = ({ children }) => {
           localStorage.setItem('deletedChartNames', JSON.stringify(updatedArr));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     setActiveChartName(cleanName);
     return true;
@@ -622,7 +596,7 @@ export const ChartProvider = ({ children }) => {
     setActiveChartName("MY NEW CHART");
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const clearAllCharts = useCallback(() => {
@@ -632,7 +606,7 @@ export const ChartProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
       localStorage.removeItem('chartHistory');
       localStorage.removeItem('matkaCharts');
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const saveCustomAIPattern = useCallback((pattern) => {
@@ -704,8 +678,8 @@ export const ChartProvider = ({ children }) => {
         if (cell.val && /^\d{2}$/.test(cell.val)) {
           totalCells++;
           if (isRedPair(cell.val)) redPairsCount++;
-          if (r > 0 && chart.data[r-1][c]?.val) {
-            const prevVal = chart.data[r-1][c].val;
+          if (r > 0 && chart.data[r - 1][c]?.val) {
+            const prevVal = chart.data[r - 1][c].val;
             if (calculateCN(prevVal) === calculateTotal(cell.val)) conditionMatches++;
           }
         }

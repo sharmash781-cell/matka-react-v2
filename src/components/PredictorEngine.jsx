@@ -3,6 +3,7 @@ import { useChart, isRedPair, RED_PAIRS } from '../context/ChartContext';
 import { Zap, Trophy, Brain, Sparkles, Play, Clock, Flame, Palette, Link2 } from 'lucide-react';
 import { SrideviPredictor } from './SrideviPredictor';
 import { SrideviNightPredictor } from './SrideviNightPredictor';
+import { StarTaraMorningPredictor } from './StarTaraMorningPredictor';
 import { SitaNightPredictor } from './SitaNightPredictor';
 import { TimeBazarPredictor } from './TimeBazarPredictor';
 import { MilanDayPredictor } from './MilanDayPredictor';
@@ -19,6 +20,9 @@ export const PredictorEngine = () => {
   // Route strictly to dedicated isolated predictor components for major market charts
   const chartNameUpper = (activeChartName || '').trim().toUpperCase();
 
+  if (chartNameUpper.includes('STAR TARA')) {
+    return <StarTaraMorningPredictor />;
+  }
   if (chartNameUpper.includes('SITA NIGHT')) {
     return <SitaNightPredictor />;
   }
@@ -496,14 +500,14 @@ export const PredictorEngine = () => {
               const cellA3 = grid[rSrc][cSrc + 2]?.val;
 
               if (!cellA1 || !/^\d{2}$/.test(cellA1) ||
-                  !cellA2 || !/^\d{2}$/.test(cellA2) ||
-                  !cellA3 || !/^\d{2}$/.test(cellA3)) continue;
+                !cellA2 || !/^\d{2}$/.test(cellA2) ||
+                !cellA3 || !/^\d{2}$/.test(cellA3)) continue;
 
               const oA1 = parseInt(cellA1[0], 10), cA1 = parseInt(cellA1[1], 10);
               const oA2 = parseInt(cellA2[0], 10), cA2 = parseInt(cellA2[1], 10);
               const oA3 = parseInt(cellA3[0], 10), cA3 = parseInt(cellA3[1], 10);
 
-              const dayChainStr = `${COL_HEADERS[cSrc] || 'Col'+(cSrc+1)}-${COL_HEADERS[cSrc+1] || 'Col'+(cSrc+2)}-${COL_HEADERS[cSrc+2] || 'Col'+(cSrc+3)}`;
+              const dayChainStr = `${COL_HEADERS[cSrc] || 'Col' + (cSrc + 1)}-${COL_HEADERS[cSrc + 1] || 'Col' + (cSrc + 2)}-${COL_HEADERS[cSrc + 2] || 'Col' + (cSrc + 3)}`;
 
               // MODE 1: Open(A) <-> Close(B) (User's pattern: 77, 73, 27 vs 32, 92 -> target close 2 / 7)
               if (isSameOrCut(oA1, cB1) && isSameOrCut(oA2, cB2)) {
@@ -2762,8 +2766,7 @@ export const PredictorEngine = () => {
               <Zap className="w-8 h-8 text-pink-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">{activeChartName || 'Custom Chart'} Dedicated Predictor Engine</h2>
-              <p className="text-xs text-amber-400 font-extrabold uppercase tracking-wider mt-0.5">🔒 Dynamic Pattern Matrix Engine for {activeChartName || 'User Chart'}</p>
+              <h2 className="text-2xl font-black text-white">Matka Predictor Engine</h2>
             </div>
           </div>
 
@@ -2890,8 +2893,8 @@ export const PredictorEngine = () => {
                   <div
                     key={jodi}
                     className={`p-4 rounded-2xl border flex flex-col justify-between space-y-2 transition ${index === 0
-                        ? 'bg-gradient-to-b from-pink-950/60 to-purple-950/60 border-pink-500/60 shadow-lg'
-                        : 'bg-slate-900/80 border-slate-800'
+                      ? 'bg-gradient-to-b from-pink-950/60 to-purple-950/60 border-pink-500/60 shadow-lg'
+                      : 'bg-slate-900/80 border-slate-800'
                       }`}
                   >
                     <div className="flex justify-between items-center">
@@ -2987,8 +2990,8 @@ export const PredictorEngine = () => {
                 <button
                   onClick={() => setSelectedJodiFilter('ALL')}
                   className={`px-3 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === 'ALL'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                 >
                   ALL TRACES
@@ -2998,8 +3001,8 @@ export const PredictorEngine = () => {
                     key={jodi}
                     onClick={() => setSelectedJodiFilter(jodi)}
                     className={`px-2.5 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === jodi
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      ? 'bg-pink-500/20 border-pink-500 text-pink-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                   >
                     #{idx + 1} ({jodi})

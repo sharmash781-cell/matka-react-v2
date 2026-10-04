@@ -2715,8 +2715,8 @@ export const SrideviNightPredictor = () => {
                   <div
                     key={jodi}
                     className={`p-4 rounded-2xl border flex flex-col justify-between space-y-2 transition ${index === 0
-                        ? 'bg-gradient-to-b from-pink-950/60 to-purple-950/60 border-pink-500/60 shadow-lg'
-                        : 'bg-slate-900/80 border-slate-800'
+                      ? 'bg-gradient-to-b from-pink-950/60 to-purple-950/60 border-pink-500/60 shadow-lg'
+                      : 'bg-slate-900/80 border-slate-800'
                       }`}
                   >
                     <div className="flex justify-between items-center">
@@ -2812,8 +2812,8 @@ export const SrideviNightPredictor = () => {
                 <button
                   onClick={() => setSelectedJodiFilter('ALL')}
                   className={`px-3 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === 'ALL'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                 >
                   ALL TRACES
@@ -2823,8 +2823,8 @@ export const SrideviNightPredictor = () => {
                     key={jodi}
                     onClick={() => setSelectedJodiFilter(jodi)}
                     className={`px-2.5 py-1 rounded-lg border font-bold transition ${selectedJodiFilter === jodi
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      ? 'bg-pink-500/20 border-pink-500 text-pink-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                   >
                     #{idx + 1} ({jodi})
