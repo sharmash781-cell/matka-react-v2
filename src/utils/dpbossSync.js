@@ -1,4 +1,5 @@
 export const DPBOSS_URL_MAP = {
+  "STAR TARA MORNING": "https://dpboss.tax/jodi-chart-record/star-tara-morning.php",
   "TIME BAZAR": "https://dpboss.tax/jodi-chart-record/time-bazar.php",
   "KALYAN": "https://dpboss.tax/jodi-chart-record/kalyan.php",
   "SRIDEVI NIGHT": "https://dpboss.tax/jodi-chart-record/sridevi-night.php",
@@ -12,6 +13,7 @@ export const DPBOSS_URL_MAP = {
 };
 
 export const GITHUB_RAW_MAP = {
+  "STAR TARA MORNING": "https://raw.githubusercontent.com/sharmash781-cell/matka-react-v2/main/src/data/star_tara_morning_preset.json",
   "KALYAN": "https://raw.githubusercontent.com/sharmash781-cell/matka-react-v2/main/src/data/kalyan_preset.json",
   "MAIN BAZAR": "https://raw.githubusercontent.com/sharmash781-cell/matka-react-v2/main/src/data/main_bazar_preset.json",
   "TIME BAZAR": "https://raw.githubusercontent.com/sharmash781-cell/matka-react-v2/main/src/data/time_bazar_preset.json",
