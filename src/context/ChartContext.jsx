@@ -136,7 +136,7 @@ const POSSIBLE_STORAGE_KEYS = [
 
 const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
-const CURRENT_PRESET_BUILD_VERSION = 'v25_20261004_star_tara_morning_added';
+const CURRENT_PRESET_BUILD_VERSION = 'v26_20261004_star_tara_morning_fix';
 
 const getInitialCharts = () => {
   try {
@@ -162,6 +162,7 @@ const getInitialCharts = () => {
   } catch (e) { }
 
   const baseCharts = {
+    "STAR TARA MORNING": starTaraMorningPreset,
     "SRIDEVI": srideviPreset,
     "TIME BAZAR": timeBazarPreset,
     "MILAN DAYY": milanDayyPreset,
