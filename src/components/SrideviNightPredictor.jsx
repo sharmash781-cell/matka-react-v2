@@ -2490,127 +2490,164 @@ export const SrideviNightPredictor = () => {
       }
     }
 
-    // --- PASS 38: Open-to-Open Same & Opposite Vertical Column Progression Engine ---
-    // Specifically targets 2 consecutive weeks of Open-to-Open Same / Cut relationships in the target column
+    // --- PASS 38: COMPREHENSIVE OPEN/CLOSE TO OPEN/CLOSE VERTICAL SEQUENCE & STREAK ENGINE ---
+    // Scans 2 consecutive weeks of Open/Close digits across ALL positions (Open-to-Open, Close-to-Close, Open-to-Close, Close-to-Open)
+    // Strictly evaluates 2x Same ➔ 3rd Opposite Cut, 2x Cut ➔ Reversal, and Step Progressions for any digit 0-9
     if (targetRowIdx >= 2) {
       const prev1Val = grid[targetRowIdx - 1] ? grid[targetRowIdx - 1][colVal]?.val : null;
       const prev2Val = grid[targetRowIdx - 2] ? grid[targetRowIdx - 2][colVal]?.val : null;
 
       if (prev1Val && /^\d{2}$/.test(prev1Val) && prev2Val && /^\d{2}$/.test(prev2Val)) {
-        const o1 = parseInt(prev1Val[0], 10);
-        const o2 = parseInt(prev2Val[0], 10);
+        const o1 = parseInt(prev1Val[0], 10), c1 = parseInt(prev1Val[1], 10);
+        const o2 = parseInt(prev2Val[0], 10), c2 = parseInt(prev2Val[1], 10);
 
+        // A. OPEN-TO-OPEN STREAKS
         const isSameOpen = (o1 === o2);
         const isCutOpen = (o1 === (o2 + 5) % 10);
 
-        let historicSameToCutHits = 0;
-        let historicSameToSameHits = 0;
-        let historicCutToSameHits = 0;
-        let totalSamePairs = 0;
-        let totalCutPairs = 0;
-
-        // Historic backtest scan on Sridevi Night chart data for column Open-to-Open transitions
-        for (let r = 2; r < targetRowIdx; r++) {
-          const p2 = grid[r - 2]?.[colVal]?.val;
-          const p1 = grid[r - 1]?.[colVal]?.val;
-          const pCur = grid[r]?.[colVal]?.val;
-
-          if (p2 && /^\d{2}$/.test(p2) && p1 && /^\d{2}$/.test(p1) && pCur && /^\d{2}$/.test(pCur)) {
-            const hO2 = parseInt(p2[0], 10);
-            const hO1 = parseInt(p1[0], 10);
-            const hOCur = parseInt(pCur[0], 10);
-
-            if (hO1 === hO2) {
-              totalSamePairs++;
-              if (hOCur === (hO1 + 5) % 10) historicSameToCutHits++;
-              else if (hOCur === hO1) historicSameToSameHits++;
-            } else if (hO1 === (hO2 + 5) % 10) {
-              totalCutPairs++;
-              if (hOCur === hO1 || hOCur === (hO1 + 5) % 10) historicCutToSameHits++;
-            }
-          }
-        }
-
-        // 1. If 2 consecutive Open digits are SAME (e.g. 5 -> 5):
         if (isSameOpen) {
-          const projectedCutOpen = (o1 + 5) % 10;
-          const projectedSameOpen = o1;
-
-          // Highly boost OPPOSITE / CUT Open (User Rule: "first 2 open to open same third may come opposite")
-          const cutBoostWeight = historicSameToCutHits > 0 ? (historicSameToCutHits / Math.max(1, totalSamePairs)) * 2.8 : 2.5;
-          const sameBoostWeight = historicSameToSameHits > 0 ? (historicSameToSameHits / Math.max(1, totalSamePairs)) * 1.8 : 1.5;
-
+          const projCutOpen = (o1 + 5) % 10;
           for (let c = 0; c <= 9; c++) {
-            const cutJodi = `${projectedCutOpen}${c}`;
-            const sameJodi = `${projectedSameOpen}${c}`;
-
             addPoints(
-              cutJodi,
-              220,
-              activeModel.columnWeight * cutBoostWeight,
+              `${projCutOpen}${c}`,
+              225,
+              activeModel.columnWeight * 2.6,
               1.0,
-              `⚡🔥 [OPEN-TO-OPEN STREAK: 2x SAME ➔ OPPOSITE CUT] Past 2 Wks Open ${o2}➔${o1} Same → 3rd Wk projects OPPOSITE Cut Open ${projectedCutOpen} (${historicSameToCutHits}/${totalSamePairs} historic hits)`
+              `⚡🔥 [OPEN-TO-OPEN STREAK: 2x SAME ➔ OPPOSITE CUT] Past 2 Wks Open ${o2}➔${o1} Same → 3rd Wk projects OPPOSITE Cut Open ${projCutOpen}`
             );
-
             addPoints(
-              sameJodi,
+              `${o1}${c}`,
               145,
-              activeModel.columnWeight * sameBoostWeight,
+              activeModel.columnWeight * 1.5,
               1.0,
-              `⚡ [OPEN-TO-OPEN STREAK: 3x SAME CONTINUATION] Past 2 Wks Open ${o2}➔${o1} Same → 3rd Wk projects SAME Open ${projectedSameOpen}`
+              `⚡ [OPEN-TO-OPEN STREAK: 3x SAME CONTINUATION] Past 2 Wks Open ${o2}➔${o1} Same → 3rd Wk projects SAME Open ${o1}`
             );
           }
-        }
-        // 2. If 2 consecutive Open digits are CUT / OPPOSITE (e.g. 5 -> 0):
-        else if (isCutOpen) {
-          const projectedOppositeOpen = o2;
-          const projectedCutOpen = (o1 + 5) % 10;
-
+        } else if (isCutOpen) {
+          const projRevOpen = o2, projCutOpen = (o1 + 5) % 10;
           for (let c = 0; c <= 9; c++) {
-            const jodi1 = `${projectedOppositeOpen}${c}`;
-            const jodi2 = `${projectedCutOpen}${c}`;
-
             addPoints(
-              jodi1,
-              200,
+              `${projRevOpen}${c}`,
+              205,
               activeModel.columnWeight * 2.3,
               1.0,
-              `⚡🔥 [OPEN-TO-OPEN STREAK: CUT REVERSAL] Past 2 Wks Open ${o2}➔${o1} Cut → 3rd Wk projects Reversal Open ${projectedOppositeOpen}`
+              `⚡🔥 [OPEN-TO-OPEN STREAK: CUT REVERSAL] Past 2 Wks Open ${o2}➔${o1} Cut → 3rd Wk projects Reversal Open ${projRevOpen}`
             );
-
             addPoints(
-              jodi2,
+              `${projCutOpen}${c}`,
               160,
               activeModel.columnWeight * 1.8,
               1.0,
-              `⚡ [OPEN-TO-OPEN STREAK: CUT CONTINUATION] Past 2 Wks Open ${o2}➔${o1} Cut → 3rd Wk projects Cut Open ${projectedCutOpen}`
+              `⚡ [OPEN-TO-OPEN STREAK: CUT CONTINUATION] Past 2 Wks Open ${o2}➔${o1} Cut → 3rd Wk projects Cut Open ${projCutOpen}`
             );
           }
-        }
-        // 3. Step Progression (e.g., 5 -> 8 step +3)
-        else {
-          const delta = (o1 - o2 + 10) % 10;
-          const nextStepOpen = (o1 + delta) % 10;
-          const nextStepCutOpen = (nextStepOpen + 5) % 10;
-
+        } else {
+          const deltaO = (o1 - o2 + 10) % 10;
+          const nextOpen = (o1 + deltaO) % 10;
+          const nextCutOpen = (nextOpen + 5) % 10;
           for (let c = 0; c <= 9; c++) {
-            const stepJodi = `${nextStepOpen}${c}`;
-            const stepCutJodi = `${nextStepCutOpen}${c}`;
-
             addPoints(
-              stepJodi,
-              180,
-              activeModel.columnWeight * 2.0,
+              `${nextOpen}${c}`,
+              185,
+              activeModel.columnWeight * 2.1,
               1.0,
-              `📈⚡ [OPEN-TO-OPEN STEP PROGRESSION] Past 2 Wks Open ${o2}➔${o1} (+${delta}) → Projects Direct Open ${nextStepOpen}`
+              `📈⚡ [OPEN-TO-OPEN STEP PROGRESSION] Past 2 Wks Open ${o2}➔${o1} (+${deltaO}) → Projects Direct Open ${nextOpen}`
             );
-
             addPoints(
-              stepCutJodi,
+              `${nextCutOpen}${c}`,
               165,
               activeModel.columnWeight * 1.8,
               1.0,
-              `📈⚡ [OPEN-TO-OPEN STEP OPPOSITE CUT] Past 2 Wks Open ${o2}➔${o1} (+${delta}) → Projects Cut Open ${nextStepCutOpen}`
+              `📈⚡ [OPEN-TO-OPEN STEP OPPOSITE CUT] Past 2 Wks Open ${o2}➔${o1} (+${deltaO}) → Projects Cut Open ${nextCutOpen}`
+            );
+          }
+        }
+
+        // B. CLOSE-TO-CLOSE STREAKS
+        const isSameClose = (c1 === c2);
+        const isCutClose = (c1 === (c2 + 5) % 10);
+
+        if (isSameClose) {
+          const projCutClose = (c1 + 5) % 10;
+          for (let o = 0; o <= 9; o++) {
+            addPoints(
+              `${o}${projCutClose}`,
+              225,
+              activeModel.columnWeight * 2.6,
+              1.0,
+              `⚡🔥 [CLOSE-TO-CLOSE STREAK: 2x SAME ➔ OPPOSITE CUT] Past 2 Wks Close ${c2}➔${c1} Same → 3rd Wk projects OPPOSITE Cut Close ${projCutClose}`
+            );
+            addPoints(
+              `${o}${c1}`,
+              145,
+              activeModel.columnWeight * 1.5,
+              1.0,
+              `⚡ [CLOSE-TO-CLOSE STREAK: 3x SAME CONTINUATION] Past 2 Wks Close ${c2}➔${c1} Same → 3rd Wk projects SAME Close ${c1}`
+            );
+          }
+        } else if (isCutClose) {
+          const projRevClose = c2, projCutClose = (c1 + 5) % 10;
+          for (let o = 0; o <= 9; o++) {
+            addPoints(
+              `${o}${projRevClose}`,
+              205,
+              activeModel.columnWeight * 2.3,
+              1.0,
+              `⚡🔥 [CLOSE-TO-CLOSE STREAK: CUT REVERSAL] Past 2 Wks Close ${c2}➔${c1} Cut → 3rd Wk projects Reversal Close ${projRevClose}`
+            );
+            addPoints(
+              `${o}${projCutClose}`,
+              160,
+              activeModel.columnWeight * 1.8,
+              1.0,
+              `⚡ [CLOSE-TO-CLOSE STREAK: CUT CONTINUATION] Past 2 Wks Close ${c2}➔${c1} Cut → 3rd Wk projects Cut Close ${projCutClose}`
+            );
+          }
+        } else {
+          const deltaC = (c1 - c2 + 10) % 10;
+          const nextClose = (c1 + deltaC) % 10;
+          const nextCutClose = (nextClose + 5) % 10;
+          for (let o = 0; o <= 9; o++) {
+            addPoints(
+              `${o}${nextClose}`,
+              185,
+              activeModel.columnWeight * 2.1,
+              1.0,
+              `📈⚡ [CLOSE-TO-CLOSE STEP PROGRESSION] Past 2 Wks Close ${c2}➔${c1} (+${deltaC}) → Projects Direct Close ${nextClose}`
+            );
+            addPoints(
+              `${o}${nextCutClose}`,
+              165,
+              activeModel.columnWeight * 1.8,
+              1.0,
+              `📈⚡ [CLOSE-TO-CLOSE STEP OPPOSITE CUT] Past 2 Wks Close ${c2}➔${c1} (+${deltaC}) → Projects Cut Close ${nextCutClose}`
+            );
+          }
+        }
+
+        // C. OPEN-TO-CLOSE & CLOSE-TO-OPEN CROSS STREAKS
+        if (c1 === o2 || c1 === (o2 + 5) % 10) {
+          const projCut = (c1 + 5) % 10;
+          for (let o = 0; o <= 9; o++) {
+            addPoints(
+              `${o}${projCut}`,
+              190,
+              activeModel.columnWeight * 2.0,
+              1.0,
+              `🔄⚡ [OPEN-TO-CLOSE CROSS STREAK ➔ OPPOSITE CUT] Wk-2 Open ${o2} & Wk-1 Close ${c1} match → Projects Opposite Cut Close ${projCut}`
+            );
+          }
+        }
+
+        if (o1 === c2 || o1 === (c2 + 5) % 10) {
+          const projCut = (o1 + 5) % 10;
+          for (let c = 0; c <= 9; c++) {
+            addPoints(
+              `${projCut}${c}`,
+              190,
+              activeModel.columnWeight * 2.0,
+              1.0,
+              `🔄⚡ [CLOSE-TO-OPEN CROSS STREAK ➔ OPPOSITE CUT] Wk-2 Close ${c2} & Wk-1 Open ${o1} match → Projects Opposite Cut Open ${projCut}`
             );
           }
         }
