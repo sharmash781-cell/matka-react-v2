@@ -437,16 +437,33 @@ export const ChartEditor = () => {
                 type="text"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value.toUpperCase())}
+                onBlur={() => {
+                  // Auto-save name change on blur
+                  const cleanName = nameInput.trim().toUpperCase() || activeChartName || 'CUSTOM CHART';
+                  if (cleanName !== activeChartName && grid.length > 0) {
+                    saveChart(cleanName, grid.length, parseInt(colsInput) || 7, grid);
+                    setActiveChartName(cleanName);
+                    setSaveSuccessMsg(`✅ Renamed & auto-saved as "${cleanName}"`);
+                    setTimeout(() => setSaveSuccessMsg(''), 2500);
+                  }
+                }}
                 placeholder="ENTER CHART NAME (e.g. KALYAN NIGHT)"
                 className="w-full bg-slate-950 border border-slate-600 text-amber-300 font-black rounded-lg px-3 py-2.5 text-xs outline-none focus:border-amber-400 uppercase tracking-wide box-border"
               />
 
-              <button
-                onClick={handleSave}
-                className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white px-4 py-2.5 rounded-lg text-xs font-black shadow-md active:scale-95 box-border"
-              >
-                <Save className="w-4 h-4" /> 💾 Save Chart to Store & View Card
-              </button>
+              {/* Auto-save indicator — replaces the old Save button */}
+              <div className="w-full flex items-center justify-between bg-emerald-950/40 border border-emerald-500/30 px-3 py-2 rounded-lg text-[11px] font-bold text-emerald-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                  Auto-Saving — every cell update saves instantly
+                </span>
+                <button
+                  onClick={() => setActiveTab('store')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow flex items-center gap-1 transition active:scale-95"
+                >
+                  <Store className="w-3 h-3" /> View Store
+                </button>
+              </div>
             </div>
 
             {/* Load Saved Chart Dropdown & Clear */}

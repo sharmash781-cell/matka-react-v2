@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useChart, sortChartsByMarketTime } from '../context/ChartContext';
-import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X } from 'lucide-react';
+import { useChart, sortChartsByMarketTime, BUILTIN_PRESETS_LIBRARY } from '../context/ChartContext';
+import { Archive, Table, Zap, Brain, Trash2, Hash, PlusCircle, X, Download, CheckCircle, BookOpen } from 'lucide-react';
 
 export const ChartStore = () => {
   const {
@@ -11,7 +11,8 @@ export const ChartStore = () => {
     clearAllCharts,
     setActiveTab,
     saveChart,
-    setShowAdminModal
+    setShowAdminModal,
+    importPresetChart
   } = useChart();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -19,9 +20,14 @@ export const ChartStore = () => {
   const [newCols, setNewCols] = useState(7);
   const [chartToDelete, setChartToDelete] = useState(null);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [loadedMsg, setLoadedMsg] = useState('');
 
   const safeCharts = charts && typeof charts === 'object' ? charts : {};
   const chartKeys = sortChartsByMarketTime(Object.keys(safeCharts));
+
+  // All default preset keys that are NOT yet in the user store
+  const allPresetKeys = sortChartsByMarketTime(Object.keys(BUILTIN_PRESETS_LIBRARY || {}));
+  const defaultOnlyKeys = allPresetKeys.filter(k => !safeCharts[k]);
 
   const handleOpenIn = (chartName, tab) => {
     if (!chartName) return;
@@ -30,19 +36,27 @@ export const ChartStore = () => {
     setActiveTab(targetTab);
   };
 
+  // Auto-save: creates chart immediately when name is typed + Create clicked — no extra save step
   const handleCreateNew = () => {
     const cleanName = newName.trim().toUpperCase();
     if (!cleanName) return;
     const r = Math.max(1, parseInt(newRows) || 500);
     const c = Math.min(8, Math.max(5, parseInt(newCols) || 7));
     const emptyData = Array.from({ length: r }, () => Array.from({ length: c }, () => ({ val: '' })));
-    saveChart(cleanName, r, c, emptyData);
+    saveChart(cleanName, r, c, emptyData); // auto-saved instantly
     setNewName('');
     setNewRows(500);
     setNewCols(7);
     setShowNewForm(false);
     setActiveChartName(cleanName);
     setActiveTab('editor');
+  };
+
+  // Load a default preset chart into the store in one click
+  const handleLoadPreset = (presetName) => {
+    importPresetChart(presetName);
+    setLoadedMsg(`✅ "${presetName}" loaded into your store!`);
+    setTimeout(() => setLoadedMsg(''), 3000);
   };
 
   return (
@@ -120,6 +134,14 @@ export const ChartStore = () => {
         document.body
       )}
 
+      {/* Load Success Toast */}
+      {loadedMsg && (
+        <div className="flex items-center gap-2 bg-emerald-950 border border-emerald-500 text-emerald-200 text-xs px-3 py-2.5 rounded-xl font-bold animate-fadeIn">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          {loadedMsg}
+        </div>
+      )}
+
       {/* Store Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-xl">
         <div className="flex items-center gap-3">
@@ -127,9 +149,9 @@ export const ChartStore = () => {
             <Archive className="w-6 h-6 text-yellow-400" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-white">Chart Store Repository</h2>
+            <h2 className="text-lg font-black text-white">Chart Store</h2>
             <p className="text-[10px] text-slate-400 font-mono">
-              {chartKeys.length} active market charts in storage
+              {chartKeys.length} active · {allPresetKeys.length} default presets
             </p>
           </div>
         </div>
@@ -141,32 +163,29 @@ export const ChartStore = () => {
               className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800"
               title="Wipe all charts permanently"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All Store
+              <Trash2 className="w-3.5 h-3.5" /> Clear All
             </button>
           )}
 
           <button
             onClick={() => setShowAdminModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 shrink-0 border bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700"
-            title="Repository Settings & Backup"
+            title="Backup & Restore"
           >
             <Archive className="w-4 h-4 text-amber-400" />
-            <span>Manage Store &amp; Backup</span>
+            <span>Backup</span>
           </button>
 
           <button
-            onClick={() => {
-              setActiveChartName("MY NEW CHART");
-              setActiveTab('editor');
-            }}
+            onClick={() => setShowNewForm(v => !v)}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
           >
-            <PlusCircle className="w-4 h-4" /> + Create New Chart
+            <PlusCircle className="w-4 h-4" /> + Create Chart
           </button>
         </div>
       </div>
 
-      {/* New Chart Form */}
+      {/* Inline Create New Chart Form — auto-saves, no save button needed */}
       {showNewForm && (
         <div className="bg-slate-900 border-2 border-emerald-500/80 rounded-2xl p-4 space-y-3 shadow-2xl animate-fadeIn">
           <div className="flex items-center justify-between">
@@ -179,49 +198,84 @@ export const ChartStore = () => {
               placeholder="ENTER CHART NAME (e.g. KALYAN NIGHT)"
               value={newName}
               onChange={(e) => setNewName(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateNew()}
               className="bg-slate-950 border border-slate-700 text-amber-300 font-black rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-emerald-400 uppercase tracking-wide"
+              autoFocus
             />
             <div className="flex gap-2 items-center flex-wrap">
               <label className="text-[10px] text-slate-400 font-bold">ROWS:</label>
               <input type="number" value={newRows} onChange={(e) => setNewRows(e.target.value)}
                 className="w-16 bg-slate-950 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
-              <label className="text-[10px] text-slate-400 font-bold ml-1">COLS:</label>
+              <label className="text-[10px] text-slate-400 font-bold ml-1">COLS (days):</label>
               <input type="number" value={newCols} onChange={(e) => setNewCols(e.target.value)}
                 className="w-14 bg-slate-950 border border-slate-700 text-white font-mono font-bold text-center py-1.5 rounded-lg text-xs" />
-              <button onClick={handleCreateNew}
-                className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95">
-                Create &amp; Open Grid
+              <button onClick={handleCreateNew} disabled={!newName.trim()}
+                className="ml-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95">
+                ⚡ Create &amp; Open — Auto Saved
               </button>
             </div>
+            <p className="text-[10px] text-emerald-400/70 font-mono">Numbers auto-save as you type — no Save button needed!</p>
           </div>
         </div>
       )}
 
-      {/* Chart Cards or Clean Empty State */}
-      {chartKeys.length === 0 ? (
+      {/* ══════════════════════════════════════════
+           DEFAULT PRESET CHARTS SECTION
+          (shows charts not yet loaded into store)
+         ══════════════════════════════════════════ */}
+      {defaultOnlyKeys.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <BookOpen className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-black text-blue-300 uppercase tracking-wider">Default Market Charts — Tap Load to Use</span>
+            <span className="ml-auto text-[10px] text-slate-500 font-mono">{defaultOnlyKeys.length} available</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {defaultOnlyKeys.map((presetName) => {
+              const p = BUILTIN_PRESETS_LIBRARY[presetName] || {};
+              const rCount = p.rows || (p.data ? p.data.length : 0);
+              const cCount = p.cols || 7;
+              return (
+                <div key={presetName} className="bg-slate-900/70 border border-blue-500/20 hover:border-blue-400/50 rounded-2xl p-3.5 flex items-center justify-between gap-2 transition-all">
+                  <div>
+                    <div className="text-xs font-black text-blue-300 uppercase tracking-wide">{presetName}</div>
+                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">{rCount} rows × {cCount} cols · Default</div>
+                  </div>
+                  <button
+                    onClick={() => handleLoadPreset(presetName)}
+                    className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-black transition active:scale-95 shrink-0"
+                  >
+                    <Download className="w-3 h-3" /> Load
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════
+           USER ACTIVE CHARTS SECTION
+         ══════════════════════════════════ */}
+      {chartKeys.length === 0 && defaultOnlyKeys.length === 0 ? (
         <div className="bg-slate-900/90 border-2 border-dashed border-slate-800 rounded-3xl text-center py-14 px-6 text-slate-400 shadow-2xl space-y-4 max-w-xl mx-auto my-6">
           <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center mx-auto text-amber-400 shadow-inner">
             <Archive className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="font-black text-white text-lg">No Active Charts in Store</h3>
+            <h3 className="font-black text-white text-lg">No Charts Yet</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Your active chart repository is empty. Create a new chart or clone a preset from the backup library below!
+              Create a new chart above. Numbers auto-save as you type!
             </p>
           </div>
-          <div className="flex items-center justify-center gap-2.5 flex-wrap pt-2">
-            <button
-              onClick={() => {
-                setActiveChartName("MY NEW CHART");
-                setActiveTab('editor');
-              }}
-              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
-            >
-              <PlusCircle className="w-4 h-4" /> + Create First Chart
-            </button>
-          </div>
+          <button
+            onClick={() => setShowNewForm(true)}
+            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs shadow-lg transition-all active:scale-95 inline-flex items-center gap-1.5"
+          >
+            <PlusCircle className="w-4 h-4" /> + Create First Chart
+          </button>
         </div>
-      ) : (
+      ) : chartKeys.length === 0 ? null : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pb-4">
           {chartKeys.map((name) => {
             const chart = safeCharts[name] || {};
@@ -288,6 +342,11 @@ export const ChartStore = () => {
           })}
         </div>
       )}
+
+      {/* Auto-save notice */}
+      <div className="text-center text-[10px] text-slate-600 font-mono pt-1 pb-2">
+        ✅ All changes auto-saved · No save button needed
+      </div>
 
     </div>
   );
