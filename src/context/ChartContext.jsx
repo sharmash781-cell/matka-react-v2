@@ -113,9 +113,10 @@ export const BUILTIN_PRESETS_LIBRARY = {
   "MAIN BAZAR": mainBazarPreset
 };
 
-const STORAGE_KEY = 'adminPublishedCharts_v23';
+const STORAGE_KEY = 'adminPublishedCharts_v24';
 
 const POSSIBLE_STORAGE_KEYS = [
+  'adminPublishedCharts_v24',
   'adminPublishedCharts_v23',
   'adminPublishedCharts_v22',
   'adminPublishedCharts_v21',
@@ -136,7 +137,7 @@ const POSSIBLE_STORAGE_KEYS = [
 
 const REMOVED_CHARTS = new Set(["MADHUR DAY", "SRIDEVIIII", "KALYAN NIGHT", "RAJADHANI NIGHT", "SRIDEVI PANEL"]);
 
-const CURRENT_PRESET_BUILD_VERSION = 'v26_20261004_star_tara_morning_fix';
+const CURRENT_PRESET_BUILD_VERSION = 'v27_20261014_chart_update';
 
 const getInitialCharts = () => {
   try {
